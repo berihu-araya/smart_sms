@@ -13,6 +13,19 @@ function isValidUUID(value) {
   return uuidRegex.test(value);
 }
 
+function isValidEmail(value) {
+  if (!value) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(value);
+}
+
+function isValidPhone(value) {
+  if (!value) return true; // phone is optional
+  // Accept digits, spaces, dashes, plus, parentheses - min 7, max 20 chars
+  const phoneRegex = /^[\d\s\-+()]{7,20}$/;
+  return phoneRegex.test(value.trim());
+}
+
 function validateCreateStudentInput(input = {}) {
   const admissionNumber = normalizeOptionalString(input.admissionNumber);
   const firstName = normalizeName(input.firstName);
@@ -23,6 +36,8 @@ function validateCreateStudentInput(input = {}) {
   const parentId = normalizeOptionalString(input.parentId);
   const sectionId = normalizeOptionalString(input.sectionId);
   const address = normalizeOptionalString(input.address);
+  const email = normalizeOptionalString(input.email);
+  const phone = normalizeOptionalString(input.phone);
   const status = normalizeOptionalString(input.status).toUpperCase() || STUDENT_STATUSES.ACTIVE;
   const errors = {};
 
@@ -66,6 +81,14 @@ function validateCreateStudentInput(input = {}) {
     errors.status = 'A valid status is required';
   }
 
+  if (email && !isValidEmail(email)) {
+    errors.email = 'A valid email address is required (e.g., example@domain.com)';
+  }
+
+  if (phone && !isValidPhone(phone)) {
+    errors.phone = 'Phone must be 7-20 characters: digits, spaces, dashes, plus, or parentheses';
+  }
+
   return {
     admissionNumber,
     firstName,
@@ -76,6 +99,8 @@ function validateCreateStudentInput(input = {}) {
     parentId,
     sectionId,
     address,
+    email: email || null,
+    phone: phone || null,
     status,
     errors,
   };

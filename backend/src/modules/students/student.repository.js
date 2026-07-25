@@ -56,6 +56,8 @@ class StudentRepository {
           s.date_of_birth,
           s.admission_date,
           s.address,
+          s.email,
+          s.phone,
           s.status,
           s.created_at,
           s.updated_at,
@@ -92,9 +94,11 @@ class StudentRepository {
           date_of_birth,
           admission_date,
           address,
+          email,
+          phone,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `,
       [
@@ -108,6 +112,8 @@ class StudentRepository {
         payload.dateOfBirth || null,
         payload.admissionDate,
         payload.address || null,
+        payload.email || null,
+        payload.phone || null,
         payload.status || 'ACTIVE',
       ]
     );

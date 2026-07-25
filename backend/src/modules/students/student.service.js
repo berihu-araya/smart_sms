@@ -99,7 +99,11 @@ class StudentService {
     const student = await this.getStudentById(id);
 
     return {
-      student,
+      student: {
+        ...student,
+        email: student.email || null,
+        phone: student.phone || null,
+      },
       guardian: {
         name: student.parent_name || null,
         phone: student.parent_phone || null,
