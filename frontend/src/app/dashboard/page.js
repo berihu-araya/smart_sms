@@ -7,8 +7,6 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 import QuickActions from "@/components/dashboard/QuickActions";
 import AcademicOverview from "@/components/dashboard/AcademicOverview";
 
-import Sidebar from "@/components/layout/Sidebar/Sidebar";
-
 import { request } from "@/services/apiClient";
 import styles from "./page.module.css";
 
@@ -17,52 +15,6 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
- const [isSidebarVisible, setIsSidebarVisible] = useState(() => {
-  if (typeof window === "undefined") return true;
-
-  // Desktop: visible
-  // Mobile: hidden
-  return window.innerWidth > 768;
-});
-
-  useEffect(() => {
-    const handleSidebarToggle = () => {
-      setIsSidebarVisible((prev) => !prev);
-    };
-
-    window.addEventListener("smart-sms-sidebar-toggle", handleSidebarToggle);
-
-    return () => {
-      window.removeEventListener("smart-sms-sidebar-toggle", handleSidebarToggle);
-    };
-  }, []);
-
-
-  useEffect(() => {
-      const handleResize = () => {
-        if (window.innerWidth <= 768) {
-          setIsSidebarVisible(false);
-        } else {
-          setIsSidebarVisible(true);
-        }
-      };
-
-      window.addEventListener("resize", handleResize);
-
-      return () => window.removeEventListener("resize", handleResize);
-    }, []);
-
-
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("smart-sms-sidebar-state", {
-          detail: isSidebarVisible,
-        })
-      );
-    }
-  }, [isSidebarVisible]);
 
   useEffect(() => {
     let isMounted = true;
@@ -129,139 +81,116 @@ export default function Dashboard() {
 
   return (
 
-    <>
-
-      {/* Sidebar */}
-      <Sidebar isVisible={isSidebarVisible} />
+    <div className={styles.dashboard}>
 
 
-      {/* Dashboard Content */}
-      <main
-        style={{
-          marginLeft: isSidebarVisible ? 280 : 0,
-          padding: "40px 40px 40px 40px",
-          transition: "margin-left 0.3s ease",
-          width: isSidebarVisible ? "calc(100% - 280px)" : "100%",
-          boxSizing: "border-box",
-        }}
-      >
+      <div className={styles.header}>
 
-        <div className={styles.dashboard}>
+        <div>
 
+          <h1>
+            Dashboard
+          </h1>
 
-          <div className={styles.header}>
+          <p className={styles.headerSubtitle}>
+            Welcome back! Here&apos;s what&apos;s happening today.
+          </p>
 
-            <div>
-
-              <h1>
-                Dashboard
-              </h1>
-
-              <p className={styles.headerSubtitle}>
-                Welcome back! Here's what's happening today.
-              </p>
-
-            </div>
+        </div>
 
 
-            <div className={styles.headerInfo}>
+        <div className={styles.headerInfo}>
 
-              <span className={styles.currentTerm}>
-                {data.stats.currentTerm}
-              </span>
+          <span className={styles.currentTerm}>
+            {data.stats.currentTerm}
+          </span>
 
-            </div>
+        </div>
 
-          </div>
+      </div>
 
 
 
 
-          <div className={styles.statsGrid}>
+      <div className={styles.statsGrid}>
 
 
-            <StatCard
-              title="Total Students"
-              value={data.stats.totalStudents}
-              icon="👥"
-              trend="+12% from last month"
-              color="blue"
-            />
+        <StatCard
+          title="Total Students"
+          value={data.stats.totalStudents}
+          icon="👥"
+          trend="+12% from last month"
+          color="blue"
+        />
 
 
-            <StatCard
-              title="Active Teachers"
-              value={data.stats.totalTeachers}
-              icon="👨‍🏫"
-              trend="+5 new this term"
-              color="green"
-            />
+        <StatCard
+          title="Active Teachers"
+          value={data.stats.totalTeachers}
+          icon="👨‍🏫"
+          trend="+5 new this term"
+          color="green"
+        />
 
 
-            <StatCard
-              title="Schools"
-              value={data.stats.totalSchools}
-              icon="🏫"
-              trend="All active"
-              color="purple"
-            />
+        <StatCard
+          title="Schools"
+          value={data.stats.totalSchools}
+          icon="🏫"
+          trend="All active"
+          color="purple"
+        />
 
 
-            <StatCard
-              title="Pending Tasks"
-              value={data.stats.pendingTasks}
-              icon="📋"
-              trend="Requires attention"
-              color="orange"
-              highlight
-            />
+        <StatCard
+          title="Pending Tasks"
+          value={data.stats.pendingTasks}
+          icon="📋"
+          trend="Requires attention"
+          color="orange"
+          highlight
+        />
 
 
-          </div>
+      </div>
 
 
 
 
 
-          <div className={styles.contentGrid}>
+      <div className={styles.contentGrid}>
 
 
-            <div className={styles.columnMain}>
+        <div className={styles.columnMain}>
 
 
-              <AcademicOverview
-                schools={data.schoolsOverview}
-              />
+          <AcademicOverview
+            schools={data.schoolsOverview}
+          />
 
 
-              <RecentActivity
-                activities={data.recentActivity}
-              />
-
-
-            </div>
-
-
-
-
-            <div className={styles.columnSide}>
-
-              <QuickActions />
-
-            </div>
-
-
-
-          </div>
+          <RecentActivity
+            activities={data.recentActivity}
+          />
 
 
         </div>
 
 
-      </main>
 
 
-    </>
+        <div className={styles.columnSide}>
+
+          <QuickActions />
+
+        </div>
+
+
+
+      </div>
+
+
+    </div>
 
   );
 }
