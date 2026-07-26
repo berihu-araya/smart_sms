@@ -6,6 +6,7 @@ const authRoutes = require('./modules/auth/auth.routes');
 const studentRoutes = require('./modules/students/student.routes');
 const gradeRoutes = require('./modules/grades/grade.routes');
 const sectionRoutes = require('./modules/sections/section.routes');
+const teacherRoutes = require('./modules/teachers/teacher.routes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/students', studentRoutes);
 app.use('/api/v1/grades', gradeRoutes);
 app.use('/api/v1/sections', sectionRoutes);
+app.use('/api/v1/teachers', teacherRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

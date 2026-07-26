@@ -1,0 +1,18 @@
+const TEACHER_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  TERMINATED: 'TERMINATED',
+  ON_LEAVE: 'ON_LEAVE',
+};
+
+const GENDERS = {
+  MALE: 'MALE',
+  FEMALE: 'FEMALE',
+  OTHER: 'OTHER',
+};
+
+module.exports = {
+  TEACHER_STATUSES,
+  GENDERS,
+};
+
