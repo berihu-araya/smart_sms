@@ -111,7 +111,10 @@ class StudentService {
         address: student.parent_address || null,
       },
       academicInfo: {
+        gradeId: student.grade_id || null,
+        gradeName: student.grade_name || null,
         section: student.section_name || null,
+        sectionId: student.section_id || null,
         room: student.section_room_number || null,
         currentStatus: student.status,
       },
@@ -138,3 +141,4 @@ module.exports = {
   StudentNotFoundError,
   StudentConflictError,
 };
+

@@ -18,13 +18,17 @@ class StudentRepository {
           s.admission_date,
           s.status,
           s.address,
+          s.section_id,
           s.created_at,
           s.updated_at,
           p.full_name AS parent_name,
-          sec.name AS section_name
+          sec.name AS section_name,
+          g.id AS grade_id,
+          g.name AS grade_name
         FROM students s
         LEFT JOIN parents p ON p.id = s.parent_id
-        LEFT JOIN sections sec ON sec.id = s.section_id
+        LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+        LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
         WHERE s.deleted_at IS NULL
           AND (
             LOWER(s.admission_number) LIKE LOWER($1)
@@ -66,10 +70,14 @@ class StudentRepository {
           p.email AS parent_email,
           p.address AS parent_address,
           sec.name AS section_name,
-          sec.room_number AS section_room_number
+          sec.room_number AS section_room_number,
+          sec.grade_id,
+          g.name AS grade_name,
+          g.description AS grade_description
         FROM students s
         LEFT JOIN parents p ON p.id = s.parent_id
-        LEFT JOIN sections sec ON sec.id = s.section_id
+        LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+        LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
         WHERE s.id = $1
           AND s.deleted_at IS NULL
         LIMIT 1
@@ -190,3 +198,4 @@ class StudentRepository {
 }
 
 module.exports = StudentRepository;
+

@@ -107,20 +107,30 @@ function validateCreateStudentInput(input = {}) {
 }
 
 function validateUpdateStudentInput(input = {}) {
+  const admissionNumber = normalizeOptionalString(input.admissionNumber);
   const firstName = normalizeName(input.firstName);
   const lastName = normalizeName(input.lastName);
   const gender = normalizeOptionalString(input.gender).toUpperCase();
   const dateOfBirth = normalizeOptionalString(input.dateOfBirth);
+  const admissionDate = normalizeOptionalString(input.admissionDate);
+  const parentId = normalizeOptionalString(input.parentId);
+  const sectionId = normalizeOptionalString(input.sectionId);
   const address = normalizeOptionalString(input.address);
+  const email = normalizeOptionalString(input.email);
+  const phone = normalizeOptionalString(input.phone);
   const status = normalizeOptionalString(input.status).toUpperCase();
   const errors = {};
 
+  if (input.admissionNumber !== undefined && !admissionNumber) {
+    errors.admission_number = 'Admission number is required';
+  }
+
   if (input.firstName !== undefined && !firstName) {
-    errors.firstName = 'First name is required';
+    errors.first_name = 'First name is required';
   }
 
   if (input.lastName !== undefined && !lastName) {
-    errors.lastName = 'Last name is required';
+    errors.last_name = 'Last name is required';
   }
 
   if (input.gender !== undefined && !Object.values(GENDERS).includes(gender)) {
@@ -128,19 +138,45 @@ function validateUpdateStudentInput(input = {}) {
   }
 
   if (dateOfBirth && Number.isNaN(Date.parse(dateOfBirth))) {
-    errors.dateOfBirth = 'Date of birth must be a valid date';
+    errors.date_of_birth = 'Date of birth must be a valid date';
+  }
+
+  if (admissionDate && Number.isNaN(Date.parse(admissionDate))) {
+    errors.admission_date = 'Admission date must be a valid date';
   }
 
   if (status && !Object.values(STUDENT_STATUSES).includes(status)) {
     errors.status = 'A valid status is required';
   }
 
+  if (parentId && !isValidUUID(parentId)) {
+    errors.parent_id = 'Parent id must be a valid UUID';
+  }
+
+  if (sectionId && !isValidUUID(sectionId)) {
+    errors.section_id = 'Section id must be a valid UUID';
+  }
+
+  if (input.email !== undefined && email && !isValidEmail(email)) {
+    errors.email = 'A valid email address is required (e.g., example@domain.com)';
+  }
+
+  if (input.phone !== undefined && phone && !isValidPhone(phone)) {
+    errors.phone = 'Phone must be 7-20 characters: digits, spaces, dashes, plus, or parentheses';
+  }
+
   return {
-    firstName,
-    lastName,
+    admission_number: admissionNumber || undefined,
+    first_name: firstName || undefined,
+    last_name: lastName || undefined,
     gender: gender || undefined,
-    dateOfBirth: dateOfBirth || undefined,
+    date_of_birth: dateOfBirth || undefined,
+    admission_date: admissionDate || undefined,
+    parent_id: parentId || undefined,
+    section_id: sectionId || undefined,
     address: address || undefined,
+    email: email || null,
+    phone: phone || null,
     status: status || undefined,
     errors,
   };

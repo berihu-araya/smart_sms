@@ -20,8 +20,8 @@ test('validateUpdateStudentInput trims and keeps status', () => {
     status: 'ACTIVE',
   });
 
-  assert.equal(result.firstName, 'Alice');
-  assert.equal(result.lastName, 'Johnson');
+  assert.equal(result.first_name, 'Alice');
+  assert.equal(result.last_name, 'Johnson');
   assert.equal(result.status, 'ACTIVE');
   assert.deepEqual(result.errors, {});
 });

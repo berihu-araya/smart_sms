@@ -10,25 +10,49 @@ export default function StudentListPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadStudents() {
       try {
         setLoading(true);
         const data = await studentService.listStudents({ search, limit: 20, offset: 0 });
-        setStudents(data.items || []);
-        setError("");
+        if (!cancelled) {
+          setStudents(data.items || []);
+          setError("");
+        }
       } catch (err) {
-        setError(err.message || "Unable to load students");
+        if (!cancelled) {
+          setError(err.message || "Unable to load students");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadStudents();
-  }, [search]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [search, reloadTrigger]);
 
   const studentCount = useMemo(() => students.length, [students]);
+
+  async function handleDelete(studentId, studentName) {
+    if (!confirm(`Are you sure you want to delete "${studentName}"?`)) return;
+
+    try {
+      await studentService.deleteStudent(studentId);
+      setReloadTrigger((prev) => prev + 1);
+    } catch (err) {
+      alert("Failed to delete: " + (err.message || "Unknown error"));
+    }
+  }
 
   if (loading) {
     return <div className={styles.loading}>Loading students...</div>;
@@ -72,9 +96,10 @@ export default function StudentListPage() {
               <th>Admission</th>
               <th>Student</th>
               <th>Gender</th>
+              <th>Grade</th>
+              <th>Section</th>
               <th>Status</th>
-              <th>Admission Date</th>
-              <th>Action</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -85,14 +110,28 @@ export default function StudentListPage() {
                   <strong>{`${student.first_name} ${student.last_name}`}</strong>
                 </td>
                 <td>{student.gender}</td>
+                <td>{student.grade_name || "—"}</td>
+                <td>{student.section_name || "—"}</td>
                 <td>
-                  <span className={styles.statusPill}>{student.status}</span>
+                  <span className={`${styles.statusPill} ${styles[`status${student.status}`] || ""}`}>
+                    {student.status}
+                  </span>
                 </td>
-                <td>{student.admission_date}</td>
                 <td>
-                  <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>
-                    View
-                  </Link>
+                  <div className={styles.actionButtons}>
+                    <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>
+                      View
+                    </Link>
+                    <Link href={`/dashboard/students/${student.id}/edit`} className={styles.editLink}>
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
+                      className={styles.deleteLink}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -102,3 +141,4 @@ export default function StudentListPage() {
     </div>
   );
 }
+

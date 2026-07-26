@@ -14,6 +14,7 @@ import {
   FaChalkboardTeacher,
   FaUsers,
   FaUserTie,
+  FaLayerGroup,
   FaSchool,
   FaBook,
   FaCalendarAlt,
@@ -84,9 +85,14 @@ const menuData = [
     icon: HiAcademicCap,
     children: [
       {
-        title: "Classes",
+        title: "Grades",
+        icon: FaLayerGroup,
+        link: "/dashboard/grades",
+      },
+      {
+        title: "Sections",
         icon: FaSchool,
-        link: "/dashboard/classes",
+        link: "/dashboard/sections",
       },
       {
         title: "Subjects",

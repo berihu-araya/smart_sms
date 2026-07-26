@@ -1,0 +1,226 @@
+.page {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.loading {
+  padding: 24px;
+  font-size: 16px;
+  color: #667085;
+}
+
+.errorBox {
+  padding: 24px;
+  color: #9a5b00;
+  background: #fff7ed;
+  border-radius: 12px;
+  margin: 24px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #667085;
+  margin-bottom: 20px;
+}
+
+.breadcrumb a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.separator {
+  color: #d0d5dd;
+}
+
+.current {
+  color: #101828;
+  font-weight: 500;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e4e7ec;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 28px 32px;
+  border-bottom: 1px solid #f0f1f3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.studentName {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.admissionText {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 14px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.statusPill {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.statusACTIVE {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.statusSUSPENDED {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.statusDefault {
+  background: #f2f4f7;
+  color: #344054;
+}
+
+.editButton {
+  padding: 8px 16px;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background 0.15s;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editButton:hover {
+  background: #1d4ed8;
+}
+
+.deleteButton {
+  padding: 8px 16px;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid #fecaca;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deleteButton:hover {
+  background: #fee2e2;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.section {
+  padding: 24px 32px;
+  border-bottom: 1px solid #f0f1f3;
+  border-right: 1px solid #f0f1f3;
+}
+
+.section:nth-child(2n) {
+  border-right: none;
+}
+
+.sectionTitle {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.fieldList {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #667085;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fieldValue {
+  margin: 0;
+  font-size: 14px;
+  color: #101828;
+}
+
+.cardFooter {
+  padding: 20px 32px;
+  border-top: 1px solid #f0f1f3;
+  background: #fafbfc;
+}
+
+.backLink {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .section:nth-child(2n) {
+    border-right: 1px solid #f0f1f3;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

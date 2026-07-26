@@ -72,24 +72,24 @@ async function createStudent(req, res, next) {
 }
 
 async function updateStudent(req, res, next) {
-  const { id, errors } = validateStudentId(req.params.id);
+  const { id, errors: idErrors } = validateStudentId(req.params.id);
 
-  if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  if (Object.keys(idErrors).length > 0) {
+    return res.status(400).json({ success: false, message: 'Validation failed', data: idErrors });
   }
 
-  const input = validateUpdateStudentInput(req.body);
+  const { errors: validationErrors, ...cleanInput } = validateUpdateStudentInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(validationErrors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: validationErrors,
     });
   }
 
   try {
-    const data = await studentService.updateStudent(id, input);
+    const data = await studentService.updateStudent(id, cleanInput);
 
     return res.status(200).json({
       success: true,
