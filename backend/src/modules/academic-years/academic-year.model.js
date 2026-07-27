@@ -1,0 +1,9 @@
+const ACADEMIC_YEAR_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+module.exports = {
+  ACADEMIC_YEAR_STATUSES,
+};
+
