@@ -138,7 +138,7 @@ export default function TeacherDetailsPage() {
         <div className={styles.content}>
           {/* Personal Information */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Personal Information</h3>
+            <h3 className={styles.sectionTitle}>👤 Personal Information</h3>
             <div className={styles.infoGrid}>
               <Field label="First Name" value={teacher.first_name} />
               <Field label="Last Name" value={teacher.last_name} />
@@ -152,7 +152,7 @@ export default function TeacherDetailsPage() {
 
           {/* Employment Information */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Employment Information</h3>
+            <h3 className={styles.sectionTitle}>💼 Employment Information</h3>
             <div className={styles.infoGrid}>
               <Field label="Employee Number" value={teacher.employee_number} />
               <Field label="Department" value={teacher.department || "—"} />
@@ -165,7 +165,7 @@ export default function TeacherDetailsPage() {
 
           {/* Status Actions */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>Status Actions</h3>
+            <h3 className={styles.sectionTitle}>⚡ Status Actions</h3>
             <div className={styles.statusActions}>
               {teacher.status !== "ACTIVE" && (
                 <button
