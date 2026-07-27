@@ -1,3 +1,10 @@
+/* This file is responsible for interacting with the database to 
+perform CRUD operations on the grades data. It uses SQL queries to fetch, 
+insert, update, and delete records in the grades table. 
+The repository pattern is used here to encapsulate the data access 
+logic and provide a clean interface for the service layer to interact
+  with the database.
+*/
 class GradeRepository {
   constructor(database) {
     this.database = database;
