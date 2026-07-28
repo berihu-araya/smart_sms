@@ -8,6 +8,7 @@ const gradeRoutes = require('./modules/grades/grade.routes');
 const sectionRoutes = require('./modules/sections/section.routes');
 const teacherRoutes = require('./modules/teachers/teacher.routes');
 const subjectRoutes = require('./modules/subject/subject.routes');
+const groupRoutes = require('./modules/subject/groups/group.routes');
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use('/api/v1/grades', gradeRoutes);
 app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
 app.use('/api/v1/subjects', subjectRoutes);
+app.use('/api/v1/subjects/groups', groupRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

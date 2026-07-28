@@ -1,0 +1,8 @@
+const SUBJECT_GROUP_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+module.exports = {
+  SUBJECT_GROUP_STATUSES,
+};
