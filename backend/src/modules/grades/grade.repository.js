@@ -8,8 +8,10 @@ logic and provide a clean interface for the service layer to interact
 class GradeRepository {
   constructor(database) {
     this.database = database;
-  }
-
+  } /*The constructor takes a database object as a parameter and assigns it
+    to the instance variable this.database. 
+    This allows the repository to use the database connection for executing queries.
+     */
   async findAll({ search = '', limit = 20, offset = 0 } = {}) {
     const searchPattern = `%${search.trim()}%`;
 

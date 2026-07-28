@@ -1,0 +1,9 @@
+const SUBJECT_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  ARCHIVED: 'ARCHIVED',
+};
+
+module.exports = {
+  SUBJECT_STATUSES,
+};
