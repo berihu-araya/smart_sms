@@ -7,7 +7,7 @@ const studentRoutes = require('./modules/students/student.routes');
 const gradeRoutes = require('./modules/grades/grade.routes');
 const sectionRoutes = require('./modules/sections/section.routes');
 const teacherRoutes = require('./modules/teachers/teacher.routes');
-const subjectRoutes = require('./modules/subjects/subject.routes');
+const subjectRoutes = require('./modules/subject/subject.routes');
 
 const app = express();
 

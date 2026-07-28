@@ -7,7 +7,8 @@
     "test": "node --test",
     "migrate:create": "node-pg-migrate create",
     "migrate:up": "node-pg-migrate up",
-    "migrate:down": "node-pg-migrate down"
+    "migrate:down": "node-pg-migrate down",
+    "migrate": "node-pg-migrate"
   },
   "keywords": [],
   "author": "",
