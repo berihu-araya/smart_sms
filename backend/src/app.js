@@ -10,10 +10,12 @@ const teacherRoutes = require('./modules/teachers/teacher.routes');
 const subjectRoutes = require('./modules/subject/subject.routes');
 const groupRoutes = require('./modules/subject/groups/group.routes');
 
+const gradeSubjectRoutes = require('./modules/grades/subjects/grade-subject.routes');
+
 const app = express();
 
-app.use(cors());
-app.use(helmet());
+app.use(cors()); // Enable CORS for all routes
+app.use(helmet());// Enable Helmet for security headers
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -29,8 +31,11 @@ app.get("/health", (req, res) => {
 
 app.use('/api', dashboardRoutes);
 app.use('/api/v1/auth', authRoutes);
+
 app.use('/api/v1/students', studentRoutes);
 app.use('/api/v1/grades', gradeRoutes);
+app.use('/api/v1/grades/subjects',gradeSubjectRoutes);
+
 app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
 app.use('/api/v1/subjects', subjectRoutes);

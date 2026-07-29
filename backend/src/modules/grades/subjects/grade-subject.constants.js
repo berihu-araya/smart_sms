@@ -1,0 +1,9 @@
+const GRADE_SUBJECT_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+
+module.exports = {
+  GRADE_SUBJECT_STATUSES,
+};
