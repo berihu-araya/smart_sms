@@ -33,13 +33,15 @@ app.use('/api', dashboardRoutes);
 app.use('/api/v1/auth', authRoutes);
 
 app.use('/api/v1/students', studentRoutes);
-app.use('/api/v1/grades', gradeRoutes);
+
 app.use('/api/v1/grades/subjects',gradeSubjectRoutes);
+app.use('/api/v1/grades', gradeRoutes);
 
 app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
-app.use('/api/v1/subjects', subjectRoutes);
+
 app.use('/api/v1/subjects/groups', groupRoutes);
+app.use('/api/v1/subjects', subjectRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

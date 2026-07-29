@@ -120,16 +120,16 @@ export default function EditSubjectPage() {
 
     try {
       await subjectService.updateSubject(params.id, {
-        subjectCode: form.subjectCode,
-        subjectName: form.subjectName,
-        shortName: form.shortName || null,
+        subject_code: form.subjectCode,
+        subject_name: form.subjectName,
+        short_name: form.shortName || null,
         description: form.description || null,
-        creditHours: form.creditHours || null,
-        passMark: form.passMark || null,
-        maxMark: form.maxMark || null,
-        isElective: form.isElective,
-        isLab: form.isLab,
-        displayOrder: form.displayOrder || null,
+        credit_hours: form.creditHours || null,
+        pass_mark: form.passMark || null,
+        max_mark: form.maxMark || null,
+        is_elective: form.isElective,
+        is_lab: form.isLab,
+        display_order: form.displayOrder || null,
         status: form.status,
       });
       router.push(`/dashboard/subjects/${params.id}`);
@@ -177,10 +177,9 @@ export default function EditSubjectPage() {
             <div className={styles.sectionHeader}>
               <div className={styles.sectionIcon}>📘</div>
               <div>
-                <h3 className={styles.sectionTitle}>Basic Information</h3>
+<h3 className={styles.sectionTitle}>Basic Information</h3>
                 <p className={styles.sectionSubtitle}>Core identification details for the subject</p>
               </div>
-            </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
@@ -253,7 +252,6 @@ export default function EditSubjectPage() {
                   className={styles.textarea}
                 />
               </div>
-            </div>
           </div>
 
           {/* Academic Details */}
@@ -264,7 +262,6 @@ export default function EditSubjectPage() {
                 <h3 className={styles.sectionTitle}>Academic Details</h3>
                 <p className={styles.sectionSubtitle}>Grading and credit information</p>
               </div>
-            </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
@@ -357,7 +354,6 @@ export default function EditSubjectPage() {
                   <span>Is Lab Subject</span>
                 </label>
               </div>
-            </div>
           </div>
 
           {/* Actions */}
@@ -376,9 +372,7 @@ export default function EditSubjectPage() {
               )}
             </button>
           </div>
-        </div>
       </form>
     </div>
   );
 }
-

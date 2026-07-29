@@ -56,7 +56,7 @@ export default function NewSubjectGroupPage() {
 
     try {
       await subjectGroupService.createGroup({
-        groupName: form.groupName,
+        group_name: form.groupName,
         description: form.description || null,
       });
       router.push("/dashboard/subjects/groups");

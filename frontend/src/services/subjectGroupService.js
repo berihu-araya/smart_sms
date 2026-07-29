@@ -18,7 +18,10 @@ const subjectGroupService = {
   createGroup: async (payload) => {
     const response = await request("/api/v1/subjects/groups", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        group_name: payload.group_name,
+        description: payload.description,
+      }),
     });
     return response.data;
   },
@@ -26,7 +29,10 @@ const subjectGroupService = {
   updateGroup: async (id, payload) => {
     const response = await request(`/api/v1/subjects/groups/${id}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        group_name: payload.group_name,
+        description: payload.description,
+      }),
     });
     return response.data;
   },

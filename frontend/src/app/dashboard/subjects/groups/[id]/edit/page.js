@@ -79,7 +79,7 @@ export default function EditSubjectGroupPage() {
 
     try {
       await subjectGroupService.updateGroup(params.id, {
-        groupName: form.groupName,
+        group_name: form.groupName,
         description: form.description || null,
       });
       router.push(`/dashboard/subjects/groups/${params.id}`);

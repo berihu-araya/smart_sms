@@ -17,7 +17,19 @@ const subjectService = {
   createSubject: async (payload) => {
     const response = await request("/api/v1/subjects", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        subject_code: payload.subject_code,
+        subject_name: payload.subject_name,
+        short_name: payload.short_name,
+        description: payload.description,
+        credit_hours: payload.credit_hours,
+        pass_mark: payload.pass_mark,
+        max_mark: payload.max_mark,
+        is_elective: payload.is_elective,
+        is_lab: payload.is_lab,
+        display_order: payload.display_order,
+        status: payload.status,
+      }),
     });
 
     return response.data;
@@ -26,7 +38,19 @@ const subjectService = {
   updateSubject: async (id, payload) => {
     const response = await request(`/api/v1/subjects/${id}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        subject_code: payload.subject_code,
+        subject_name: payload.subject_name,
+        short_name: payload.short_name,
+        description: payload.description,
+        credit_hours: payload.credit_hours,
+        pass_mark: payload.pass_mark,
+        max_mark: payload.max_mark,
+        is_elective: payload.is_elective,
+        is_lab: payload.is_lab,
+        display_order: payload.display_order,
+        status: payload.status,
+      }),
     });
 
     return response.data;
@@ -42,4 +66,3 @@ const subjectService = {
 };
 
 export default subjectService;
-

@@ -88,16 +88,16 @@ export default function NewSubjectPage() {
 
     try {
       await subjectService.createSubject({
-        subjectCode: form.subjectCode,
-        subjectName: form.subjectName,
-        shortName: form.shortName || null,
+        subject_code: form.subjectCode,
+        subject_name: form.subjectName,
+        short_name: form.shortName || null,
         description: form.description || null,
-        creditHours: form.creditHours || null,
-        passMark: form.passMark || null,
-        maxMark: form.maxMark || null,
-        isElective: form.isElective,
-        isLab: form.isLab,
-        displayOrder: form.displayOrder || null,
+        credit_hours: form.creditHours || null,
+        pass_mark: form.passMark || null,
+        max_mark: form.maxMark || null,
+        is_elective: form.isElective,
+        is_lab: form.isLab,
+        display_order: form.displayOrder || null,
         status: form.status,
       });
       router.push("/dashboard/subjects");
@@ -142,7 +142,7 @@ export default function NewSubjectPage() {
               <div className={styles.sectionIcon}>📘</div>
               <div>
                 <h3 className={styles.sectionTitle}>Basic Information</h3>
-                <p className={styles.sectionSubtitle}>Core identification details for the subject</p>
+                    <p className={styles.sectionSubtitle}>Core identification details for the subject</p>
               </div>
             </div>
 
@@ -217,8 +217,8 @@ export default function NewSubjectPage() {
                   className={styles.textarea}
                 />
               </div>
-            </div>
           </div>
+          </div> {/* section */}
 
           {/* Academic Details */}
           <div className={styles.section}>
@@ -229,7 +229,7 @@ export default function NewSubjectPage() {
                 <p className={styles.sectionSubtitle}>Grading and credit information</p>
               </div>
             </div>
-
+            
             <div className={styles.formGrid}>
               <div className={styles.field}>
                 <label className={styles.label}>Credit Hours</label>
@@ -321,10 +321,8 @@ export default function NewSubjectPage() {
                   <span>Is Lab Subject</span>
                 </label>
               </div>
-            </div>
           </div>
-
-          {/* Actions */}
+          </div> {/* section */}
           <div className={styles.actions}>
             <Link href="/dashboard/subjects" className={styles.btnSecondary}>
               Cancel
@@ -340,9 +338,9 @@ export default function NewSubjectPage() {
               )}
             </button>
           </div>
-        </div>
-      </form>
+
+          </div> {/* formCard */}
+        </form>
     </div>
   );
 }
-
