@@ -1,0 +1,8 @@
+const TEACHER_SUBJECT_STATUSES = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
+module.exports = {
+  TEACHER_SUBJECT_STATUSES,
+};

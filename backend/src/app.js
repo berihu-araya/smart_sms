@@ -13,6 +13,9 @@ const groupRoutes = require('./modules/subject/groups/group.routes');
 const gradeSubjectRoutes = require('./modules/grades/subjects/grade-subject.routes');
 const academicYearRoutes = require('./modules/academic-years/academic-year.routes');
 
+const teacherSubjectRoutes =
+require('./modules/teachers/subjects/teacher-subject.routes');
+
 const app = express();
 
 app.use(cors()); // Enable CORS for all routes
@@ -39,6 +42,7 @@ app.use('/api/v1/grades/subjects',gradeSubjectRoutes);
 app.use('/api/v1/grades', gradeRoutes);
 
 app.use('/api/v1/sections', sectionRoutes);
+app.use('/api/v1/teachers/subjects',teacherSubjectRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
 
 app.use('/api/v1/academic-years', academicYearRoutes);
@@ -46,19 +50,15 @@ app.use('/api/v1/academic-years', academicYearRoutes);
 app.use('/api/v1/subjects/groups', groupRoutes);
 app.use('/api/v1/subjects', subjectRoutes);
 
+
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  const statusCode = err.status || 500;
-  const message =
-    statusCode === 401
-      ? err.message
-      : statusCode >= 400 && statusCode < 500
-      ? err.message
-      : "Internal server error";
-  res.status(statusCode).json({
+  console.error(err);
+
+  res.status(err.status || 500).json({
     success: false,
-    message,
-    data: null,
+    message: err.message,
+    data: err,
   });
 });
 
