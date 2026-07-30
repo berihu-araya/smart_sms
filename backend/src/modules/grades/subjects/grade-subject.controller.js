@@ -82,22 +82,11 @@ async function listGradeSubjects(
   }
 
 }
-
-
-
-
-
-
-
-
-
-
 async function getGradeSubjectById(
   req,
   res,
   next
 ){
-
 
   const {
     id,
@@ -107,10 +96,7 @@ async function getGradeSubjectById(
       req.params.id
     );
 
-
-
   if(Object.keys(errors).length > 0){
-
 
     return res.status(400).json({
 
@@ -126,20 +112,12 @@ async function getGradeSubjectById(
 
   }
 
-
-
-
-
-
   try{
 
 
     const data =
       await gradeSubjectService
         .getGradeSubjectById(id);
-
-
-
 
     return res.status(200).json({
 
@@ -152,26 +130,12 @@ async function getGradeSubjectById(
 
     });
 
-
-
-
-
   }catch(error){
 
     next(error);
 
   }
-
-
 }
-
-
-
-
-
-
-
-
 
 async function createGradeSubject(
   req,
@@ -184,16 +148,10 @@ async function createGradeSubject(
       req.body
     );
 
-
-
-
   if(Object.keys(input.errors).length > 0){
 
-
     return res.status(400).json({
-
       success:false,
-
       message:
         'Validation failed',
 
@@ -202,23 +160,13 @@ async function createGradeSubject(
 
     });
 
-
   }
 
-
-
-
-
-
   try{
-
 
     const data =
       await gradeSubjectService
         .createGradeSubject(input);
-
-
-
 
     return res.status(201).json({
 
@@ -231,10 +179,6 @@ async function createGradeSubject(
 
     });
 
-
-
-
-
   }catch(error){
 
     next(error);
@@ -243,67 +187,38 @@ async function createGradeSubject(
 
 
 }
-
-
-
-
-
-
-
-
-
 async function updateGradeSubject(
   req,
   res,
   next
 ){
 
-
-
-
   const {
     id,
-    errors,
+    errors: idErrors,
   } =
     validateGradeSubjectId(
       req.params.id
     );
-
-
-
-
-  if(Object.keys(errors).length > 0){
-
-
+  if(Object.keys(idErrors).length > 0){
     return res.status(400).json({
 
       success:false,
-
       message:
         'Validation failed',
-
-      data:errors,
+      data:idErrors,
 
     });
-
-
   }
 
-
-
-
-
-
-
-  const input =
+  const {
+    payload,
+    errors: payloadErrors,
+  } =
     validateUpdateGradeSubjectInput(
       req.body
     );
-
-
-
-
-  if(Object.keys(input.errors).length > 0){
+  if(Object.keys(payloadErrors).length > 0){
 
 
     return res.status(400).json({
@@ -313,48 +228,24 @@ async function updateGradeSubject(
       message:
         'Validation failed',
 
-      data:
-        input.errors,
+      data:payloadErrors,
 
     });
-
-
   }
 
-
-
-
-
-
-
   try{
-
-
     const data =
       await gradeSubjectService
         .updateGradeSubject(
           id,
-          input
+          payload
         );
-
-
-
-
     return res.status(200).json({
-
       success:true,
-
       message:
         'Grade subject updated successfully.',
-
       data,
-
     });
-
-
-
-
-
   }catch(error){
 
     next(error);
@@ -378,8 +269,6 @@ async function deleteGradeSubject(
   next
 ){
 
-
-
   const {
     id,
     errors,
@@ -387,10 +276,6 @@ async function deleteGradeSubject(
     validateGradeSubjectId(
       req.params.id
     );
-
-
-
-
 
   if(Object.keys(errors).length > 0){
 

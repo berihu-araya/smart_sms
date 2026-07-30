@@ -135,8 +135,6 @@ function validateCreateGradeSubjectInput(input = {}) {
 
 
 
-
-
 function validateUpdateGradeSubjectInput(input = {}) {
 
 
@@ -230,15 +228,11 @@ function validateUpdateGradeSubjectInput(input = {}) {
 
 
   return {
-    ...payload,
+    payload,
     errors,
   };
 
 }
-
-
-
-
 
 
 
@@ -277,3 +271,4 @@ module.exports = {
   validateGradeSubjectId,
 
 };
+
