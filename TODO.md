@@ -1,22 +1,22 @@
-# Subject Module Frontend Implementation
+# Fix: Grade Subjects Validation Error + Academic Years UI
 
-## Completed Steps
-- [x] Step 0: Analyzed backend subject module (models, controllers, services, validation, routes)
-- [x] Step 1: Studied existing frontend patterns (teachers, grades modules)
-- [x] Step 2: Plan confirmed with user
+## Steps Completed
 
-## Remaining Steps
-- [x] Step 3: Create `frontend/src/services/subjectService.js`
-- [x] Step 4: Create `frontend/src/app/dashboard/subjects/page.js` + `page.module.css`
-- [x] Step 5: Create `frontend/src/app/dashboard/subjects/[id]/page.js` + `details.module.css`
-- [x] Step 6: Create `frontend/src/app/dashboard/subjects/new/page.js` + `new.module.css`
-- [x] Step 7: Create `frontend/src/app/dashboard/subjects/[id]/edit/page.js` + `edit.module.css`
+### Step 1: `backend/src/app.js` - Mount academic-year routes
+- [x] Import academic-year routes
+- [x] Mount at `/api/v1/academic-years`
+- [x] Fix error middleware to pass through actual error messages
 
-## Phase 2: Grade-Subjects & Subject Groups Frontend
-- [x] Step 8: Create `frontend/src/services/gradeSubjectService.js`
-- [x] Step 9: Create `frontend/src/services/subjectGroupService.js`
-- [x] Step 10: Create Subject Groups pages under `/dashboard/subjects/groups/`
-- [x] Step 11: Create Grade-Subjects pages under `/dashboard/grades/subjects/`
+### Step 2: `frontend/src/app/dashboard/grades/subjects/new/page.js` - Fix active year auto-select
+- [x] Fix `activeYear?.id` → `activeYear?.data?.id`
 
-## ✅ All Done! Full subject module frontend is complete.
+### Step 3: Create Academic Years management pages
+- [x] `frontend/src/services/academicYearService.js` - Added create/update/delete/setActive methods
+- [x] `frontend/src/app/dashboard/settings/academic-years/page.js` - List page with activate/delete actions
+- [x] `frontend/src/app/dashboard/settings/academic-years/page.module.css` - List page styles
+- [x] `frontend/src/app/dashboard/settings/academic-years/new/page.js` - New academic year form
+- [x] `frontend/src/app/dashboard/settings/academic-years/new/new.module.css` - Form styles
+
+### Step 4: Restart backend server
+- [ ] Need to restart backend for changes to take effect
 

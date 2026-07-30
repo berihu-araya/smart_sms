@@ -6,6 +6,7 @@ import Link from "next/link";
 import gradeSubjectService from "@/services/gradeSubjectService";
 import gradeService from "@/services/gradeService";
 import subjectService from "@/services/subjectService";
+import academicYearService from "@/services/academicYearService";
 import styles from "./new.module.css";
 
 export default function NewGradeSubjectPage() {
@@ -22,6 +23,7 @@ export default function NewGradeSubjectPage() {
   });
   const [grades, setGrades] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -29,12 +31,20 @@ export default function NewGradeSubjectPage() {
   useEffect(() => {
     async function loadSelects() {
       try {
-        const [gradesData, subjectsData] = await Promise.all([
+        const [gradesData, subjectsData, academicYearsData, activeYear] = await Promise.all([
           gradeService.listGrades({ limit: 100 }),
           subjectService.listSubjects({ limit: 100, offset: 0 }),
+          academicYearService.listAcademicYears({ limit: 100 }),
+          academicYearService.getActiveAcademicYear().catch(() => null),
         ]);
         setGrades(gradesData.items || []);
         setSubjects(subjectsData.items || []);
+        const years = academicYearsData.items || [];
+        setAcademicYears(years);
+        // Auto-select active academic year if available
+        if (activeYear?.data?.id) {
+          setForm((prev) => ({ ...prev, academicYearId: activeYear.data.id }));
+        }
       } catch (err) {
         console.error("Failed to load form data", err);
       }
@@ -203,13 +213,19 @@ export default function NewGradeSubjectPage() {
                 <label className={styles.label}>
                   Academic Year<span className={styles.required}>*</span>
                 </label>
-                <input
+                <select
                   name="academicYearId"
                   value={form.academicYearId}
                   onChange={handleChange}
-                  placeholder="Enter Academic Year ID"
-                  className={`${styles.input} ${errors.academicYearId ? styles.inputError : ""}`}
-                />
+                  className={`${styles.select} ${errors.academicYearId ? styles.inputError : ""}`}
+                >
+                  <option value="">Select Academic Year</option>
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.name}{year.is_active ? " (Active)" : ""}
+                    </option>
+                  ))}
+                </select>
                 {errors.academicYearId && (
                   <span className={styles.fieldError}><span>✕</span> {errors.academicYearId}</span>
                 )}

@@ -21,7 +21,16 @@ const gradeSubjectService = {
   createGradeSubject: async (payload) => {
     const response = await request("/api/v1/grades/subjects", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        grade_id: payload.gradeId,
+        subject_id: payload.subjectId,
+        academic_year_id: payload.academicYearId,
+        is_compulsory: payload.isCompulsory,
+        weekly_periods: payload.weeklyPeriods,
+        total_marks: payload.totalMarks,
+        pass_marks: payload.passMarks,
+        display_order: payload.displayOrder,
+      }),
     });
     return response.data;
   },
@@ -29,7 +38,13 @@ const gradeSubjectService = {
   updateGradeSubject: async (id, payload) => {
     const response = await request(`/api/v1/grades/subjects/${id}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        is_compulsory: payload.isCompulsory,
+        weekly_periods: payload.weeklyPeriods,
+        total_marks: payload.totalMarks,
+        pass_marks: payload.passMarks,
+        display_order: payload.displayOrder,
+      }),
     });
     return response.data;
   },
