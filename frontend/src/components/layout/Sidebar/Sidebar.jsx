@@ -8,41 +8,70 @@ import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import styles from "./Sidebar.module.css";
 import menuData from "./menuData";
 
-/* ---------------------------------------------
-   Check whether this item or any child is active
-----------------------------------------------*/
+/* -------------------------------------------------
+   Check if item or any descendant is active
+--------------------------------------------------*/
 function hasActiveChild(item, pathname) {
   if (item.link === pathname) return true;
 
   if (!item.children) return false;
 
-  return item.children.some((child) => hasActiveChild(child, pathname));
+  return item.children.some((child) =>
+    hasActiveChild(child, pathname)
+  );
 }
 
-/* ---------------------------------------------
-   Recursive Menu Item
-----------------------------------------------*/
-function MenuItem({ item, pathname, level = 0, openMenu, setOpenMenu, }) {
-  const hasChildren = item.children?.length > 0;
+/* -------------------------------------------------
+   Find active path and open all parents
+--------------------------------------------------*/
+function findActivePath(items, pathname, level = 0, result = {}) {
+  for (const item of items) {
+    if (item.link === pathname) {
+      return result;
+    }
 
-  const [localOpen, setLocalOpen] = useState(false);
+    if (item.children?.length) {
+      result[level] = item.title;
 
-const open =
-  level === 0
-    ? openMenu === item.title
-    : localOpen;
+      const found = findActivePath(
+        item.children,
+        pathname,
+        level + 1,
+        result
+      );
 
-useEffect(() => {
-  if (level > 0 && hasActiveChild(item, pathname)) {
-    setLocalOpen(true);
+      if (found) return found;
+
+      delete result[level];
+    }
   }
-}, [pathname, item, level]);
+
+  return null;
+}
+
+/* -------------------------------------------------
+   Recursive Menu Item
+--------------------------------------------------*/
+function MenuItem({
+  item,
+  pathname,
+  level = 0,
+  openMenus,
+  toggleMenu,
+}) {
+  const hasChildren = item.children?.length > 0;
 
   const Icon = item.icon;
 
-  // ------------------------
-  // Normal Link
-  // ------------------------
+  const isOpen = openMenus[level] === item.title;
+
+  const isActive =
+    pathname === item.link || hasActiveChild(item, pathname);
+
+  /* --------------------------
+     Normal Link
+  ---------------------------*/
+
   if (!hasChildren) {
     return (
       <Link
@@ -51,88 +80,146 @@ useEffect(() => {
           pathname === item.link ? styles.active : ""
         }`}
         style={{
-          paddingLeft: `${18 + level * 18}px`,
+          paddingLeft: `${18 + level * 20}px`,
         }}
       >
         <Icon className={styles.icon} />
+
         <span>{item.title}</span>
       </Link>
     );
   }
 
-  // ------------------------
-  // Expandable Menu
-  // ------------------------
+  /* --------------------------
+     Expandable Menu
+  ---------------------------*/
+
   return (
     <div className={styles.menuGroup}>
       <button
         type="button"
-        onClick={() => {  if (level === 0) {
-          setOpenMenu(      openMenu === item.title ? null: item.title);
-          } else {
-            setLocalOpen(!localOpen);
-          }
-        }}
-        aria-expanded={open}
+        aria-expanded={isOpen}
+        onClick={() =>
+          toggleMenu(level, item.title)
+        }
         className={`${styles.menuButton} ${
-          hasActiveChild(item, pathname)
-            ? styles.menuButtonActive
-            : ""
+          isActive ? styles.menuButtonActive : ""
         }`}
         style={{
-          paddingLeft: `${18 + level * 18}px`,
+          paddingLeft: `${18 + level * 20}px`,
         }}
       >
         <div className={styles.menuLeft}>
           <Icon className={styles.icon} />
+
           <span>{item.title}</span>
         </div>
 
         <span className={styles.chevronIcon}>
-          {open ? <FaChevronDown /> : <FaChevronRight />}
+          {isOpen ? (
+            <FaChevronDown />
+          ) : (
+            <FaChevronRight />
+          )}
         </span>
       </button>
 
       <div
         className={`${styles.subMenu} ${
-          open ? styles.show : ""
+          isOpen ? styles.show : ""
         }`}
       >
         {item.children.map((child) => (
           <MenuItem
-          key={child.title}
-          item={child}
-          pathname={pathname}
-          level={level + 1}
-          openMenu={openMenu}
-          setOpenMenu={setOpenMenu}
-/>
+            key={child.title}
+            item={child}
+            pathname={pathname}
+            level={level + 1}
+            openMenus={openMenus}
+            toggleMenu={toggleMenu}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-/* ---------------------------------------------
+
+/* -------------------------------------------------
    Sidebar
-----------------------------------------------*/
+--------------------------------------------------*/
 
 export default function Sidebar({
   isVisible = true,
 }) {
   const pathname = usePathname();
 
-  // Only one top-level menu can be open
-  const [openMenu, setOpenMenu] = useState(null);
+  /*
+    openMenus example:
 
-  // Automatically open the parent menu of the active page
+    {
+      0: "User Management",
+      1: "Teachers",
+      2: "Science"
+    }
+
+    Each level behaves like its own accordion.
+  */
+
+  const [openMenus, setOpenMenus] = useState({});
+
+  /* ----------------------------------------
+     Open active route automatically
+  -----------------------------------------*/
+
   useEffect(() => {
-    const activeMenu = menuData.find((menu) =>
-      hasActiveChild(menu, pathname)
-    );
+    const activeMenus =
+      findActivePath(menuData, pathname);
 
-    setOpenMenu(activeMenu?.title ?? null);
+    if (activeMenus) {
+      setOpenMenus(activeMenus);
+    }
   }, [pathname]);
+
+  /* ----------------------------------------
+     Accordion Toggle
+  -----------------------------------------*/
+
+  const toggleMenu = (level, title) => {
+    setOpenMenus((prev) => {
+      const next = { ...prev };
+
+      if (next[level] === title) {
+        /*
+           Collapse current menu
+           Remove this level and all deeper levels.
+        */
+
+        Object.keys(next).forEach((key) => {
+          if (Number(key) >= level) {
+            delete next[key];
+          }
+        });
+
+        return next;
+      }
+
+      /*
+         Open new menu
+         Remove any deeper opened menus.
+      */
+
+      Object.keys(next).forEach((key) => {
+        if (Number(key) >= level) {
+          delete next[key];
+        }
+      });
+
+      next[level] = title;
+
+      return next;
+    });
+  };
 
   return (
     <aside
@@ -163,10 +250,9 @@ export default function Sidebar({
             key={menu.title}
             item={menu}
             pathname={pathname}
-
             level={0}
-            openMenu={openMenu}
-            setOpenMenu={setOpenMenu}
+            openMenus={openMenus}
+            toggleMenu={toggleMenu}
           />
         ))}
       </nav>

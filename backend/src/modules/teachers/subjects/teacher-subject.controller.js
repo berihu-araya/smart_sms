@@ -106,14 +106,14 @@ async function updateTeacherSubject(req, res, next) {
     });
   }
 
-  const input =
+  const { errors: validationErrors, ...payload } =
     validateUpdateTeacherSubjectInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(validationErrors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: validationErrors,
     });
   }
 
@@ -121,7 +121,7 @@ async function updateTeacherSubject(req, res, next) {
     const data =
       await teacherSubjectService.updateTeacherSubject(
         id,
-        input
+        payload
       );
 
     return res.status(200).json({
