@@ -65,7 +65,18 @@ const menuData = [
       {
         title: "Teachers",
         icon: FaChalkboardTeacher,
-        link: "/dashboard/teachers",
+        children: [
+          {
+            title: "All Teachers",
+            icon: FaChalkboardTeacher,
+            link: "/dashboard/teachers",
+          },
+          {
+            title: "Teacher Subjects",
+            icon: FaBook,
+            link: "/dashboard/teachers/subjects",
+          },
+        ],
       },
       {
         title: "Parents",

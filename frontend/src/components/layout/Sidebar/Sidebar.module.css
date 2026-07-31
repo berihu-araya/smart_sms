@@ -143,21 +143,13 @@
 .menuItem {
 
     display: flex;
-
     align-items: center;
-
     gap: 14px;
-
     color: #dbeafe;
-
     text-decoration: none;
-
     padding: 14px 16px;
-
     margin-bottom: 4px;
-
     transition: 0.25s ease;
-
 }
 
 .menuItem:hover,
@@ -228,15 +220,10 @@
 .subMenu {
 
     max-height: 0;
-
     overflow: hidden;
-
     transition: max-height 0.35s ease, opacity 0.25s ease;
-
     opacity: 0;
-
     margin: 0 0 8px 8px;
-
     border-left: 1px solid rgba(96, 165, 250, 0.25);
 
     padding-left: 6px;
@@ -245,8 +232,7 @@
 
 .show {
 
-    max-height: 480px;
-
+    max-height: 1080px;
     opacity: 1;
 
 }

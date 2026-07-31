@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import teacherService from "@/services/teacherService";
+import teacherSubjectService from "@/services/teacherSubjectService";
 import styles from "./details.module.css";
 
 const STATUS_CONFIG = {
@@ -16,17 +17,29 @@ const STATUS_CONFIG = {
 export default function TeacherDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const [teacher, setTeacher] = useState(null);
+const [teacher, setTeacher] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [assignments, setAssignments] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     async function loadTeacher() {
       try {
         setLoading(true);
         const data = await teacherService.getTeacherById(params.id);
         setTeacher(data);
+
+        // Load teacher's subject assignments
+        try {
+          const assignmentsData = await teacherSubjectService.listTeacherSubjects({
+            teacher_id: params.id,
+            limit: 50,
+          });
+          setAssignments(assignmentsData.items || []);
+        } catch (err) {
+          console.error("Failed to load assignments", err);
+        }
       } catch (err) {
         setError(err.message || "Unable to load teacher");
       } finally {
@@ -184,6 +197,73 @@ export default function TeacherDetailsPage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Assigned Subjects */}
+          <div className={styles.section}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <h3 className={styles.sectionTitle} style={{ margin: 0 }}>📚 Assigned Subjects</h3>
+              <Link
+                href={`/dashboard/teachers/subjects/new?teacher_id=${teacher.id}`}
+                className={styles.btnSecondary}
+                style={{ padding: "6px 14px", fontSize: 13 }}
+              >
+                + Assign Subject
+              </Link>
+            </div>
+            {assignments.length === 0 ? (
+              <p style={{ color: "#667085", fontSize: 14, margin: 0 }}>
+                No subjects assigned yet.
+              </p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Subject</th>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Grade</th>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Section</th>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Academic Year</th>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Status</th>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#344054", fontWeight: 600 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assignments.map((a) => (
+                      <tr key={a.id} style={{ borderBottom: "1px solid #f0f1f3" }}>
+                        <td style={{ padding: "8px 10px" }}>{a.subject_name}</td>
+                        <td style={{ padding: "8px 10px" }}>{a.grade_name}</td>
+                        <td style={{ padding: "8px 10px" }}>{a.section_name}</td>
+                        <td style={{ padding: "8px 10px" }}>{a.academic_year_name}</td>
+                        <td style={{ padding: "8px 10px" }}>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              padding: "2px 8px",
+                              borderRadius: 999,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: a.status === "ACTIVE" ? "#dcfce7" : "#f3f4f6",
+                              color: a.status === "ACTIVE" ? "#166534" : "#6b7280",
+                            }}
+                          >
+                            {a.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "8px 10px" }}>
+                          <Link
+                            href={`/dashboard/teachers/subjects/${a.id}`}
+                            style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600, fontSize: 13 }}
+                          >
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 

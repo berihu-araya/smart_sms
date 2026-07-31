@@ -1,22 +1,13 @@
-# Fix: Grade Subjects Validation Error + Academic Years UI
+# Teacher-Subject Assignment Module - Frontend Implementation
 
-## Steps Completed
+## Steps
 
-### Step 1: `backend/src/app.js` - Mount academic-year routes
-- [x] Import academic-year routes
-- [x] Mount at `/api/v1/academic-years`
-- [x] Fix error middleware to pass through actual error messages
-
-### Step 2: `frontend/src/app/dashboard/grades/subjects/new/page.js` - Fix active year auto-select
-- [x] Fix `activeYear?.id` → `activeYear?.data?.id`
-
-### Step 3: Create Academic Years management pages
-- [x] `frontend/src/services/academicYearService.js` - Added create/update/delete/setActive methods
-- [x] `frontend/src/app/dashboard/settings/academic-years/page.js` - List page with activate/delete actions
-- [x] `frontend/src/app/dashboard/settings/academic-years/page.module.css` - List page styles
-- [x] `frontend/src/app/dashboard/settings/academic-years/new/page.js` - New academic year form
-- [x] `frontend/src/app/dashboard/settings/academic-years/new/new.module.css` - Form styles
-
-### Step 4: Restart backend server
-- [ ] Need to restart backend for changes to take effect
-
+- [x] Step 0: Read all backend/frontend files & understand the data model
+- [x] Step 1: Create `teacherSubjectService.js` - API service for assignments
+- [x] Step 2: Create `teachers/subjects/` list page with filters (page.js + page.module.css)
+- [x] Step 3: Create `teachers/subjects/new/` create assignment form
+- [x] Step 4: Create `teachers/subjects/[id]/` assignment details page
+- [x] Step 5: Create `teachers/subjects/[id]/edit/` edit assignment form
+- [x] Step 6: Update teacher details page - add assigned subjects section
+- [x] Step 7: Update subject details page - add assigned teachers section
+- [x] Step 8: Update sidebar menu - add "Teacher Subjects" under Academics
