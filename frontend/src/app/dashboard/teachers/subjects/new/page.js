@@ -11,6 +11,8 @@ import sectionService from "@/services/sectionService";
 import academicYearService from "@/services/academicYearService";
 import styles from "./new.module.css";
 
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
 export default function NewTeacherSubjectPage() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -19,7 +21,7 @@ export default function NewTeacherSubjectPage() {
     grade_id: "",
     section_id: "",
     academic_year_id: "",
-    start_date: "",
+    start_date: getTodayDateString(),
     end_date: "",
     status: "ACTIVE",
   });

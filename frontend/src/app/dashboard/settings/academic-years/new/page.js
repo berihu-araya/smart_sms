@@ -6,11 +6,13 @@ import Link from "next/link";
 import academicYearService from "@/services/academicYearService";
 import styles from "./new.module.css";
 
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
 export default function NewAcademicYearPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: "",
-    startDate: "",
+    startDate: getTodayDateString(),
     endDate: "",
     description: "",
   });

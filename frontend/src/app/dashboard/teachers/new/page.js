@@ -6,6 +6,8 @@ import Link from "next/link";
 import teacherService from "@/services/teacherService";
 import styles from "./new.module.css";
 
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
+
 export default function NewTeacherPage() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -20,7 +22,7 @@ export default function NewTeacherPage() {
     qualification: "",
     designation: "",
     department: "",
-    joiningDate: "",
+    joiningDate: getTodayDateString(),
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);

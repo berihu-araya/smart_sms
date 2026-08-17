@@ -10,6 +10,7 @@ import styles from "./new.module.css";
 
 const GENDERS = ["MALE", "FEMALE", "OTHER"];
 const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "GRADUATED", "WITHDRAWN"];
+const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 export default function NewStudentPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function NewStudentPage() {
     lastName: "",
     gender: "MALE",
     dateOfBirth: "",
-    admissionDate: "",
+    admissionDate: getTodayDateString(),
     email: "",
     phone: "",
     parentId: "",

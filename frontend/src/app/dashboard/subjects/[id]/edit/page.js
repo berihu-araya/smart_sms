@@ -7,8 +7,8 @@ import subjectService from "@/services/subjectService";
 import styles from "./edit.module.css";
 
 export default function EditSubjectPage() {
-  const params = useParams();
-  const router = useRouter();
+  const params = useParams(); // Get the subject ID from the URL parameters
+  const router = useRouter(); // Get the router object for navigation
   const [form, setForm] = useState({
     subjectCode: "",
     subjectName: "",
@@ -21,7 +21,7 @@ export default function EditSubjectPage() {
     isLab: false,
     displayOrder: "",
     status: "ACTIVE",
-  });
+  }); // Form state for subject details
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -146,7 +146,6 @@ export default function EditSubjectPage() {
 
   return (
     <div className={styles.page}>
-      {/* Breadcrumb */}
       <nav className={styles.breadcrumb}>
         <Link href="/dashboard">Dashboard</Link>
         <span className={styles.breadcrumbSeparator}>/</span>
@@ -155,13 +154,11 @@ export default function EditSubjectPage() {
         <span style={{ color: "#101828", fontWeight: 500 }}>Edit Subject</span>
       </nav>
 
-      {/* Page Header */}
       <div className={styles.pageHeader}>
         <h1>Edit Subject</h1>
         <p>Update the subject information.</p>
       </div>
 
-      {/* API Error Banner */}
       {apiError ? (
         <div className={styles.errorBanner}>
           <span className={styles.errorIcon}>⚠️</span>
@@ -169,17 +166,16 @@ export default function EditSubjectPage() {
         </div>
       ) : null}
 
-      {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className={styles.formCard}>
-          {/* Basic Information */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionIcon}>📘</div>
               <div>
-<h3 className={styles.sectionTitle}>Basic Information</h3>
+                <h3 className={styles.sectionTitle}>Basic Information</h3>
                 <p className={styles.sectionSubtitle}>Core identification details for the subject</p>
               </div>
+            </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
@@ -252,9 +248,9 @@ export default function EditSubjectPage() {
                   className={styles.textarea}
                 />
               </div>
+            </div>
           </div>
 
-          {/* Academic Details */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionIcon}>📊</div>
@@ -262,6 +258,7 @@ export default function EditSubjectPage() {
                 <h3 className={styles.sectionTitle}>Academic Details</h3>
                 <p className={styles.sectionSubtitle}>Grading and credit information</p>
               </div>
+            </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
@@ -354,9 +351,9 @@ export default function EditSubjectPage() {
                   <span>Is Lab Subject</span>
                 </label>
               </div>
+            </div>
           </div>
 
-          {/* Actions */}
           <div className={styles.actions}>
             <Link href={`/dashboard/subjects/${params.id}`} className={styles.btnSecondary}>
               Cancel
@@ -372,7 +369,9 @@ export default function EditSubjectPage() {
               )}
             </button>
           </div>
+        </div>
       </form>
     </div>
   );
 }
+
