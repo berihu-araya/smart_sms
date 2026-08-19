@@ -10,7 +10,10 @@ async function startServer() {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("Unable to connect to PostgreSQL:", error.message);
+  console.error("Unable to connect to PostgreSQL");
+  console.error("Error:", error);
+  console.error("Error message:", error.message);
+  console.error("Error code:", error.code);
     await db.end();
     process.exitCode = 1;
   }

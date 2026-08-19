@@ -1,3 +1,4 @@
+import Link from "next/link";
 import styles from "./QuickActions.module.css";
 
 export default function QuickActions() {
@@ -6,35 +7,35 @@ export default function QuickActions() {
       id: 1,
       title: "Add Student",
       icon: "➕",
-      href: "/students/new",
+      href: "/dashboard/students/new",
       color: "blue",
     },
     {
       id: 2,
       title: "Assign Teacher",
       icon: "👥",
-      href: "/teachers/assign",
+      href: "/dashboard/teachers/subjects/new",
       color: "green",
     },
     {
       id: 3,
       title: "View Reports",
       icon: "📈",
-      href: "/reports",
+      href: "/dashboard",
       color: "purple",
     },
     {
       id: 4,
       title: "Manage Grades",
       icon: "📝",
-      href: "/grades",
+      href: "/dashboard/grades",
       color: "orange",
     },
     {
       id: 5,
       title: "School Settings",
       icon: "⚙️",
-      href: "/settings",
+      href: "/dashboard/settings",
       color: "gray",
     },
   ];
@@ -44,14 +45,14 @@ export default function QuickActions() {
       <h3>Quick Actions</h3>
       <div className={styles.actionGrid}>
         {actions.map((action) => (
-          <a
+          <Link
             key={action.id}
             href={action.href}
             className={`${styles.actionButton} ${styles[`btn-${action.color}`]}`}
           >
             <div className={styles.actionIcon}>{action.icon}</div>
             <span className={styles.actionTitle}>{action.title}</span>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

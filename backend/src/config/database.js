@@ -1,4 +1,4 @@
-const { Pool } = require("pg");
+const { Pool } = require("pg"); // Import the Pool class from the pg module to create a connection pool for PostgreSQL.
 const dotenv = require("dotenv");
 
 dotenv.config({ path: require("path").resolve(__dirname, "../../.env") });

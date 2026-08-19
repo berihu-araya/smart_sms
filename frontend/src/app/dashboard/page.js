@@ -119,7 +119,7 @@ export default function Dashboard() {
           title="Total Students"
           value={data.stats.totalStudents}
           icon="👥"
-          trend="+12% from last month"
+          trend="Live database count"
           color="blue"
         />
 
@@ -128,25 +128,25 @@ export default function Dashboard() {
           title="Active Teachers"
           value={data.stats.totalTeachers}
           icon="👨‍🏫"
-          trend="+5 new this term"
+          trend="Live database count"
           color="green"
         />
 
 
         <StatCard
-          title="Schools"
+          title="Academic Years"
           value={data.stats.totalSchools}
           icon="🏫"
-          trend="All active"
+          trend="Live database count"
           color="purple"
         />
 
 
         <StatCard
-          title="Pending Tasks"
+          title="Assignments"
           value={data.stats.pendingTasks}
           icon="📋"
-          trend="Requires attention"
+          trend="Live database count"
           color="orange"
           highlight
         />

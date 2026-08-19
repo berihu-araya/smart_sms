@@ -123,10 +123,10 @@ export default function EditStudentPage() {
     }
   }
 
-  function validate() {
+  function validate() {  //this function validates the form fields and returns an object containing any validation errors
     const errs = {};
 
-    if (!form.admissionNumber.trim()) {
+    if (!form.admissionNumber.trim()) { // this trim() removes any leading or trailing whitespace from the admission number before checking if it's empty
       errs.admissionNumber = "Admission number is required";
     }
     if (!form.firstName.trim()) {
@@ -148,7 +148,7 @@ export default function EditStudentPage() {
     return errs;
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event) { // this function handles the form submission, validates the input, and sends an update request to the server
     event.preventDefault();
     setApiError("");
 
