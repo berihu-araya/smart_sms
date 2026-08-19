@@ -54,6 +54,7 @@ class AuthService {
         email: user.email,
         phone: user.phone,
         role: user.role_name,
+        profileImage: user.profile_image,
       },
     };
   }
@@ -106,6 +107,18 @@ class AuthService {
     await this.repository.updatePasswordHash(userId, passwordHash);
   }
 
+  async updateProfileImage(userId, profileImage) {
+    const user = await this.repository.findUserById(userId);
+
+    if (!user || user.status !== 'ACTIVE') {
+      throw new AuthorizationError();
+    }
+
+    await this.repository.updateProfileImage(userId, profileImage);
+
+    return { profileImage };
+  }
+
   async getProfile(userId) {
     const user = await this.repository.findUserById(userId);
 
@@ -122,6 +135,7 @@ class AuthService {
         email: user.email,
         phone: user.phone,
         role: user.role_name,
+        profileImage: user.profile_image,
       },
     };
   }

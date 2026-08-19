@@ -1,20 +1,74 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import styles from "./Profile.module.css";
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfileImage } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageError, setImageError] = useState("");
+  const [imageMessage, setImageMessage] = useState("");
+  const [savingImage, setSavingImage] = useState(false);
 
   useEffect(() => {
     if (user === null) {
       router.push("/login");
     }
   }, [user, router]);
+
+  useEffect(() => {
+    setSelectedImage(user?.profileImage || null);
+  }, [user?.profileImage]);
+
+  function handleImageSelection(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setImageError("");
+    setImageMessage("");
+
+    if (!file) {
+      return;
+    }
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setImageError("Choose a PNG, JPEG, or WebP image.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError("Profile images must be smaller than 5 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setSelectedImage(reader.result);
+    reader.onerror = () => setImageError("Unable to read this image.");
+    reader.readAsDataURL(file);
+  }
+
+  async function handleImageSave() {
+    if (!selectedImage || selectedImage === user.profileImage) {
+      return;
+    }
+
+    setSavingImage(true);
+    setImageError("");
+    setImageMessage("");
+
+    try {
+      await updateProfileImage(selectedImage);
+      setImageMessage("Profile picture updated.");
+    } catch (error) {
+      setImageError(error.message || "Unable to update profile picture.");
+    } finally {
+      setSavingImage(false);
+    }
+  }
 
   if (!user) {
     return (
@@ -31,7 +85,38 @@ export default function ProfilePage() {
   <section className={styles.profileCard}>
 
     <div className={styles.profileAvatar}>
-      👤
+      {selectedImage ? (
+        <img src={selectedImage} alt="Profile preview" />
+      ) : (
+        "👤"
+      )}
+    </div>
+
+    <div className={styles.imageActions}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className={styles.fileInput}
+        onChange={handleImageSelection}
+      />
+      <button
+        type="button"
+        className={styles.imageButton}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        Choose Profile Picture
+      </button>
+      <button
+        type="button"
+        className={styles.saveImageButton}
+        onClick={handleImageSave}
+        disabled={savingImage || !selectedImage || selectedImage === user.profileImage}
+      >
+        {savingImage ? "Saving..." : "Save Picture"}
+      </button>
+      {imageError && <p className={styles.imageError}>{imageError}</p>}
+      {imageMessage && <p className={styles.imageMessage}>{imageMessage}</p>}
     </div>
 
     <h1 className={styles.profileTitle}>

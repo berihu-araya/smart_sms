@@ -125,10 +125,40 @@ async function getProfile(req, res, next) {
   }
 }
 
+async function updateProfileImage(req, res, next) {
+  const { profileImage } = req.body || {};
+  const imagePattern = /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\s]+$/;
+
+  if (profileImage !== null && (
+    typeof profileImage !== 'string'
+    || profileImage.length > 7000000
+    || !imagePattern.test(profileImage)
+  )) {
+    return res.status(400).json({
+      success: false,
+      message: 'Profile image must be a PNG, JPEG, or WebP file smaller than 5 MB.',
+      data: null,
+    });
+  }
+
+  try {
+    const data = await authService.updateProfileImage(req.user.sub, profileImage);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile image updated successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   login,
   forgotPassword,
   resetPassword,
   changePassword,
   getProfile,
+  updateProfileImage,
 };

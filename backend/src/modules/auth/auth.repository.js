@@ -12,6 +12,7 @@
         u.last_name,
         u.email,
         u.phone,
+        u.profile_image,
         u.password_hash,
         u.status,
         r.name AS role_name
@@ -37,6 +38,7 @@
         u.last_name,
         u.email,
         u.phone,
+        u.profile_image,
         u.password_hash,
         u.status,
         r.name AS role_name
@@ -115,6 +117,18 @@
       WHERE id = $2
       `,
       [passwordHash, userId]
+    );
+  }
+  async updateProfileImage(userId, profileImage) {
+    await this.database.query(
+      `
+      UPDATE users
+      SET
+        profile_image = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [profileImage, userId]
     );
   }
 }

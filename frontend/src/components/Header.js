@@ -53,6 +53,12 @@ export default function Header() {
     }
   };
 
+  const accountIdentifier = user?.username || user?.email || "";
+  const userDisplayName = user
+    ? user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Account"
+    : "";
+  const userInitial = (accountIdentifier || userDisplayName).charAt(0).toUpperCase();
+
   const renderToggleIcon = () => {
     if (toggleHover) {
       return sidebarOpen ? "❮" : "❯";
@@ -95,20 +101,23 @@ export default function Header() {
               𝐘𝐎𝐘𝐎 ACADEMY
             </span>
           </Link>
-          <button
-            type="button"
-            className={styles.mobileMenuToggle}
-            onClick={() => setMobileMenuOpen((value) => !value)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileMenuOpen}
-          >
-            <HiBars3 />
-          </button>
+          {!user && (
+            <button
+              type="button"
+              className={styles.mobileMenuToggle}
+              onClick={() => setMobileMenuOpen((value) => !value)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <HiBars3 />
+            </button>
+          )}
 
         </div>
 
         {/* Navigation */}
-        <nav className={`${styles.nav} ${mobileMenuOpen ? styles.navOpen : ""}`}>
+        {!user && (
+          <nav className={`${styles.nav} ${mobileMenuOpen ? styles.navOpen : ""}`}>
 
           <Link href="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
 
@@ -217,7 +226,8 @@ export default function Header() {
             </Link>
           )}
 
-        </nav>
+          </nav>
+        )}
 
         {user ? (
           <div className={styles.authDropdown}>
@@ -225,10 +235,26 @@ export default function Header() {
               className={styles.authToggle}
               type="button"
               onClick={() => setMenuOpen((value) => !value)}
+              aria-label="Open account menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
             >
-              {user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Account"} ▾
+              {user.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt=""
+                  className={styles.userAvatarImage}
+                />
+              ) : (
+                <span className={styles.userAvatar} aria-hidden="true">
+                  {userInitial}
+                </span>
+              )}
             </button>
-            <div className={`${styles.authMenu} ${menuOpen ? styles.open : ""}`}>
+            <div
+              className={`${styles.authMenu} ${menuOpen ? styles.open : ""}`}
+              role="menu"
+            >
               <Link
                 href="/login/profile"
                 className={styles.authMenuItem}

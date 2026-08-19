@@ -44,6 +44,15 @@ const authService = {
 
     return response.data;
   },
+
+  updateProfileImage: async (profileImage) => {
+    const response = await request("/api/v1/auth/profile/image", {
+      method: "PATCH",
+      body: JSON.stringify({ profileImage }),
+    });
+
+    return response.data;
+  },
 };
 
 export default authService;

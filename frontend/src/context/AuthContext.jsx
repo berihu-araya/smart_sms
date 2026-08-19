@@ -68,6 +68,16 @@ export function AuthProvider({ children }) { // Creating a provider component to
     window.location.href = "/login";
   }
 
+  async function updateProfileImage(profileImage) {
+    const response = await authService.updateProfileImage(profileImage);
+    const updatedUser = { ...user, profileImage: response.profileImage };
+
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    setUser(updatedUser);
+
+    return updatedUser;
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -75,6 +85,7 @@ export function AuthProvider({ children }) { // Creating a provider component to
         loading,
         login,
         logout,
+        updateProfileImage,
       }}
     >
       {children}
