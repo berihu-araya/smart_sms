@@ -1,4 +1,4 @@
-﻿function validateLoginInput(input = {}) {
+function validateLoginInput(input = {}) {
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   const password = typeof input.password === 'string' ? input.password : '';
   const errors = {};
@@ -75,9 +75,67 @@ function validateChangePasswordInput(input = {}) {
   return { currentPassword, newPassword, errors };
 }
 
+function validateRegisterInput(input = {}) {
+  const firstName = typeof input.firstName === 'string' ? input.firstName.trim() : '';
+  const lastName = typeof input.lastName === 'string' ? input.lastName.trim() : '';
+  const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+  const phone = typeof input.phone === 'string' ? input.phone.trim() : '';
+  const role = typeof input.role === 'string' ? input.role.trim() : '';
+  const password = typeof input.password === 'string' ? input.password : '';
+  const confirmPassword = typeof input.confirmPassword === 'string' ? input.confirmPassword : '';
+  const errors = {};
+
+  if (!firstName) {
+    errors.firstName = 'First name is required';
+  } else if (firstName.length < 2) {
+    errors.firstName = 'First name must be at least 2 characters';
+  }
+
+  if (!lastName) {
+    errors.lastName = 'Last name is required';
+  } else if (lastName.length < 2) {
+    errors.lastName = 'Last name must be at least 2 characters';
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'A valid email address is required';
+  }
+
+  if (phone && !/^[+0-9\s\-()]{7,25}$/.test(phone)) {
+    errors.phone = 'Please enter a valid phone number';
+  }
+
+  if (!role) {
+    errors.role = 'Please select a user role';
+  }
+
+  if (!password) {
+    errors.password = 'Password is required';
+  } else if (password.length < 8) {
+    errors.password = 'Password must be at least 8 characters';
+  }
+
+  if (password && confirmPassword !== undefined && password !== confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match';
+  }
+
+  return {
+    firstName,
+    lastName,
+    email,
+    phone,
+    role,
+    password,
+    confirmPassword,
+    errors,
+  };
+}
+
 module.exports = {
   validateLoginInput,
+  validateRegisterInput,
   validateForgotPasswordInput,
   validateResetPasswordInput,
   validateChangePasswordInput,
 };
+

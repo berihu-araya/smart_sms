@@ -1,4 +1,4 @@
-﻿class AuthRepository {
+class AuthRepository {
   constructor(database) {
     this.database = database;
   }
@@ -130,6 +130,109 @@
       `,
       [profileImage, userId]
     );
+  }
+
+  async findRoleByName(roleName) {
+    let normalized = (roleName || '').trim();
+    if (normalized.toLowerCase() === 'admin') {
+      normalized = 'School Admin';
+    }
+
+    const result = await this.database.query(
+      `
+      SELECT id, name, description
+      FROM roles
+      WHERE LOWER(name) = LOWER($1)
+        AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [normalized]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async findAllRoles() {
+    const result = await this.database.query(
+      `
+      SELECT id, name, description
+      FROM roles
+      WHERE deleted_at IS NULL
+      ORDER BY 
+        CASE 
+          WHEN name = 'School Admin' THEN 1
+          WHEN name = 'Teacher' THEN 2
+          WHEN name = 'Student' THEN 3
+          WHEN name = 'Parent' THEN 4
+          WHEN name = 'Staff' THEN 5
+          ELSE 6
+        END ASC,
+        name ASC
+      `
+    );
+
+    return result.rows;
+  }
+
+  async createUser({ roleId, firstName, lastName, email, phone, passwordHash, status = 'ACTIVE' }) {
+    const result = await this.database.query(
+      `
+      INSERT INTO users (
+        role_id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        password_hash,
+        status,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING
+        id,
+        role_id,
+        first_name,
+        last_name,
+        email,
+        phone,
+        status,
+        profile_image,
+        created_at
+      `,
+      [
+        roleId,
+        firstName.trim(),
+        lastName.trim(),
+        email.trim().toLowerCase(),
+        phone ? phone.trim() : null,
+        passwordHash,
+        status,
+      ]
+    );
+
+    return result.rows[0];
+  }
+
+  async linkUserToRelatedEntities(userId, email, roleName) {
+    const normalizedRole = (roleName || '').toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+      if (normalizedRole.includes('teacher')) {
+        await this.database.query(
+          `UPDATE teachers SET user_id = $1 WHERE LOWER(email) = $2 AND user_id IS NULL`,
+          [userId, cleanEmail]
+        );
+      } else if (normalizedRole.includes('student')) {
+        await this.database.query(
+          `UPDATE students SET user_id = $1 WHERE LOWER(email) = $2 AND user_id IS NULL`,
+          [userId, cleanEmail]
+        );
+      }
+    } catch (err) {
+      console.warn('Auto-link entity warning:', err.message);
+    }
   }
 }
 

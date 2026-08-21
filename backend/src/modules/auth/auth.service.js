@@ -1,4 +1,4 @@
-﻿const bcrypt = require('bcrypt');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
@@ -24,6 +24,65 @@ class AuthService {
     this.jwtSecret = jwtSecret;
     this.jwtExpiresIn = jwtExpiresIn;
     this.passwordResetTokenHours = Number(passwordResetTokenHours);
+  }
+
+  async register({ firstName, lastName, email, phone, role, password }) {
+    const existingUser = await this.repository.findActiveUserByEmail(email);
+    if (existingUser) {
+      const error = new Error('An account with this email address already exists');
+      error.status = 409;
+      throw error;
+    }
+
+    const roleRecord = await this.repository.findRoleByName(role);
+    if (!roleRecord) {
+      const error = new Error(`Role "${role}" does not exist in the system`);
+      error.status = 400;
+      throw error;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const newUser = await this.repository.createUser({
+      roleId: roleRecord.id,
+      firstName,
+      lastName,
+      email,
+      phone,
+      passwordHash,
+      status: 'ACTIVE',
+    });
+
+    await this.repository.linkUserToRelatedEntities(newUser.id, email, roleRecord.name);
+
+    const token = jwt.sign(
+      { sub: newUser.id, role: roleRecord.name, email: newUser.email },
+      this.jwtSecret,
+      { expiresIn: this.jwtExpiresIn }
+    );
+
+    return {
+      token,
+      user: {
+        id: newUser.id,
+        firstName: newUser.first_name,
+        lastName: newUser.last_name,
+        name: `${newUser.first_name} ${newUser.last_name}`,
+        email: newUser.email,
+        phone: newUser.phone,
+        role: roleRecord.name,
+        profileImage: newUser.profile_image,
+      },
+    };
+  }
+
+  async getRoles() {
+    const roles = await this.repository.findAllRoles();
+    return roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+    }));
   }
 
   async login({ email, password }) {

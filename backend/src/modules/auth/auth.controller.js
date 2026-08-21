@@ -1,7 +1,8 @@
-﻿const AuthRepository = require('./auth.repository');
+const AuthRepository = require('./auth.repository');
 const { AuthService } = require('./auth.service');
 const {
   validateLoginInput,
+  validateRegisterInput,
   validateForgotPasswordInput,
   validateResetPasswordInput,
   validateChangePasswordInput,
@@ -10,6 +11,44 @@ const { db } = require('../../config/database');
 const env = require('../../config/env');
 
 const authService = new AuthService(new AuthRepository(db), env);
+
+async function register(req, res, next) {
+  const input = validateRegisterInput(req.body);
+
+  if (Object.keys(input.errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      data: input.errors,
+    });
+  }
+
+  try {
+    const data = await authService.register(input);
+
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getRoles(req, res, next) {
+  try {
+    const data = await authService.getRoles();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Roles retrieved successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 async function login(req, res, next) {
   const input = validateLoginInput(req.body);
@@ -155,6 +194,8 @@ async function updateProfileImage(req, res, next) {
 }
 
 module.exports = {
+  register,
+  getRoles,
   login,
   forgotPassword,
   resetPassword,

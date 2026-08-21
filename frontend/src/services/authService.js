@@ -1,6 +1,23 @@
 import { request } from "./apiClient";
 
 const authService = {
+  register: async (userData) => {
+    const response = await request("/api/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+
+    return response.data;
+  },
+
+  getRoles: async () => {
+    const response = await request("/api/v1/auth/roles", {
+      method: "GET",
+    });
+
+    return response.data;
+  },
+
   login: async (credentials) => {
     const response = await request("/api/v1/auth/login", {
       method: "POST",

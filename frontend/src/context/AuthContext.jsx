@@ -61,6 +61,25 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  async function register(userData) {
+    setLoading(true);
+
+    try {
+      const response = await authService.register(userData);
+
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+
+      setUser(response.user);
+
+      window.location.href = "/dashboard";
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function login(credentials) {
     setLoading(true);
 
