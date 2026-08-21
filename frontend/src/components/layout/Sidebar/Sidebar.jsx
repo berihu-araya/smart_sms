@@ -5,8 +5,43 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./Sidebar.module.css";
 import menuData from "./menuData";
+
+/* -------------------------------------------------
+   Role filter helper
+--------------------------------------------------*/
+function filterMenuByRole(items, role) {
+  const currentRole = (role || "School Admin").trim();
+
+  return items
+    .map((item) => {
+      const itemRoles = item.roles || [];
+      const hasRolePermission =
+        itemRoles.length === 0 ||
+        itemRoles.some(
+          (r) =>
+            r.toLowerCase() === currentRole.toLowerCase() ||
+            (r.toLowerCase() === "admin" && currentRole.toLowerCase() === "school admin") ||
+            (r.toLowerCase() === "school admin" && currentRole.toLowerCase() === "admin")
+        );
+
+      if (item.children?.length) {
+        const filteredChildren = filterMenuByRole(item.children, currentRole);
+        if (filteredChildren.length > 0 && hasRolePermission) {
+          return {
+            ...item,
+            children: filteredChildren,
+          };
+        }
+        return null;
+      }
+
+      return hasRolePermission ? item : null;
+    })
+    .filter(Boolean);
+}
 
 /* -------------------------------------------------
    Check if item or any descendant is active
@@ -153,16 +188,18 @@ export default function Sidebar({
   isVisible = true,
 }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const filteredMenuData = filterMenuByRole(menuData, user?.role);
 
   const [openMenus, setOpenMenus] = useState(() => {
-    return findActivePath(menuData, pathname) || {};
+    return findActivePath(filteredMenuData, pathname) || {};
   });
 
   // Track path change to automatically expand active menu
   const [prevPath, setPrevPath] = useState(pathname);
   if (pathname !== prevPath) {
     setPrevPath(pathname);
-    const activeMenus = findActivePath(menuData, pathname);
+    const activeMenus = findActivePath(filteredMenuData, pathname);
     if (activeMenus) {
       setOpenMenus(activeMenus);
     }
@@ -222,7 +259,7 @@ export default function Sidebar({
       {/* Navigation */}
 
       <nav className={styles.navMenu}>
-        {menuData.map((menu) => (
+        {filteredMenuData.map((menu) => (
           <MenuItem
             key={menu.title}
             item={menu}

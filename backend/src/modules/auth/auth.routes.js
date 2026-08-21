@@ -10,12 +10,13 @@ const {
   updateProfileImage,
 } = require('./auth.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
+const authorizeRoles = require('../../middlewares/role.middleware');
 
 const router = express.Router();
 
-router.post('/register', register);
-router.post('/signup', register);
-router.get('/roles', getRoles);
+router.post('/register', authMiddleware, authorizeRoles('School Admin', 'Admin'), register);
+router.post('/signup', authMiddleware, authorizeRoles('School Admin', 'Admin'), register);
+router.get('/roles', authMiddleware, authorizeRoles('School Admin', 'Admin'), getRoles);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);

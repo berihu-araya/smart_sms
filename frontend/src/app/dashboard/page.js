@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 
 import StatCard from "@/components/dashboard/StatCard";
@@ -7,11 +6,13 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 import QuickActions from "@/components/dashboard/QuickActions";
 import AcademicOverview from "@/components/dashboard/AcademicOverview";
 
+import { useAuth } from "@/hooks/useAuth";
 import { request } from "@/services/apiClient";
 import styles from "./page.module.css";
 
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,7 +78,25 @@ export default function Dashboard() {
     return null;
   }
 
+  const roleName = user?.role || "School Admin";
+  const userGreetingName = user?.firstName
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
+    : user?.name || "User";
 
+  const getRoleIcon = (role) => {
+    switch ((role || "").toLowerCase()) {
+      case "teacher":
+        return "👨‍🏫";
+      case "student":
+        return "🎓";
+      case "parent":
+        return "👨‍👩‍👧";
+      case "staff":
+        return "👔";
+      default:
+        return "👑";
+    }
+  };
 
   return (
 
@@ -88,12 +107,18 @@ export default function Dashboard() {
 
         <div>
 
-          <h1>
-            Dashboard
-          </h1>
+          <div className={styles.headerTitleRow}>
+            <h1>
+              Dashboard
+            </h1>
+            <span className={styles.roleBadge}>
+              <span>{getRoleIcon(roleName)}</span>
+              <span>{roleName}</span>
+            </span>
+          </div>
 
           <p className={styles.headerSubtitle}>
-            Welcome back! Here&apos;s what&apos;s happening today.
+            Welcome back, <strong>{userGreetingName}</strong>! Here&apos;s your {roleName.toLowerCase()} overview for today.
           </p>
 
         </div>

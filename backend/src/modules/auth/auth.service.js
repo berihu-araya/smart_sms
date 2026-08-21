@@ -26,7 +26,15 @@ class AuthService {
     this.passwordResetTokenHours = Number(passwordResetTokenHours);
   }
 
-  async register({ firstName, lastName, email, phone, role, password }) {
+  async register({ firstName, lastName, fullName, email, phone, role, password }) {
+    let resolvedFirstName = firstName;
+    let resolvedLastName = lastName;
+    if (fullName && (!resolvedFirstName || !resolvedLastName)) {
+      const parts = fullName.trim().split(/\s+/).filter(Boolean);
+      resolvedFirstName = parts[0] || 'User';
+      resolvedLastName = parts.slice(1).join(' ') || parts[0] || 'User';
+    }
+
     const existingUser = await this.repository.findActiveUserByEmail(email);
     if (existingUser) {
       const error = new Error('An account with this email address already exists');
@@ -45,8 +53,8 @@ class AuthService {
 
     const newUser = await this.repository.createUser({
       roleId: roleRecord.id,
-      firstName,
-      lastName,
+      firstName: resolvedFirstName,
+      lastName: resolvedLastName,
       email,
       phone,
       passwordHash,

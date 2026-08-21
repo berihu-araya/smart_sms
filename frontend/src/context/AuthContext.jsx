@@ -123,6 +123,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        register,
         login,
         logout,
         updateProfileImage,

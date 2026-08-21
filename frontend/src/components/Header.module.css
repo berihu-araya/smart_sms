@@ -158,19 +158,44 @@
   color: #0F2747;
 }
 
+.headerAuthGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .loginBtn {
   background: #054190;
   color: white;
   text-decoration: none;
-  padding: 12px 28px;
-  border-radius: 16px;
+  padding: 10px 22px;
+  border-radius: 14px;
   transition: .3s;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .loginBtn:hover {
   background: #D4AF37;
   color: #0F2747;
   border-color: #edebe6;
+}
+
+.signupBtn {
+  background: #D4AF37;
+  color: #0F2747;
+  text-decoration: none;
+  padding: 10px 22px;
+  border-radius: 14px;
+  transition: .3s;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.signupBtn:hover {
+  background: #ffffff;
+  color: #054190;
+  transform: translateY(-1px);
 }
 
 .authDropdown {

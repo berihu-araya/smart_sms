@@ -76,8 +76,9 @@ function validateChangePasswordInput(input = {}) {
 }
 
 function validateRegisterInput(input = {}) {
-  const firstName = typeof input.firstName === 'string' ? input.firstName.trim() : '';
-  const lastName = typeof input.lastName === 'string' ? input.lastName.trim() : '';
+  let firstName = typeof input.firstName === 'string' ? input.firstName.trim() : '';
+  let lastName = typeof input.lastName === 'string' ? input.lastName.trim() : '';
+  const fullName = typeof input.fullName === 'string' ? input.fullName.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   const phone = typeof input.phone === 'string' ? input.phone.trim() : '';
   const role = typeof input.role === 'string' ? input.role.trim() : '';
@@ -85,16 +86,26 @@ function validateRegisterInput(input = {}) {
   const confirmPassword = typeof input.confirmPassword === 'string' ? input.confirmPassword : '';
   const errors = {};
 
-  if (!firstName) {
-    errors.firstName = 'First name is required';
-  } else if (firstName.length < 2) {
-    errors.firstName = 'First name must be at least 2 characters';
-  }
+  if (fullName) {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    if (parts.length === 0 || fullName.length < 2) {
+      errors.fullName = 'Full name must be at least 2 characters';
+    } else {
+      firstName = parts[0];
+      lastName = parts.slice(1).join(' ') || parts[0];
+    }
+  } else {
+    if (!firstName) {
+      errors.firstName = 'First name (or full name) is required';
+    } else if (firstName.length < 2) {
+      errors.firstName = 'First name must be at least 2 characters';
+    }
 
-  if (!lastName) {
-    errors.lastName = 'Last name is required';
-  } else if (lastName.length < 2) {
-    errors.lastName = 'Last name must be at least 2 characters';
+    if (!lastName) {
+      errors.lastName = 'Last name is required';
+    } else if (lastName.length < 2) {
+      errors.lastName = 'Last name must be at least 2 characters';
+    }
   }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -120,6 +131,7 @@ function validateRegisterInput(input = {}) {
   }
 
   return {
+    fullName: fullName || `${firstName} ${lastName}`.trim(),
     firstName,
     lastName,
     email,
