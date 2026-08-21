@@ -1,10 +1,11 @@
 import { request } from "./apiClient";
 
 const sectionService = {
-  listSections: async ({ search = "", gradeId = "", limit = 20, offset = 0 } = {}) => {
+  listSections: async ({ search = "", gradeId = "", grade_id = "", limit = 20, offset = 0 } = {}) => {
+    const targetGrade = gradeId || grade_id || "";
     let url = `/api/v1/sections?search=${encodeURIComponent(search)}&limit=${limit}&offset=${offset}`;
-    if (gradeId) {
-      url += `&gradeId=${encodeURIComponent(gradeId)}`;
+    if (targetGrade) {
+      url += `&gradeId=${encodeURIComponent(targetGrade)}`;
     }
 
     const response = await request(url);

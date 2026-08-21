@@ -3,8 +3,36 @@ class SectionRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', limit = 20, offset = 0 } = {}) {
-    const searchPattern = `%${search.trim()}%`;
+  async findAll({ search = '', gradeId = '', limit = 20, offset = 0 } = {}) {
+    const conditions = ['sec.deleted_at IS NULL'];
+    const values = [];
+    let index = 1;
+
+    if (search && search.trim()) {
+      const searchPattern = `%${search.trim()}%`;
+      conditions.push(`(
+        LOWER(sec.name) LIKE LOWER($${index})
+        OR LOWER(sec.room_number) LIKE LOWER($${index})
+        OR LOWER(g.name) LIKE LOWER($${index})
+      )`);
+      values.push(searchPattern);
+      index += 1;
+    }
+
+    if (gradeId && gradeId.trim()) {
+      conditions.push(`sec.grade_id = $${index}`);
+      values.push(gradeId.trim());
+      index += 1;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    values.push(limit);
+    const limitIndex = index;
+    index += 1;
+
+    values.push(offset);
+    const offsetIndex = index;
 
     const result = await this.database.query(
       `
@@ -20,16 +48,11 @@ class SectionRepository {
           (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count
         FROM sections sec
         LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
-        WHERE sec.deleted_at IS NULL
-          AND (
-            LOWER(sec.name) LIKE LOWER($1)
-            OR LOWER(sec.room_number) LIKE LOWER($1)
-            OR LOWER(g.name) LIKE LOWER($1)
-          )
+        ${whereClause}
         ORDER BY g.name ASC, sec.name ASC
-        LIMIT $2 OFFSET $3
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
-      [searchPattern, limit, offset]
+      values
     );
 
     return result.rows;

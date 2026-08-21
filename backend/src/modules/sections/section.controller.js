@@ -13,7 +13,7 @@ async function listSections(req, res, next) {
   try {
     const data = await sectionService.listSections({
       search: req.query.search || '',
-      gradeId: req.query.gradeId || '',
+      gradeId: req.query.gradeId || req.query.grade_id || '',
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });

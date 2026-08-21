@@ -372,7 +372,7 @@ export default function NewStudentPage() {
                   className={styles.select}
                   disabled={!selectedGradeId || loadingOptions}
                 >
-                  <option value="">Select Section</option>
+                  <option value="">{selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}</option>
                   {sections.map((sec) => (
                     <option key={sec.id} value={sec.id}>
                       {sec.name} {sec.room_number ? `(${sec.room_number})` : ""}

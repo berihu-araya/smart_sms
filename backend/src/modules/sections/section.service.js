@@ -19,8 +19,8 @@ class SectionService {
     this.repository = repository;
   }
 
-  async listSections({ search = '', limit = 20, offset = 0 } = {}) {
-    const sections = await this.repository.findAll({ search, limit, offset });
+  async listSections({ search = '', gradeId = '', limit = 20, offset = 0 } = {}) {
+    const sections = await this.repository.findAll({ search, gradeId, limit, offset });
 
     return {
       page: Math.floor(offset / limit) + 1,

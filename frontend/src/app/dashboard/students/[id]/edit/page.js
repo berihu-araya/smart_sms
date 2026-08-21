@@ -350,9 +350,14 @@ export default function EditStudentPage() {
 
               <div className={styles.field}>
                 <label className={styles.label}>Section</label>
-                <select name="sectionId" value={form.sectionId} onChange={handleChange}
-                  className={styles.select} disabled={!selectedGradeId}>
-                  <option value="">-- Select Section --</option>
+                <select
+                  name="sectionId"
+                  value={form.sectionId}
+                  onChange={handleChange}
+                  className={styles.select}
+                  disabled={!selectedGradeId}
+                >
+                  <option value="">{selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}</option>
                   {sections.map((sec) => (
                     <option key={sec.id} value={sec.id}>
                       {sec.name} {sec.room_number ? `(${sec.room_number})` : ""}
