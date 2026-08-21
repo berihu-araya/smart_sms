@@ -10,6 +10,7 @@ import styles from "./Header.module.css";
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -19,9 +20,16 @@ export default function Header() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Close menus on route change
+  const [prevPath, setPrevPath] = useState(pathname);
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
     setMenuOpen(false);
     setMobileMenuOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     const handleSidebarState = (event) => {
@@ -36,16 +44,16 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-      const checkScreen = () => {
-        setIsMobile(window.innerWidth <= 768);
-      };
+    const checkScreen = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
 
-      checkScreen();
+    checkScreen();
 
-      window.addEventListener("resize", checkScreen);
+    window.addEventListener("resize", checkScreen);
 
-      return () => window.removeEventListener("resize", checkScreen);
-    }, []);
+    return () => window.removeEventListener("resize", checkScreen);
+  }, []);
 
   const handleSidebarToggle = () => {
     if (typeof window !== "undefined") {
@@ -53,9 +61,13 @@ export default function Header() {
     }
   };
 
-  const accountIdentifier = user?.username || user?.email || "";
-  const userDisplayName = user
-    ? user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Account"
+  // Prevent hydration mismatch by using mounted guard for client-specific auth and screen states
+  const activeUser = mounted ? user : null;
+  const activeIsMobile = mounted ? isMobile : false;
+
+  const accountIdentifier = activeUser?.username || activeUser?.email || "";
+  const userDisplayName = activeUser
+    ? activeUser.name || `${activeUser.firstName || ""} ${activeUser.lastName || ""}`.trim() || "Account"
     : "";
   const userInitial = (accountIdentifier || userDisplayName).charAt(0).toUpperCase();
 
@@ -70,9 +82,7 @@ export default function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.container}>
-
         <div className={styles.leftGroup}>
-
           {/* Sidebar Toggle */}
           {isDashboardRoute && (
             <button
@@ -87,7 +97,6 @@ export default function Header() {
             </button>
           )}
 
-
           {/* Center Logo */}
           <Link href="/" className={styles.logo}>
             <Image
@@ -96,12 +105,10 @@ export default function Header() {
               width={50}
               height={50}
             />
-
-            <span>
-              𝐘𝐎𝐘𝐎 ACADEMY
-            </span>
+            <span>𝐘𝐎𝐘𝐎 ACADEMY</span>
           </Link>
-          {!user && (
+
+          {!activeUser && (
             <button
               type="button"
               className={styles.mobileMenuToggle}
@@ -112,111 +119,85 @@ export default function Header() {
               <HiBars3 />
             </button>
           )}
-
         </div>
 
         {/* Navigation */}
-        {!user && (
+        {!activeUser && (
           <nav className={`${styles.nav} ${mobileMenuOpen ? styles.navOpen : ""}`}>
-
-          <Link href="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-
-          <Link href="/about" onClick={() => setMobileMenuOpen(false)}>About Us</Link>
-
-          <Link href="/features" onClick={() => setMobileMenuOpen(false)}>Features</Link>
-
-          {/* Dropdown */}
-          
-          {isMobile ? (
-            <Link
-              href="/applications"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Application
+            <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+              Home
             </Link>
-          ) : (
-            <div className={styles.dropdown}>
-              <span className={styles.dropbtn}>
-                Application ▾
-              </span>
+            <Link href="/about" onClick={() => setMobileMenuOpen(false)}>
+              About Us
+            </Link>
+            <Link href="/features" onClick={() => setMobileMenuOpen(false)}>
+              Features
+            </Link>
 
-              <div className={styles.dropdownContent}>
-
-                <Link
-                  href="/admin"
-                  className={styles.appCard}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className={styles.icon}>🖥️</div>
-                  <div>
-                    <h4>Admin Dashboard</h4>
-                    <p>Complete control center for school administrators and staff.</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/teacher"
-                  className={styles.appCard}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className={styles.icon}>🎓</div>
-                  <div>
-                    <h4>Teacher App</h4>
-                    <p>Attendance, grading and communication.</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/parent"
-                  className={styles.appCard}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className={styles.icon}>👨‍👩‍👧</div>
-                  <div>
-                    <h4>Parent App</h4>
-                    <p>Fee tracking and real-time updates.</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/student"
-                  className={styles.appCard}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <div className={styles.icon}>📖</div>
-                  <div>
-                    <h4>Student App</h4>
-                    <p>Timetable, assignments and results.</p>
-                  </div>
-                </Link>
-
-              </div>
-            </div>
-          )}
-
-          <Link href="/contact" onClick={() => setMobileMenuOpen(false)}>Contact</Link>
-          {user ? (
-  <>
-              <Link
-                href="/login/profile"
-                className={styles.mobileLoginBtn}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Profile
+            {activeIsMobile ? (
+              <Link href="/applications" onClick={() => setMobileMenuOpen(false)}>
+                Application
               </Link>
+            ) : (
+              <div className={styles.dropdown}>
+                <span className={styles.dropbtn}>Application ▾</span>
 
-              <button
-                type="button"
-                className={styles.mobileLoginBtn}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  logout();
-                }}
-              >
-                Logout
-              </button>
-            </>
-          ) : (
+                <div className={styles.dropdownContent}>
+                  <Link
+                    href="/admin"
+                    className={styles.appCard}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className={styles.icon}>🖥️</div>
+                    <div>
+                      <h4>Admin Dashboard</h4>
+                      <p>Complete control center for school administrators and staff.</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/teacher"
+                    className={styles.appCard}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className={styles.icon}>🎓</div>
+                    <div>
+                      <h4>Teacher App</h4>
+                      <p>Attendance, grading and communication.</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/parent"
+                    className={styles.appCard}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className={styles.icon}>👨‍👩‍👧</div>
+                    <div>
+                      <h4>Parent App</h4>
+                      <p>Fee tracking and real-time updates.</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/student"
+                    className={styles.appCard}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <div className={styles.icon}>📖</div>
+                    <div>
+                      <h4>Student App</h4>
+                      <p>Timetable, assignments and results.</p>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            <Link href="/contact" onClick={() => setMobileMenuOpen(false)}>
+              Contact
+            </Link>
+
             <Link
               href="/login"
               className={styles.mobileLoginBtn}
@@ -224,12 +205,10 @@ export default function Header() {
             >
               Login
             </Link>
-          )}
-
           </nav>
         )}
 
-        {user ? (
+        {activeUser ? (
           <div className={styles.authDropdown}>
             <button
               className={styles.authToggle}
@@ -239,9 +218,10 @@ export default function Header() {
               aria-expanded={menuOpen}
               aria-haspopup="menu"
             >
-              {user.profileImage ? (
+              {activeUser.profileImage ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={user.profileImage}
+                  src={activeUser.profileImage}
                   alt=""
                   className={styles.userAvatarImage}
                 />
@@ -286,7 +266,6 @@ export default function Header() {
             Login
           </Link>
         )}
-
       </div>
     </header>
   );

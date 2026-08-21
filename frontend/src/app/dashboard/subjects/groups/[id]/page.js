@@ -19,34 +19,64 @@ export default function SubjectGroupDetailsPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [assigning, setAssigning] = useState(false);
 
-  async function loadData() {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [groupData, subjectsData, groupSubjectsData] = await Promise.all([
+          subjectGroupService.getGroupById(params.id),
+          subjectService.listSubjects({ limit: 100, offset: 0 }),
+          subjectGroupService.listGroupSubjects(params.id),
+        ]);
+
+        if (!cancelled) {
+          setGroup(groupData);
+          setSubjects(groupSubjectsData || []);
+
+          // Filter out subjects already in the group
+          const assignedIds = new Set((groupSubjectsData || []).map((s) => s.id));
+          const available = (subjectsData.items || []).filter((s) => !assignedIds.has(s.id));
+          setAvailableSubjects(available);
+          setError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Unable to load group");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (params?.id) {
+      loadData();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params?.id]);
+
+  async function refetchData() {
     try {
-      setLoading(true);
       const [groupData, subjectsData, groupSubjectsData] = await Promise.all([
         subjectGroupService.getGroupById(params.id),
         subjectService.listSubjects({ limit: 100, offset: 0 }),
         subjectGroupService.listGroupSubjects(params.id),
       ]);
-
       setGroup(groupData);
       setSubjects(groupSubjectsData || []);
-
-      // Filter out subjects already in the group
       const assignedIds = new Set((groupSubjectsData || []).map((s) => s.id));
       const available = (subjectsData.items || []).filter((s) => !assignedIds.has(s.id));
       setAvailableSubjects(available);
     } catch (err) {
-      setError(err.message || "Unable to load group");
-    } finally {
-      setLoading(false);
+      setError(err.message || "Unable to reload group data");
     }
   }
-
-  useEffect(() => {
-    if (params?.id) {
-      loadData();
-    }
-  }, [params]);
 
   async function handleDelete() {
     if (!window.confirm("Are you sure you want to delete this subject group?")) {
@@ -71,7 +101,7 @@ export default function SubjectGroupDetailsPage() {
     try {
       await subjectGroupService.assignSubject(params.id, selectedSubjectId);
       setSelectedSubjectId("");
-      await loadData();
+      await refetchData();
     } catch (err) {
       alert(err.message || "Failed to assign subject");
     } finally {
@@ -84,7 +114,7 @@ export default function SubjectGroupDetailsPage() {
 
     try {
       await subjectGroupService.removeSubject(params.id, subjectId);
-      await loadData();
+      await refetchData();
     } catch (err) {
       alert(err.message || "Failed to remove subject");
     }
@@ -245,4 +275,3 @@ function Field({ label, value }) {
     </div>
   );
 }
-

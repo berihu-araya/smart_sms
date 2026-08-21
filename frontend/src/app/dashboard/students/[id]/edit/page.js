@@ -6,17 +6,26 @@ import Link from "next/link";
 import studentService from "@/services/studentService";
 import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
-import styles from "./edit.module.css";
+import parentService from "@/services/parentService";
+import styles from "../../new/new.module.css";
 
 const GENDERS = ["MALE", "FEMALE", "OTHER"];
 const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "GRADUATED", "WITHDRAWN"];
+const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "BROTHER", "SISTER", "UNCLE", "AUNT", "OTHER"];
 
 export default function EditStudentPage() {
   const params = useParams();
   const router = useRouter();
+  const studentId = params?.id;
+
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
+  const [parentsList, setParentsList] = useState([]);
   const [loadingPage, setLoadingPage] = useState(true);
+
+  // Guardian mode: "edit" (update existing guardian details) or "select" (link a different parent)
+  const [parentMode, setParentMode] = useState("edit");
+
   const [form, setForm] = useState({
     admissionNumber: "",
     firstName: "",
@@ -26,11 +35,19 @@ export default function EditStudentPage() {
     admissionDate: "",
     email: "",
     phone: "",
-    parentId: "",
     sectionId: "",
     address: "",
     status: "ACTIVE",
+    // Guardian fields
+    parentId: "",
+    parentFullName: "",
+    parentRelationship: "GUARDIAN",
+    parentPhone: "",
+    parentEmail: "",
+    parentOccupation: "",
+    parentAddress: "",
   });
+
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -41,8 +58,15 @@ export default function EditStudentPage() {
       try {
         setLoadingPage(true);
 
-        // Load student data
-        const student = await studentService.getStudentById(params.id);
+        const [student, gradesData, parentsData] = await Promise.all([
+          studentService.getStudentById(studentId),
+          gradeService.listGrades({ limit: 100, offset: 0 }).catch(() => ({ items: [] })),
+          parentService.listParents({ limit: 200, offset: 0 }).catch(() => ({ items: [] })),
+        ]);
+
+        setGrades(gradesData.items || []);
+        setParentsList(parentsData.items || []);
+
         setForm({
           admissionNumber: student.admission_number || "",
           firstName: student.first_name || "",
@@ -52,29 +76,29 @@ export default function EditStudentPage() {
           admissionDate: student.admission_date ? student.admission_date.substring(0, 10) : "",
           email: student.email || "",
           phone: student.phone || "",
-          parentId: student.parent_id || "",
           sectionId: student.section_id || "",
           address: student.address || "",
           status: student.status || "ACTIVE",
+          parentId: student.parent_id || "",
+          parentFullName: student.parent_name || "",
+          parentRelationship: student.parent_relationship || "GUARDIAN",
+          parentPhone: student.parent_phone || "",
+          parentEmail: student.parent_email || "",
+          parentOccupation: student.parent_occupation || "",
+          parentAddress: student.parent_address || "",
         });
 
-        // Load all grades
-        const gradesData = await gradeService.listGrades({ limit: 100, offset: 0 });
-        setGrades(gradesData.items || []);
-
-        // If student has a section, find its grade to pre-select
         if (student.section_id) {
           try {
             const sectionData = await sectionService.getSectionById(student.section_id);
-            if (sectionData) {
-              const gradeId = sectionData.grade_id || "";
-              setSelectedGradeId(gradeId);
-
-              // Load sections for that grade
-              if (gradeId) {
-                const sectionsData = await sectionService.listSections({ gradeId, limit: 200, offset: 0 });
-                setSections(sectionsData.items || []);
-              }
+            if (sectionData?.grade_id) {
+              setSelectedGradeId(sectionData.grade_id);
+              const sectionsData = await sectionService.listSections({
+                gradeId: sectionData.grade_id,
+                limit: 200,
+                offset: 0,
+              });
+              setSections(sectionsData.items || []);
             }
           } catch (err) {
             console.error("Could not load section details:", err);
@@ -87,10 +111,10 @@ export default function EditStudentPage() {
       }
     }
 
-    if (params?.id) {
+    if (studentId) {
       loadData();
     }
-  }, [params]);
+  }, [studentId]);
 
   function handleGradeChange(gradeId) {
     setSelectedGradeId(gradeId);
@@ -123,10 +147,10 @@ export default function EditStudentPage() {
     }
   }
 
-  function validate() {  //this function validates the form fields and returns an object containing any validation errors
+  function validate() {
     const errs = {};
 
-    if (!form.admissionNumber.trim()) { // this trim() removes any leading or trailing whitespace from the admission number before checking if it's empty
+    if (!form.admissionNumber.trim()) {
       errs.admissionNumber = "Admission number is required";
     }
     if (!form.firstName.trim()) {
@@ -139,16 +163,25 @@ export default function EditStudentPage() {
       errs.admissionDate = "Admission date is required";
     }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      errs.email = "Enter a valid email address (e.g., name@domain.com)";
+      errs.email = "Enter a valid email address";
     }
     if (form.phone && !/^[\d\s\-+()]{7,20}$/.test(form.phone.trim())) {
-      errs.phone = "Phone must be 7-20 characters (digits, spaces, dashes, +, or parentheses)";
+      errs.phone = "Phone must be 7-20 characters";
+    }
+
+    if (parentMode === "edit" && form.parentFullName) {
+      if (form.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.parentEmail.trim())) {
+        errs.parentEmail = "Enter a valid parent email";
+      }
+      if (form.parentPhone && !/^[\d\s\-+()]{7,20}$/.test(form.parentPhone.trim())) {
+        errs.parentPhone = "Parent phone must be 7-20 characters";
+      }
     }
 
     return errs;
   }
 
-  async function handleSubmit(event) { // this function handles the form submission, validates the input, and sends an update request to the server
+  async function handleSubmit(event) {
     event.preventDefault();
     setApiError("");
 
@@ -162,8 +195,35 @@ export default function EditStudentPage() {
     setSaving(true);
 
     try {
-      await studentService.updateStudent(params.id, form);
-      router.push(`/dashboard/students/${params.id}`);
+      const payload = {
+        admissionNumber: form.admissionNumber.trim(),
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        gender: form.gender,
+        dateOfBirth: form.dateOfBirth || null,
+        admissionDate: form.admissionDate,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        sectionId: form.sectionId || null,
+        address: form.address.trim() || null,
+        status: form.status,
+      };
+
+      if (parentMode === "edit" && form.parentFullName.trim()) {
+        payload.parent = {
+          fullName: form.parentFullName.trim(),
+          relationship: form.parentRelationship,
+          phone: form.parentPhone.trim() || null,
+          email: form.parentEmail.trim() || null,
+          occupation: form.parentOccupation.trim() || null,
+          address: form.parentAddress.trim() || null,
+        };
+      } else if (parentMode === "select") {
+        payload.parentId = form.parentId || null;
+      }
+
+      await studentService.updateStudent(studentId, payload);
+      router.push(`/dashboard/students/${studentId}`);
     } catch (err) {
       setApiError(err.message || "Unable to update student. Please check the form and try again.");
     } finally {
@@ -183,15 +243,17 @@ export default function EditStudentPage() {
         <span className={styles.breadcrumbSeparator}>/</span>
         <Link href="/dashboard/students">Students</Link>
         <span className={styles.breadcrumbSeparator}>/</span>
-        <Link href={`/dashboard/students/${params.id}`}>Details</Link>
+        <Link href={`/dashboard/students/${studentId}`}>
+          {form.firstName} {form.lastName}
+        </Link>
         <span className={styles.breadcrumbSeparator}>/</span>
         <span style={{ color: "#101828", fontWeight: 500 }}>Edit</span>
       </nav>
 
       {/* Page Header */}
       <div className={styles.pageHeader}>
-        <h1>Edit Student</h1>
-        <p>Update student record for <strong>{form.firstName} {form.lastName}</strong></p>
+        <h1>Edit Student & Guardian</h1>
+        <p>Update personal, guardian, and academic records for <strong>{form.firstName} {form.lastName}</strong></p>
       </div>
 
       {/* API Error Banner */}
@@ -205,13 +267,13 @@ export default function EditStudentPage() {
       {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className={styles.formCard}>
-          {/* Section 1: Personal Information */}
+          {/* Section 1: Personal Details */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionIcon}>👤</div>
               <div>
                 <h3 className={styles.sectionTitle}>Personal Information</h3>
-                <p className={styles.sectionSubtitle}>Basic details about the student</p>
+                <p className={styles.sectionSubtitle}>Student admission details and identity</p>
               </div>
             </div>
 
@@ -224,11 +286,10 @@ export default function EditStudentPage() {
                   name="admissionNumber"
                   value={form.admissionNumber}
                   onChange={handleChange}
-                  placeholder="e.g. STU-2024-001"
                   className={`${styles.input} ${errors.admissionNumber ? styles.inputError : ""}`}
                 />
                 {errors.admissionNumber && (
-                  <span className={styles.fieldError}><span>✕</span> {errors.admissionNumber}</span>
+                  <span className={styles.fieldError}>✕ {errors.admissionNumber}</span>
                 )}
               </div>
 
@@ -240,11 +301,10 @@ export default function EditStudentPage() {
                   name="firstName"
                   value={form.firstName}
                   onChange={handleChange}
-                  placeholder="John"
                   className={`${styles.input} ${errors.firstName ? styles.inputError : ""}`}
                 />
                 {errors.firstName && (
-                  <span className={styles.fieldError}><span>✕</span> {errors.firstName}</span>
+                  <span className={styles.fieldError}>✕ {errors.firstName}</span>
                 )}
               </div>
 
@@ -256,94 +316,251 @@ export default function EditStudentPage() {
                   name="lastName"
                   value={form.lastName}
                   onChange={handleChange}
-                  placeholder="Doe"
                   className={`${styles.input} ${errors.lastName ? styles.inputError : ""}`}
                 />
                 {errors.lastName && (
-                  <span className={styles.fieldError}><span>✕</span> {errors.lastName}</span>
+                  <span className={styles.fieldError}>✕ {errors.lastName}</span>
                 )}
               </div>
 
               <div className={styles.field}>
                 <label className={styles.label}>Gender</label>
-                <select name="gender" value={form.gender} onChange={handleChange} className={styles.select}>
+                <select
+                  name="gender"
+                  value={form.gender}
+                  onChange={handleChange}
+                  className={styles.select}
+                >
                   {GENDERS.map((g) => (
-                    <option key={g} value={g}>{g.charAt(0) + g.slice(1).toLowerCase()}</option>
+                    <option key={g} value={g}>
+                      {g.charAt(0) + g.slice(1).toLowerCase()}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div className={styles.field}>
                 <label className={styles.label}>Date of Birth</label>
-                <input type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleChange} className={styles.input} />
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={form.dateOfBirth}
+                  onChange={handleChange}
+                  className={styles.input}
+                />
               </div>
 
               <div className={styles.field}>
                 <label className={styles.label}>
                   Admission Date<span className={styles.required}>*</span>
                 </label>
-                <input type="date" name="admissionDate" value={form.admissionDate} onChange={handleChange}
-                  className={`${styles.input} ${errors.admissionDate ? styles.inputError : ""}`} />
+                <input
+                  type="date"
+                  name="admissionDate"
+                  value={form.admissionDate}
+                  onChange={handleChange}
+                  className={`${styles.input} ${errors.admissionDate ? styles.inputError : ""}`}
+                />
                 {errors.admissionDate && (
-                  <span className={styles.fieldError}><span>✕</span> {errors.admissionDate}</span>
+                  <span className={styles.fieldError}>✕ {errors.admissionDate}</span>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Section 2: Contact Details */}
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionIcon}>📞</div>
-              <div>
-                <h3 className={styles.sectionTitle}>Contact Details</h3>
-                <p className={styles.sectionSubtitle}>Email and phone information for the student</p>
-              </div>
-            </div>
-
-            <div className={styles.formGrid}>
               <div className={styles.field}>
-                <label className={styles.label}>Email Address</label>
-                <input name="email" type="email" value={form.email} onChange={handleChange}
-                  placeholder="john.doe@school.edu"
-                  className={`${styles.input} ${errors.email ? styles.inputError : ""}`} />
-                {errors.email && <span className={styles.fieldError}><span>✕</span> {errors.email}</span>}
+                <label className={styles.label}>Student Email</label>
+                <input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className={`${styles.input} ${errors.email ? styles.inputError : ""}`}
+                />
+                {errors.email && <span className={styles.fieldError}>✕ {errors.email}</span>}
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Phone Number</label>
-                <input name="phone" type="tel" value={form.phone} onChange={handleChange}
-                  placeholder="+1 (555) 123-4567"
-                  className={`${styles.input} ${errors.phone ? styles.inputError : ""}`} />
-                {errors.phone && <span className={styles.fieldError}><span>✕</span> {errors.phone}</span>}
+                <label className={styles.label}>Student Phone</label>
+                <input
+                  name="phone"
+                  type="tel"
+                  value={form.phone}
+                  onChange={handleChange}
+                  className={`${styles.input} ${errors.phone ? styles.inputError : ""}`}
+                />
+                {errors.phone && <span className={styles.fieldError}>✕ {errors.phone}</span>}
               </div>
 
               <div className={`${styles.field} ${styles.formGridFull}`}>
-                <label className={styles.label}>Address</label>
-                <textarea name="address" value={form.address} onChange={handleChange}
-                  placeholder="123 Main Street, City, State, ZIP" rows={3} className={styles.textarea} />
+                <label className={styles.label}>Home Address</label>
+                <textarea
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  rows={2}
+                  className={styles.textarea}
+                />
               </div>
             </div>
           </div>
 
-          {/* Section 3: Academic Information */}
+          {/* Section 2: Guardian Information */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <div className={styles.sectionIcon}>🏫</div>
+              <div className={styles.sectionIcon} style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                👨‍👩‍👧‍👦
+              </div>
               <div>
-                <h3 className={styles.sectionTitle}>Academic Information</h3>
-                <p className={styles.sectionSubtitle}>Grade, section, and status details</p>
+                <h3 className={styles.sectionTitle}>Guardian Information</h3>
+                <p className={styles.sectionSubtitle}>Update contact records for the linked parent/guardian</p>
+              </div>
+            </div>
+
+            <div className={styles.modeToggle}>
+              <button
+                type="button"
+                className={`${styles.modeToggleBtn} ${
+                  parentMode === "edit" ? styles.modeToggleBtnActive : ""
+                }`}
+                onClick={() => setParentMode("edit")}
+              >
+                ✏️ Edit Current Guardian Details
+              </button>
+              <button
+                type="button"
+                className={`${styles.modeToggleBtn} ${
+                  parentMode === "select" ? styles.modeToggleBtnActive : ""
+                }`}
+                onClick={() => setParentMode("select")}
+              >
+                🔗 Link to Different Existing Guardian
+              </button>
+            </div>
+
+            {parentMode === "edit" ? (
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Guardian Full Name</label>
+                  <input
+                    name="parentFullName"
+                    value={form.parentFullName}
+                    onChange={handleChange}
+                    placeholder="e.g. Haile Gebreselassie"
+                    className={styles.input}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Relationship</label>
+                  <select
+                    name="parentRelationship"
+                    value={form.parentRelationship}
+                    onChange={handleChange}
+                    className={styles.select}
+                  >
+                    {RELATIONSHIPS.map((rel) => (
+                      <option key={rel} value={rel}>
+                        {rel.charAt(0) + rel.slice(1).toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Guardian Phone</label>
+                  <input
+                    name="parentPhone"
+                    type="tel"
+                    value={form.parentPhone}
+                    onChange={handleChange}
+                    className={`${styles.input} ${errors.parentPhone ? styles.inputError : ""}`}
+                  />
+                  {errors.parentPhone && (
+                    <span className={styles.fieldError}>✕ {errors.parentPhone}</span>
+                  )}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Guardian Email</label>
+                  <input
+                    name="parentEmail"
+                    type="email"
+                    value={form.parentEmail}
+                    onChange={handleChange}
+                    className={`${styles.input} ${errors.parentEmail ? styles.inputError : ""}`}
+                  />
+                  {errors.parentEmail && (
+                    <span className={styles.fieldError}>✕ {errors.parentEmail}</span>
+                  )}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Occupation</label>
+                  <input
+                    name="parentOccupation"
+                    value={form.parentOccupation}
+                    onChange={handleChange}
+                    className={styles.input}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Guardian Address</label>
+                  <input
+                    name="parentAddress"
+                    value={form.parentAddress}
+                    onChange={handleChange}
+                    className={styles.input}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className={styles.formGrid}>
+                <div className={`${styles.field} ${styles.formGridFull}`}>
+                  <label className={styles.label}>Select Different Parent / Guardian</label>
+                  <select
+                    name="parentId"
+                    value={form.parentId}
+                    onChange={handleChange}
+                    className={styles.select}
+                  >
+                    <option value="">-- Choose Existing Parent --</option>
+                    {parentsList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.full_name} {p.phone ? `(${p.phone})` : ""} — {p.occupation || "Parent"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Academic Allocation */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionIcon} style={{ background: "#fef3c7", color: "#d97706" }}>
+                🏫
+              </div>
+              <div>
+                <h3 className={styles.sectionTitle}>Academic Placement</h3>
+                <p className={styles.sectionSubtitle}>Grade and classroom section placement</p>
               </div>
             </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
                 <label className={styles.label}>Grade</label>
-                <select name="grade" value={selectedGradeId}
-                  onChange={(e) => handleGradeChange(e.target.value)} className={styles.select}>
+                <select
+                  name="grade"
+                  value={selectedGradeId}
+                  onChange={(e) => handleGradeChange(e.target.value)}
+                  className={styles.select}
+                >
                   <option value="">-- Select Grade --</option>
                   {grades.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -357,7 +574,9 @@ export default function EditStudentPage() {
                   className={styles.select}
                   disabled={!selectedGradeId}
                 >
-                  <option value="">{selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}</option>
+                  <option value="">
+                    {selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}
+                  </option>
                   {sections.map((sec) => (
                     <option key={sec.id} value={sec.id}>
                       {sec.name} {sec.room_number ? `(${sec.room_number})` : ""}
@@ -367,16 +586,17 @@ export default function EditStudentPage() {
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Parent ID</label>
-                <input name="parentId" value={form.parentId} onChange={handleChange}
-                  placeholder="UUID of the parent" className={styles.input} />
-              </div>
-
-              <div className={styles.field}>
                 <label className={styles.label}>Status</label>
-                <select name="status" value={form.status} onChange={handleChange} className={styles.select}>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className={styles.select}
+                >
                   {STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
+                    <option key={s} value={s}>
+                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -385,15 +605,11 @@ export default function EditStudentPage() {
 
           {/* Actions */}
           <div className={styles.actions}>
-            <Link href={`/dashboard/students/${params.id}`} className={styles.btnSecondary}>
+            <Link href={`/dashboard/students/${studentId}`} className={styles.btnSecondary}>
               Cancel
             </Link>
             <button type="submit" disabled={saving} className={styles.btnPrimary}>
-              {saving ? (
-                <><span className={styles.spinner}></span> Saving...</>
-              ) : (
-                <>💾 Update Student</>
-              )}
+              {saving ? "Saving Changes..." : "Save Changes"}
             </button>
           </div>
         </div>
@@ -401,4 +617,3 @@ export default function EditStudentPage() {
     </div>
   );
 }
-

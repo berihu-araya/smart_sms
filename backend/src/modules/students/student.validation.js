@@ -27,19 +27,59 @@ function isValidPhone(value) {
 }
 
 function validateCreateStudentInput(input = {}) {
-  const admissionNumber = normalizeOptionalString(input.admissionNumber);
-  const firstName = normalizeName(input.firstName);
-  const lastName = normalizeName(input.lastName);
+  const admissionNumber = normalizeOptionalString(input.admissionNumber || input.admission_number);
+  const firstName = normalizeName(input.firstName || input.first_name);
+  const lastName = normalizeName(input.lastName || input.last_name);
   const gender = normalizeOptionalString(input.gender).toUpperCase();
-  const dateOfBirth = normalizeOptionalString(input.dateOfBirth);
-  const admissionDate = normalizeOptionalString(input.admissionDate);
-  const parentId = normalizeOptionalString(input.parentId);
-  const sectionId = normalizeOptionalString(input.sectionId);
+  const dateOfBirth = normalizeOptionalString(input.dateOfBirth || input.date_of_birth);
+  const admissionDate = normalizeOptionalString(input.admissionDate || input.admission_date);
+  const parentId = normalizeOptionalString(input.parentId || input.parent_id);
+  const sectionId = normalizeOptionalString(input.sectionId || input.section_id);
   const address = normalizeOptionalString(input.address);
   const email = normalizeOptionalString(input.email);
   const phone = normalizeOptionalString(input.phone);
   const status = normalizeOptionalString(input.status).toUpperCase() || STUDENT_STATUSES.ACTIVE;
   const errors = {};
+
+  // Extract nested or flat parent data
+  const rawParent = input.parent || {};
+  const parentFullName = normalizeOptionalString(
+    rawParent.fullName || rawParent.full_name || input.parentFullName || input.parent_name || input.parentName
+  );
+  const parentPhone = normalizeOptionalString(
+    rawParent.phone || input.parentPhone || input.parent_phone
+  );
+  const parentEmail = normalizeOptionalString(
+    rawParent.email || input.parentEmail || input.parent_email
+  );
+  const parentOccupation = normalizeOptionalString(
+    rawParent.occupation || input.parentOccupation || input.parent_occupation
+  );
+  const parentAddress = normalizeOptionalString(
+    rawParent.address || input.parentAddress || input.parent_address
+  );
+  const parentRelationship = normalizeOptionalString(
+    rawParent.relationship || input.parentRelationship || input.parent_relationship || 'GUARDIAN'
+  ).toUpperCase();
+
+  let parent = null;
+  if (parentFullName) {
+    if (parentEmail && !isValidEmail(parentEmail)) {
+      errors.parentEmail = 'Parent email must be a valid email address';
+    }
+    if (parentPhone && !isValidPhone(parentPhone)) {
+      errors.parentPhone = 'Parent phone must be 7-20 characters';
+    }
+
+    parent = {
+      fullName: parentFullName,
+      phone: parentPhone || null,
+      email: parentEmail || null,
+      occupation: parentOccupation || null,
+      address: parentAddress || null,
+      relationship: parentRelationship || 'GUARDIAN',
+    };
+  }
 
   if (!admissionNumber) {
     errors.admissionNumber = 'Admission number is required';
@@ -94,11 +134,12 @@ function validateCreateStudentInput(input = {}) {
     firstName,
     lastName,
     gender,
-    dateOfBirth,
+    dateOfBirth: dateOfBirth || null,
     admissionDate,
-    parentId,
-    sectionId,
-    address,
+    parentId: parentId || null,
+    parent, // Auto-register parent payload if provided
+    sectionId: sectionId || null,
+    address: address || null,
     email: email || null,
     phone: phone || null,
     status,
@@ -107,19 +148,59 @@ function validateCreateStudentInput(input = {}) {
 }
 
 function validateUpdateStudentInput(input = {}) {
-  const admissionNumber = normalizeOptionalString(input.admissionNumber);
-  const firstName = normalizeName(input.firstName);
-  const lastName = normalizeName(input.lastName);
+  const admissionNumber = normalizeOptionalString(input.admissionNumber || input.admission_number);
+  const firstName = normalizeName(input.firstName || input.first_name);
+  const lastName = normalizeName(input.lastName || input.last_name);
   const gender = normalizeOptionalString(input.gender).toUpperCase();
-  const dateOfBirth = normalizeOptionalString(input.dateOfBirth);
-  const admissionDate = normalizeOptionalString(input.admissionDate);
-  const parentId = normalizeOptionalString(input.parentId);
-  const sectionId = normalizeOptionalString(input.sectionId);
+  const dateOfBirth = normalizeOptionalString(input.dateOfBirth || input.date_of_birth);
+  const admissionDate = normalizeOptionalString(input.admissionDate || input.admission_date);
+  const parentId = normalizeOptionalString(input.parentId || input.parent_id);
+  const sectionId = normalizeOptionalString(input.sectionId || input.section_id);
   const address = normalizeOptionalString(input.address);
   const email = normalizeOptionalString(input.email);
   const phone = normalizeOptionalString(input.phone);
   const status = normalizeOptionalString(input.status).toUpperCase();
   const errors = {};
+
+  // Extract parent update/auto-create payload if present
+  const rawParent = input.parent || {};
+  const parentFullName = normalizeOptionalString(
+    rawParent.fullName || rawParent.full_name || input.parentFullName || input.parent_name || input.parentName
+  );
+  const parentPhone = normalizeOptionalString(
+    rawParent.phone || input.parentPhone || input.parent_phone
+  );
+  const parentEmail = normalizeOptionalString(
+    rawParent.email || input.parentEmail || input.parent_email
+  );
+  const parentOccupation = normalizeOptionalString(
+    rawParent.occupation || input.parentOccupation || input.parent_occupation
+  );
+  const parentAddress = normalizeOptionalString(
+    rawParent.address || input.parentAddress || input.parent_address
+  );
+  const parentRelationship = normalizeOptionalString(
+    rawParent.relationship || input.parentRelationship || input.parent_relationship || 'GUARDIAN'
+  ).toUpperCase();
+
+  let parent = undefined;
+  if (parentFullName) {
+    if (parentEmail && !isValidEmail(parentEmail)) {
+      errors.parentEmail = 'Parent email must be a valid email address';
+    }
+    if (parentPhone && !isValidPhone(parentPhone)) {
+      errors.parentPhone = 'Parent phone must be 7-20 characters';
+    }
+
+    parent = {
+      fullName: parentFullName,
+      phone: parentPhone || null,
+      email: parentEmail || null,
+      occupation: parentOccupation || null,
+      address: parentAddress || null,
+      relationship: parentRelationship || 'GUARDIAN',
+    };
+  }
 
   if (input.admissionNumber !== undefined && !admissionNumber) {
     errors.admission_number = 'Admission number is required';
@@ -173,6 +254,7 @@ function validateUpdateStudentInput(input = {}) {
     date_of_birth: dateOfBirth || undefined,
     admission_date: admissionDate || undefined,
     parent_id: parentId || undefined,
+    parent, // Can be used by service to update or create parent
     section_id: sectionId || undefined,
     address: address || undefined,
     email: email || null,
@@ -186,6 +268,8 @@ function validateStudentId(id) {
   const errors = {};
   if (!id || typeof id !== 'string' || !id.trim()) {
     errors.id = 'Student id is required';
+  } else if (!isValidUUID(id.trim())) {
+    errors.id = 'Student id must be a valid UUID';
   }
 
   return { id: id?.trim(), errors };

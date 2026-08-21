@@ -64,7 +64,7 @@ export default function StudentDetailsPage() {
         <span className={styles.separator}>/</span>
         <Link href="/dashboard/students">Students</Link>
         <span className={styles.separator}>/</span>
-        <span className={styles.current}>Details</span>
+        <span className={styles.current}>{student.first_name} {student.last_name}</span>
       </nav>
 
       <div className={styles.card}>
@@ -75,7 +75,7 @@ export default function StudentDetailsPage() {
               {`${student.first_name} ${student.last_name}`}
             </h1>
             <p className={styles.admissionText}>
-              Admission: {student.admission_number}
+              Admission: <strong>{student.admission_number}</strong>
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -100,8 +100,8 @@ export default function StudentDetailsPage() {
               <Field label="First Name" value={student.first_name} />
               <Field label="Last Name" value={student.last_name} />
               <Field label="Gender" value={student.gender} />
-              <Field label="Date of Birth" value={student.date_of_birth || "—"} />
-              <Field label="Admission Date" value={student.admission_date} />
+              <Field label="Date of Birth" value={student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : "—"} />
+              <Field label="Admission Date" value={student.admission_date ? new Date(student.admission_date).toLocaleDateString() : "—"} />
             </div>
           </div>
 
@@ -111,7 +111,7 @@ export default function StudentDetailsPage() {
             <div className={styles.fieldList}>
               <Field label="Email" value={student.email || "—"} />
               <Field label="Phone" value={student.phone || "—"} />
-              <Field label="Address" value={student.address || "—"} />
+              <Field label="Home Address" value={student.address || "—"} />
             </div>
           </div>
 
@@ -120,20 +120,41 @@ export default function StudentDetailsPage() {
             <h3 className={styles.sectionTitle}>🏫 Academic Information</h3>
             <div className={styles.fieldList}>
               <Field label="Grade" value={academicInfo.gradeName || "—"} />
-              <Field label="Section" value={academicInfo.section || "—"} />
-              <Field label="Room" value={academicInfo.room || "—"} />
+              <Field label="Section" value={academicInfo.sectionName || academicInfo.section || "—"} />
+              <Field label="Room" value={academicInfo.roomNumber || academicInfo.room || "—"} />
               <Field label="Status" value={academicInfo.currentStatus} />
             </div>
           </div>
 
-          {/* Guardian */}
+          {/* Guardian Information */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>👪 Guardian</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 className={styles.sectionTitle} style={{ margin: 0 }}>👨‍👩‍👧‍👦 Guardian Details</h3>
+              {guardian?.id && (
+                <Link
+                  href={`/dashboard/parents/${guardian.id}`}
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#2563eb",
+                    textDecoration: "none",
+                    fontWeight: 600,
+                    background: "#eff6ff",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    border: "1px solid #bfdbfe",
+                  }}
+                >
+                  View Guardian Profile →
+                </Link>
+              )}
+            </div>
             <div className={styles.fieldList}>
-              <Field label="Name" value={guardian.name || "—"} />
-              <Field label="Phone" value={guardian.phone || "—"} />
-              <Field label="Email" value={guardian.email || "—"} />
-              <Field label="Address" value={guardian.address || "—"} />
+              <Field label="Full Name" value={guardian?.name || "—"} />
+              <Field label="Relationship" value={guardian?.relationship || "GUARDIAN"} />
+              <Field label="Phone" value={guardian?.phone || "—"} />
+              <Field label="Email" value={guardian?.email || "—"} />
+              <Field label="Occupation" value={guardian?.occupation || "—"} />
+              <Field label="Address" value={guardian?.address || "—"} />
             </div>
           </div>
         </div>
@@ -157,4 +178,3 @@ function Field({ label, value }) {
     </div>
   );
 }
-

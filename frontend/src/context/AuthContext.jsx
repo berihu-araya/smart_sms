@@ -1,43 +1,64 @@
 "use client";
 
 import { createContext, useState, useEffect } from "react";
-import authService from "@/services/authService"; // Importing the authentication service for handling login and logout operations
+import authService from "@/services/authService";
 
-export const AuthContext = createContext(); // Creating a context for authentication to share state and functions across components
+export const AuthContext = createContext();
 
-export function AuthProvider({ children }) { // Creating a provider component to wrap around the application and provide authentication state and functions
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
+    let cancelled = false;
 
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      return;
-    }
+    async function initAuth() {
+      try {
+        const storedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
 
-    if (!token) {
-      return;
-    }
+        if (storedUser && !cancelled) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch {
+            localStorage.removeItem("user");
+          }
+        }
 
-    authService
-      .getProfile()
-      .then((response) => {
-        if (response?.user) {
-          localStorage.setItem("user", JSON.stringify(response.user));
-          setUser(response.user);
-        } else {
+        if (!token) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
+        const response = await authService.getProfile();
+        if (!cancelled) {
+          if (response?.user) {
+            localStorage.setItem("user", JSON.stringify(response.user));
+            setUser(response.user);
+          } else {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setUser(null);
+          }
+        }
+      } catch {
+        if (!cancelled) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
+          setUser(null);
         }
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-      });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initAuth();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function login(credentials) {

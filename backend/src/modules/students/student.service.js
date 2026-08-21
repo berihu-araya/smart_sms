@@ -1,4 +1,6 @@
 const { STUDENT_STATUSES } = require('./student.model');
+const ParentRepository = require('../parents/parent.repository');
+const { db } = require('../../config/database');
 
 class StudentNotFoundError extends Error {
   constructor(message = 'Student not found') {
@@ -17,17 +19,20 @@ class StudentConflictError extends Error {
 }
 
 class StudentService {
-  constructor(repository) {
+  constructor(repository, parentRepository = null) {
     this.repository = repository;
+    this.parentRepository = parentRepository || new ParentRepository(db);
   }
 
   async listStudents({ search = '', limit = 20, offset = 0 } = {}) {
-    const students = await this.repository.findAll({ search, limit, offset });
+    const data = await this.repository.findAll({ search, limit, offset });
 
     return {
       page: Math.floor(offset / limit) + 1,
       limit,
-      items: students,
+      total: data.total,
+      totalPages: Math.ceil(data.total / limit) || 1,
+      items: data.items,
     };
   }
 
@@ -42,13 +47,63 @@ class StudentService {
   }
 
   async createStudent(payload) {
-    const student = await this.repository.createStudent(payload);
+    // If parent data is provided, handle atomic parent registration
+    if (payload.parent && !payload.parentId) {
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
 
-    if (!student) {
-      throw new StudentConflictError('Unable to create student');
+        let parentId = null;
+
+        // Check if a parent with this exact phone number already exists
+        if (payload.parent.phone) {
+          const existingParent = await this.parentRepository.findByPhone(payload.parent.phone, client);
+          if (existingParent) {
+            parentId = existingParent.id;
+          }
+        }
+
+        // If no existing parent by phone, create a new parent record
+        if (!parentId) {
+          const createdParent = await this.parentRepository.create(payload.parent, client);
+          parentId = createdParent.id;
+        }
+
+        // Prepare student payload with linked parentId
+        const studentPayload = {
+          ...payload,
+          parentId,
+        };
+
+        const student = await this.repository.createStudent(studentPayload, client);
+        await client.query('COMMIT');
+
+        // Return full student data including parent info
+        return await this.repository.findById(student.id);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        if (error.code === '23505') {
+          throw new StudentConflictError('A student with this admission number already exists');
+        }
+        throw error;
+      } finally {
+        client.release();
+      }
     }
 
-    return student;
+    // Standard creation if parentId was already chosen directly
+    try {
+      const student = await this.repository.createStudent(payload);
+      if (!student) {
+        throw new StudentConflictError('Unable to create student');
+      }
+      return await this.repository.findById(student.id);
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new StudentConflictError('A student with this admission number already exists');
+      }
+      throw error;
+    }
   }
 
   async updateStudent(id, payload) {
@@ -58,9 +113,51 @@ class StudentService {
       throw new StudentNotFoundError();
     }
 
-    const updatedStudent = await this.repository.updateStudent(id, payload);
+    // If updating parent info alongside student
+    if (payload.parent) {
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
 
-    return updatedStudent;
+        let parentId = existing.parent_id || payload.parent_id;
+
+        if (parentId) {
+          // Update existing parent
+          await this.parentRepository.update(parentId, {
+            full_name: payload.parent.fullName,
+            phone: payload.parent.phone,
+            email: payload.parent.email,
+            occupation: payload.parent.occupation,
+            address: payload.parent.address,
+            relationship: payload.parent.relationship,
+          }, client);
+        } else {
+          // Create new parent and associate
+          const createdParent = await this.parentRepository.create(payload.parent, client);
+          parentId = createdParent.id;
+          payload.parent_id = parentId;
+        }
+
+        const { parent, ...studentFields } = payload;
+        if (parentId) {
+          studentFields.parent_id = parentId;
+        }
+
+        await this.repository.updateStudent(id, studentFields, client);
+        await client.query('COMMIT');
+
+        return await this.repository.findById(id);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    const { parent, ...studentFields } = payload;
+    const updatedStudent = await this.repository.updateStudent(id, studentFields);
+    return await this.repository.findById(id);
   }
 
   async deleteStudent(id) {
@@ -71,7 +168,6 @@ class StudentService {
     }
 
     const deletedStudent = await this.repository.softDelete(id);
-
     return deletedStudent;
   }
 
@@ -100,22 +196,36 @@ class StudentService {
 
     return {
       student: {
-        ...student,
+        id: student.id,
+        admissionNumber: student.admission_number,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        gender: student.gender,
+        dateOfBirth: student.date_of_birth,
+        admissionDate: student.admission_date,
+        address: student.address,
         email: student.email || null,
         phone: student.phone || null,
+        status: student.status,
+        createdAt: student.created_at,
+        updatedAt: student.updated_at,
       },
       guardian: {
+        id: student.parent_id || null,
         name: student.parent_name || null,
         phone: student.parent_phone || null,
         email: student.parent_email || null,
+        occupation: student.parent_occupation || null,
         address: student.parent_address || null,
+        relationship: student.parent_relationship || 'GUARDIAN',
       },
       academicInfo: {
         gradeId: student.grade_id || null,
         gradeName: student.grade_name || null,
-        section: student.section_name || null,
+        gradeDescription: student.grade_description || null,
         sectionId: student.section_id || null,
-        room: student.section_room_number || null,
+        sectionName: student.section_name || null,
+        roomNumber: student.section_room_number || null,
         currentStatus: student.status,
       },
     };
@@ -127,10 +237,13 @@ class StudentService {
     return {
       studentId: student.id,
       guardian: {
+        id: student.parent_id || null,
         name: student.parent_name || null,
         phone: student.parent_phone || null,
         email: student.parent_email || null,
+        occupation: student.parent_occupation || null,
         address: student.parent_address || null,
+        relationship: student.parent_relationship || 'GUARDIAN',
       },
     };
   }
@@ -141,4 +254,3 @@ module.exports = {
   StudentNotFoundError,
   StudentConflictError,
 };
-

@@ -3,20 +3,28 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { FaUserPlus, FaUserTie, FaSchool, FaPhoneAlt, FaCheckCircle, FaSearch } from "react-icons/fa";
 import studentService from "@/services/studentService";
 import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
+import parentService from "@/services/parentService";
 import styles from "./new.module.css";
 
 const GENDERS = ["MALE", "FEMALE", "OTHER"];
 const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "GRADUATED", "WITHDRAWN"];
+const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "BROTHER", "SISTER", "UNCLE", "AUNT", "OTHER"];
 const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
 export default function NewStudentPage() {
   const router = useRouter();
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
+  const [parentsList, setParentsList] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+
+  // Parent mode: "new" (auto-register) or "existing" (select already created parent)
+  const [parentMode, setParentMode] = useState("new");
+
   const [form, setForm] = useState({
     admissionNumber: "",
     firstName: "",
@@ -26,24 +34,39 @@ export default function NewStudentPage() {
     admissionDate: getTodayDateString(),
     email: "",
     phone: "",
-    parentId: "",
     sectionId: "",
     address: "",
     status: "ACTIVE",
+    // Existing parent selection
+    parentId: "",
+    // Auto-register new parent fields
+    parentFullName: "",
+    parentRelationship: "GUARDIAN",
+    parentPhone: "",
+    parentEmail: "",
+    parentOccupation: "",
+    parentAddress: "",
   });
+
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [selectedGradeId, setSelectedGradeId] = useState("");
+  const [parentSearch, setParentSearch] = useState("");
 
-  // Load grades and sections for dropdowns
+  // Load grades and existing parents for selection
   useEffect(() => {
     async function loadOptions() {
       try {
         setLoadingOptions(true);
-        const gradesData = await gradeService.listGrades({ limit: 100, offset: 0 });
+        const [gradesData, parentsData] = await Promise.all([
+          gradeService.listGrades({ limit: 100, offset: 0 }).catch(() => ({ items: [] })),
+          parentService.listParents({ limit: 200, offset: 0 }).catch(() => ({ items: [] })),
+        ]);
         setGrades(gradesData.items || []);
+        setParentsList(parentsData.items || []);
       } catch (err) {
-        console.error("Failed to load grades:", err);
+        console.error("Failed to load options:", err);
       } finally {
         setLoadingOptions(false);
       }
@@ -51,12 +74,8 @@ export default function NewStudentPage() {
     loadOptions();
   }, []);
 
-  // When grade changes, load sections for that grade
-  const [selectedGradeId, setSelectedGradeId] = useState("");
-
   function handleGradeChange(gradeId) {
     setSelectedGradeId(gradeId);
-    // Clear section when grade changes
     setForm((prev) => ({ ...prev, sectionId: "" }));
     setSections([]);
 
@@ -77,7 +96,6 @@ export default function NewStudentPage() {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
 
-    // Clear field-level error on change
     if (errors[name]) {
       setErrors((prev) => {
         const copy = { ...prev };
@@ -106,7 +124,24 @@ export default function NewStudentPage() {
       errs.email = "Enter a valid email address (e.g., name@domain.com)";
     }
     if (form.phone && !/^[\d\s\-+()]{7,20}$/.test(form.phone.trim())) {
-      errs.phone = "Phone must be 7-20 characters (digits, spaces, dashes, +, or parentheses)";
+      errs.phone = "Phone must be 7-20 characters";
+    }
+
+    // Parent validation based on mode
+    if (parentMode === "new") {
+      if (!form.parentFullName.trim()) {
+        errs.parentFullName = "Guardian full name is required for registration";
+      }
+      if (form.parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.parentEmail.trim())) {
+        errs.parentEmail = "Enter a valid guardian email address";
+      }
+      if (form.parentPhone && !/^[\d\s\-+()]{7,20}$/.test(form.parentPhone.trim())) {
+        errs.parentPhone = "Guardian phone must be 7-20 characters";
+      }
+    } else {
+      if (!form.parentId) {
+        errs.parentId = "Please select an existing parent/guardian";
+      }
     }
 
     return errs;
@@ -126,7 +161,34 @@ export default function NewStudentPage() {
     setSaving(true);
 
     try {
-      await studentService.createStudent(form);
+      const payload = {
+        admissionNumber: form.admissionNumber.trim(),
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        gender: form.gender,
+        dateOfBirth: form.dateOfBirth || null,
+        admissionDate: form.admissionDate,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        sectionId: form.sectionId || null,
+        address: form.address.trim() || null,
+        status: form.status,
+      };
+
+      if (parentMode === "new") {
+        payload.parent = {
+          fullName: form.parentFullName.trim(),
+          relationship: form.parentRelationship,
+          phone: form.parentPhone.trim() || null,
+          email: form.parentEmail.trim() || null,
+          occupation: form.parentOccupation.trim() || null,
+          address: form.parentAddress.trim() || form.address.trim() || null,
+        };
+      } else {
+        payload.parentId = form.parentId;
+      }
+
+      await studentService.createStudent(payload);
       router.push("/dashboard/students");
     } catch (err) {
       setApiError(err.message || "Unable to create student. Please check the form and try again.");
@@ -134,6 +196,15 @@ export default function NewStudentPage() {
       setSaving(false);
     }
   }
+
+  const filteredParents = parentsList.filter((p) => {
+    const q = parentSearch.toLowerCase();
+    return (
+      p.full_name?.toLowerCase().includes(q) ||
+      p.phone?.toLowerCase().includes(q) ||
+      p.email?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className={styles.page}>
@@ -148,8 +219,8 @@ export default function NewStudentPage() {
 
       {/* Page Header */}
       <div className={styles.pageHeader}>
-        <h1>Create Student</h1>
-        <p>Register a new student record with personal, contact, and academic details.</p>
+        <h1>Register Student</h1>
+        <p>Register a student record. The parent/guardian will be registered automatically in the same step.</p>
       </div>
 
       {/* API Error Banner */}
@@ -163,13 +234,13 @@ export default function NewStudentPage() {
       {/* Form */}
       <form onSubmit={handleSubmit}>
         <div className={styles.formCard}>
-          {/* Section 1: Personal Information */}
+          {/* Section 1: Student Information */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionIcon}>👤</div>
               <div>
-                <h3 className={styles.sectionTitle}>Personal Information</h3>
-                <p className={styles.sectionSubtitle}>Basic details about the student</p>
+                <h3 className={styles.sectionTitle}>Student Personal Information</h3>
+                <p className={styles.sectionSubtitle}>Admission details and identity</p>
               </div>
             </div>
 
@@ -182,13 +253,11 @@ export default function NewStudentPage() {
                   name="admissionNumber"
                   value={form.admissionNumber}
                   onChange={handleChange}
-                  placeholder="e.g. STU-2024-001"
+                  placeholder="e.g. STU-2026-001"
                   className={`${styles.input} ${errors.admissionNumber ? styles.inputError : ""}`}
                 />
                 {errors.admissionNumber && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.admissionNumber}
-                  </span>
+                  <span className={styles.fieldError}>✕ {errors.admissionNumber}</span>
                 )}
               </div>
 
@@ -200,13 +269,11 @@ export default function NewStudentPage() {
                   name="firstName"
                   value={form.firstName}
                   onChange={handleChange}
-                  placeholder="John"
+                  placeholder="e.g. Dawit"
                   className={`${styles.input} ${errors.firstName ? styles.inputError : ""}`}
                 />
                 {errors.firstName && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.firstName}
-                  </span>
+                  <span className={styles.fieldError}>✕ {errors.firstName}</span>
                 )}
               </div>
 
@@ -218,13 +285,11 @@ export default function NewStudentPage() {
                   name="lastName"
                   value={form.lastName}
                   onChange={handleChange}
-                  placeholder="Doe"
+                  placeholder="e.g. Haile"
                   className={`${styles.input} ${errors.lastName ? styles.inputError : ""}`}
                 />
                 {errors.lastName && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.lastName}
-                  </span>
+                  <span className={styles.fieldError}>✕ {errors.lastName}</span>
                 )}
               </div>
 
@@ -267,86 +332,222 @@ export default function NewStudentPage() {
                   className={`${styles.input} ${errors.admissionDate ? styles.inputError : ""}`}
                 />
                 {errors.admissionDate && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.admissionDate}
-                  </span>
+                  <span className={styles.fieldError}>✕ {errors.admissionDate}</span>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Section 2: Contact Details */}
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionIcon}>📞</div>
-              <div>
-                <h3 className={styles.sectionTitle}>Contact Details</h3>
-                <p className={styles.sectionSubtitle}>Email and phone information for the student</p>
-              </div>
-            </div>
-
-            <div className={styles.formGrid}>
               <div className={styles.field}>
-                <label className={styles.label}>Email Address</label>
+                <label className={styles.label}>Student Email (Optional)</label>
                 <input
                   name="email"
                   type="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="john.doe@school.edu"
+                  placeholder="student@school.edu"
                   className={`${styles.input} ${errors.email ? styles.inputError : ""}`}
                 />
-                {errors.email && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.email}
-                  </span>
-                )}
+                {errors.email && <span className={styles.fieldError}>✕ {errors.email}</span>}
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Phone Number</label>
+                <label className={styles.label}>Student Phone (Optional)</label>
                 <input
                   name="phone"
                   type="tel"
                   value={form.phone}
                   onChange={handleChange}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="+251 9..."
                   className={`${styles.input} ${errors.phone ? styles.inputError : ""}`}
                 />
-                {errors.phone && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.phone}
-                  </span>
-                )}
-              </div>
-
-              <div className={`${styles.field} ${styles.formGridFull}`}>
-                <label className={styles.label}>Address</label>
-                <textarea
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  placeholder="123 Main Street, City, State, ZIP"
-                  rows={3}
-                  className={styles.textarea}
-                />
+                {errors.phone && <span className={styles.fieldError}>✕ {errors.phone}</span>}
               </div>
             </div>
           </div>
 
-          {/* Section 3: Academic Information */}
+          {/* Section 2: Parent / Guardian Details (Automatic Registration) */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <div className={styles.sectionIcon}>🏫</div>
+              <div className={styles.sectionIcon} style={{ background: "#f0fdf4", color: "#16a34a" }}>
+                👨‍👩‍👧‍👦
+              </div>
               <div>
-                <h3 className={styles.sectionTitle}>Academic Information</h3>
-                <p className={styles.sectionSubtitle}>Grade, section, and status details</p>
+                <h3 className={styles.sectionTitle}>Parent / Guardian Information</h3>
+                <p className={styles.sectionSubtitle}>
+                  Parent record is automatically created and linked to this student
+                </p>
+              </div>
+            </div>
+
+            {/* Mode Switcher */}
+            <div className={styles.modeToggle}>
+              <button
+                type="button"
+                className={`${styles.modeToggleBtn} ${
+                  parentMode === "new" ? styles.modeToggleBtnActive : ""
+                }`}
+                onClick={() => setParentMode("new")}
+              >
+                + Register New Guardian
+              </button>
+              <button
+                type="button"
+                className={`${styles.modeToggleBtn} ${
+                  parentMode === "existing" ? styles.modeToggleBtnActive : ""
+                }`}
+                onClick={() => setParentMode("existing")}
+              >
+                🔗 Link Existing Guardian ({parentsList.length})
+              </button>
+            </div>
+
+            {parentMode === "new" ? (
+              <>
+                <div className={styles.infoBadge}>
+                  <FaCheckCircle color="#2563eb" />
+                  <span>
+                    <strong>Automatic Registration:</strong> Filling this form creates both the student and the parent record in one transaction.
+                  </span>
+                </div>
+
+                <div className={styles.formGrid}>
+                  <div className={styles.field}>
+                    <label className={styles.label}>
+                      Guardian Full Name<span className={styles.required}>*</span>
+                    </label>
+                    <input
+                      name="parentFullName"
+                      value={form.parentFullName}
+                      onChange={handleChange}
+                      placeholder="e.g. Haile Gebreselassie"
+                      className={`${styles.input} ${
+                        errors.parentFullName ? styles.inputError : ""
+                      }`}
+                    />
+                    {errors.parentFullName && (
+                      <span className={styles.fieldError}>✕ {errors.parentFullName}</span>
+                    )}
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.label}>Relationship</label>
+                    <select
+                      name="parentRelationship"
+                      value={form.parentRelationship}
+                      onChange={handleChange}
+                      className={styles.select}
+                    >
+                      {RELATIONSHIPS.map((rel) => (
+                        <option key={rel} value={rel}>
+                          {rel.charAt(0) + rel.slice(1).toLowerCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.label}>Guardian Phone Number</label>
+                    <input
+                      name="parentPhone"
+                      type="tel"
+                      value={form.parentPhone}
+                      onChange={handleChange}
+                      placeholder="+251 91 234 5678"
+                      className={`${styles.input} ${errors.parentPhone ? styles.inputError : ""}`}
+                    />
+                    {errors.parentPhone && (
+                      <span className={styles.fieldError}>✕ {errors.parentPhone}</span>
+                    )}
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.label}>Guardian Email Address</label>
+                    <input
+                      name="parentEmail"
+                      type="email"
+                      value={form.parentEmail}
+                      onChange={handleChange}
+                      placeholder="parent@example.com"
+                      className={`${styles.input} ${errors.parentEmail ? styles.inputError : ""}`}
+                    />
+                    {errors.parentEmail && (
+                      <span className={styles.fieldError}>✕ {errors.parentEmail}</span>
+                    )}
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.label}>Occupation / Profession</label>
+                    <input
+                      name="parentOccupation"
+                      value={form.parentOccupation}
+                      onChange={handleChange}
+                      placeholder="e.g. Architect / Teacher / Trader"
+                      className={styles.input}
+                    />
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.label}>Residential Address</label>
+                    <input
+                      name="parentAddress"
+                      value={form.parentAddress}
+                      onChange={handleChange}
+                      placeholder="e.g. Bole Sub-city, Woreda 03, House 450"
+                      className={styles.input}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={styles.formGrid}>
+                <div className={`${styles.field} ${styles.formGridFull}`}>
+                  <label className={styles.label}>
+                    Select Existing Parent / Guardian<span className={styles.required}>*</span>
+                  </label>
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+                    <input
+                      value={parentSearch}
+                      onChange={(e) => setParentSearch(e.target.value)}
+                      placeholder="Filter parents by name or phone..."
+                      className={styles.input}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <select
+                    name="parentId"
+                    value={form.parentId}
+                    onChange={handleChange}
+                    className={`${styles.select} ${errors.parentId ? styles.inputError : ""}`}
+                  >
+                    <option value="">-- Choose Existing Parent ({filteredParents.length} available) --</option>
+                    {filteredParents.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.full_name} {p.phone ? `(${p.phone})` : ""} — {p.occupation || "Parent"}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.parentId && (
+                    <span className={styles.fieldError}>✕ {errors.parentId}</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Academic Placement */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionIcon} style={{ background: "#fef3c7", color: "#d97706" }}>
+                🏫
+              </div>
+              <div>
+                <h3 className={styles.sectionTitle}>Academic Allocation</h3>
+                <p className={styles.sectionSubtitle}>Grade and classroom section placement</p>
               </div>
             </div>
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
-                <label className={styles.label}>Grade</label>
+                <label className={styles.label}>Grade Level</label>
                 <select
                   name="grade"
                   value={selectedGradeId}
@@ -354,7 +555,7 @@ export default function NewStudentPage() {
                   className={styles.select}
                   disabled={loadingOptions}
                 >
-                  <option value="">Select Grade </option>
+                  <option value="">-- Select Grade --</option>
                   {grades.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
@@ -372,7 +573,9 @@ export default function NewStudentPage() {
                   className={styles.select}
                   disabled={!selectedGradeId || loadingOptions}
                 >
-                  <option value="">{selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}</option>
+                  <option value="">
+                    {selectedGradeId ? "-- Select Section --" : "-- Select Grade First --"}
+                  </option>
                   {sections.map((sec) => (
                     <option key={sec.id} value={sec.id}>
                       {sec.name} {sec.room_number ? `(${sec.room_number})` : ""}
@@ -382,18 +585,7 @@ export default function NewStudentPage() {
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Parent ID</label>
-                <input
-                  name="parentId"
-                  value={form.parentId}
-                  onChange={handleChange}
-                  placeholder="UUID of the parent"
-                  className={styles.input}
-                />
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Status</label>
+                <label className={styles.label}>Enrollment Status</label>
                 <select
                   name="status"
                   value={form.status}
@@ -410,7 +602,7 @@ export default function NewStudentPage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Action Buttons */}
           <div className={styles.actions}>
             <Link href="/dashboard/students" className={styles.btnSecondary}>
               Cancel
@@ -419,16 +611,10 @@ export default function NewStudentPage() {
               {saving ? (
                 <>
                   <span className={styles.spinner}></span>
-                  Saving...
+                  Registering Student & Guardian...
                 </>
               ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M13.5 5.5V12.5C13.5 12.8978 13.342 13.2794 13.0607 13.5607C12.7794 13.842 12.3978 14 12 14H4C3.60218 14 3.22064 13.842 2.93934 13.5607C2.65804 13.2794 2.5 12.8978 2.5 12.5V3.5C2.5 3.10218 2.65804 2.72064 2.93934 2.43934C3.22064 2.15804 3.60218 2 4 2H10.5L13.5 5.5Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M5 14V10H11V14M10.5 2V5.5H13.5" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Save Student
-                </>
+                "Save Student & Guardian"
               )}
             </button>
           </div>
@@ -437,4 +623,3 @@ export default function NewStudentPage() {
     </div>
   );
 }
-

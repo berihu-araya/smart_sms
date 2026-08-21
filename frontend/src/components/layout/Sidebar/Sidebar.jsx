@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
@@ -154,32 +154,19 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
 
-  /*
-    openMenus example:
+  const [openMenus, setOpenMenus] = useState(() => {
+    return findActivePath(menuData, pathname) || {};
+  });
 
-    {
-      0: "User Management",
-      1: "Teachers",
-      2: "Science"
-    }
-
-    Each level behaves like its own accordion.
-  */
-
-  const [openMenus, setOpenMenus] = useState({});
-
-  /* ----------------------------------------
-     Open active route automatically
-  -----------------------------------------*/
-
-  useEffect(() => {
-    const activeMenus =
-      findActivePath(menuData, pathname);
-
+  // Track path change to automatically expand active menu
+  const [prevPath, setPrevPath] = useState(pathname);
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
+    const activeMenus = findActivePath(menuData, pathname);
     if (activeMenus) {
       setOpenMenus(activeMenus);
     }
-  }, [pathname]);
+  }
 
   /* ----------------------------------------
      Accordion Toggle
@@ -190,11 +177,6 @@ export default function Sidebar({
       const next = { ...prev };
 
       if (next[level] === title) {
-        /*
-           Collapse current menu
-           Remove this level and all deeper levels.
-        */
-
         Object.keys(next).forEach((key) => {
           if (Number(key) >= level) {
             delete next[key];
@@ -203,11 +185,6 @@ export default function Sidebar({
 
         return next;
       }
-
-      /*
-         Open new menu
-         Remove any deeper opened menus.
-      */
 
       Object.keys(next).forEach((key) => {
         if (Number(key) >= level) {

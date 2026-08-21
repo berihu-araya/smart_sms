@@ -3,10 +3,27 @@ class StudentRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', limit = 20, offset = 0 }) {
+  async findAll({ search = '', limit = 20, offset = 0 } = {}, client = null) {
+    const db = client || this.database;
     const searchPattern = `%${search.trim()}%`;
 
-    const result = await this.database.query(
+    const countResult = await db.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM students s
+        LEFT JOIN parents p ON p.id = s.parent_id
+        WHERE s.deleted_at IS NULL
+          AND (
+            LOWER(s.admission_number) LIKE LOWER($1)
+            OR LOWER(s.first_name) LIKE LOWER($1)
+            OR LOWER(s.last_name) LIKE LOWER($1)
+            OR LOWER(COALESCE(p.full_name, '')) LIKE LOWER($1)
+          )
+      `,
+      [searchPattern]
+    );
+
+    const result = await db.query(
       `
         SELECT
           s.id,
@@ -18,10 +35,18 @@ class StudentRepository {
           s.admission_date,
           s.status,
           s.address,
+          s.email,
+          s.phone,
+          s.parent_id,
           s.section_id,
           s.created_at,
           s.updated_at,
           p.full_name AS parent_name,
+          p.phone AS parent_phone,
+          p.email AS parent_email,
+          p.occupation AS parent_occupation,
+          p.address AS parent_address,
+          COALESCE(p.relationship, 'GUARDIAN') AS parent_relationship,
           sec.name AS section_name,
           g.id AS grade_id,
           g.name AS grade_name
@@ -34,7 +59,7 @@ class StudentRepository {
             LOWER(s.admission_number) LIKE LOWER($1)
             OR LOWER(s.first_name) LIKE LOWER($1)
             OR LOWER(s.last_name) LIKE LOWER($1)
-            OR LOWER(p.full_name) LIKE LOWER($1)
+            OR LOWER(COALESCE(p.full_name, '')) LIKE LOWER($1)
           )
         ORDER BY s.created_at DESC
         LIMIT $2 OFFSET $3
@@ -42,11 +67,15 @@ class StudentRepository {
       [searchPattern, limit, offset]
     );
 
-    return result.rows;
+    return {
+      items: result.rows,
+      total: Number(countResult.rows[0]?.total || 0),
+    };
   }
 
-  async findById(id) {
-    const result = await this.database.query(
+  async findById(id, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
       `
         SELECT
           s.id,
@@ -68,7 +97,9 @@ class StudentRepository {
           p.full_name AS parent_name,
           p.phone AS parent_phone,
           p.email AS parent_email,
+          p.occupation AS parent_occupation,
           p.address AS parent_address,
+          COALESCE(p.relationship, 'GUARDIAN') AS parent_relationship,
           sec.name AS section_name,
           sec.room_number AS section_room_number,
           sec.grade_id,
@@ -88,8 +119,9 @@ class StudentRepository {
     return result.rows[0] || null;
   }
 
-  async createStudent(payload) {
-    const result = await this.database.query(
+  async createStudent(payload, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
       `
         INSERT INTO students (
           user_id,
@@ -110,15 +142,15 @@ class StudentRepository {
         RETURNING *
       `,
       [
-        payload.userId || null,
-        payload.parentId || null,
-        payload.sectionId || null,
-        payload.admissionNumber,
-        payload.firstName,
-        payload.lastName,
+        payload.userId || payload.user_id || null,
+        payload.parentId || payload.parent_id || null,
+        payload.sectionId || payload.section_id || null,
+        payload.admissionNumber || payload.admission_number,
+        payload.firstName || payload.first_name,
+        payload.lastName || payload.last_name,
         payload.gender,
-        payload.dateOfBirth || null,
-        payload.admissionDate,
+        payload.dateOfBirth || payload.date_of_birth || null,
+        payload.admissionDate || payload.admission_date,
         payload.address || null,
         payload.email || null,
         payload.phone || null,
@@ -129,7 +161,8 @@ class StudentRepository {
     return result.rows[0];
   }
 
-  async updateStudent(id, payload) {
+  async updateStudent(id, payload, client = null) {
+    const db = client || this.database;
     const fields = [];
     const values = [];
     let index = 1;
@@ -143,13 +176,13 @@ class StudentRepository {
     });
 
     if (fields.length === 0) {
-      return this.findById(id);
+      return this.findById(id, db);
     }
 
     fields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
 
-    const result = await this.database.query(
+    const result = await db.query(
       `
         UPDATE students
         SET ${fields.join(', ')}
@@ -163,8 +196,9 @@ class StudentRepository {
     return result.rows[0] || null;
   }
 
-  async softDelete(id) {
-    const result = await this.database.query(
+  async softDelete(id, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
       `
         UPDATE students
         SET deleted_at = CURRENT_TIMESTAMP,
@@ -180,8 +214,9 @@ class StudentRepository {
     return result.rows[0] || null;
   }
 
-  async updateStatus(id, status) {
-    const result = await this.database.query(
+  async updateStatus(id, status, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
       `
         UPDATE students
         SET status = $1,
@@ -198,4 +233,3 @@ class StudentRepository {
 }
 
 module.exports = StudentRepository;
-
