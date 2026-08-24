@@ -9,6 +9,7 @@ export default function StudentListPage() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
@@ -22,10 +23,12 @@ export default function StudentListPage() {
         if (!cancelled) {
           setStudents(data.items || []);
           setError("");
+          setHasLoaded(true);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || "Unable to load students");
+          setHasLoaded(true);
         }
       } finally {
         if (!cancelled) {
@@ -54,7 +57,7 @@ export default function StudentListPage() {
     }
   }
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return <div className={styles.loading}>Loading students...</div>;
   }
 

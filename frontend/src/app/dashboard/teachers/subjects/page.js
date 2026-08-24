@@ -19,6 +19,7 @@ export default function TeacherSubjectListPage() {
   const [grades, setGrades] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
 
   // Filters
@@ -59,8 +60,10 @@ export default function TeacherSubjectListPage() {
         });
         setAssignments(data.items || []);
         setError("");
+        setHasLoaded(true);
       } catch (err) {
         setError(err.message || "Unable to load teacher-subject assignments");
+        setHasLoaded(true);
       } finally {
         setLoading(false);
       }
@@ -71,7 +74,7 @@ export default function TeacherSubjectListPage() {
 
   const assignmentCount = useMemo(() => assignments.length, [assignments]);
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return <div className={styles.loading}>Loading assignments...</div>;
   }
 

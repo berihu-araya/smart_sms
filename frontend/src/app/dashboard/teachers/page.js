@@ -16,6 +16,7 @@ export default function TeacherListPage() {
   const [teachers, setTeachers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -25,8 +26,10 @@ export default function TeacherListPage() {
         const data = await teacherService.listTeachers({ search, limit: 50, offset: 0 });
         setTeachers(data.items || []);
         setError("");
+        setHasLoaded(true);
       } catch (err) {
         setError(err.message || "Unable to load teachers");
+        setHasLoaded(true);
       } finally {
         setLoading(false);
       }
@@ -37,7 +40,7 @@ export default function TeacherListPage() {
 
   const teacherCount = useMemo(() => teachers.length, [teachers]);
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return <div className={styles.loading}>Loading teachers...</div>;
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -10,7 +10,11 @@ import styles from "./Header.module.css";
 
 export default function Header() {
   const { user, logout } = useAuth();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -18,10 +22,6 @@ export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toggleHover, setToggleHover] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Close menus on route change
   const [prevPath, setPrevPath] = useState(pathname);

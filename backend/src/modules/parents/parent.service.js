@@ -47,12 +47,10 @@ class ParentService {
   }
 
   async createParent(payload) {
-    // Optional check: if phone is provided, check if another active parent has the same phone
     if (payload.phone) {
       const existingPhone = await this.repository.findByPhone(payload.phone);
       if (existingPhone) {
-        // Return existing parent if exact phone match, or throw conflict depending on intent
-        return existingPhone;
+        throw new ParentConflictError('Another parent is already registered with this phone number');
       }
     }
 

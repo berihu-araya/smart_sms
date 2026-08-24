@@ -35,7 +35,7 @@ export default function QuickActions() {
       id: 5,
       title: "School Settings",
       icon: "⚙️",
-      href: "/dashboard/settings",
+      href: "/dashboard/settings/academic-years",
       color: "gray",
     },
   ];
