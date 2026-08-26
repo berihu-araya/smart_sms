@@ -26,7 +26,6 @@ export default function NewStudentPage() {
   const [parentMode, setParentMode] = useState("new");
 
   const [form, setForm] = useState({
-    admissionNumber: "",
     firstName: "",
     lastName: "",
     gender: "MALE",
@@ -53,6 +52,7 @@ export default function NewStudentPage() {
   const [apiError, setApiError] = useState("");
   const [selectedGradeId, setSelectedGradeId] = useState("");
   const [parentSearch, setParentSearch] = useState("");
+  const [admissionNumber, setAdmissionNumber] = useState("Generated on save");
 
   // Load grades and existing parents for selection
   useEffect(() => {
@@ -108,9 +108,6 @@ export default function NewStudentPage() {
   function validate() {
     const errs = {};
 
-    if (!form.admissionNumber.trim()) {
-      errs.admissionNumber = "Admission number is required";
-    }
     if (!form.firstName.trim()) {
       errs.firstName = "First name is required";
     }
@@ -162,7 +159,6 @@ export default function NewStudentPage() {
 
     try {
       const payload = {
-        admissionNumber: form.admissionNumber.trim(),
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         gender: form.gender,
@@ -246,19 +242,16 @@ export default function NewStudentPage() {
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
-                <label className={styles.label}>
-                  Admission Number<span className={styles.required}>*</span>
-                </label>
+                <label className={styles.label}>Admission Number</label>
                 <input
-                  name="admissionNumber"
-                  value={form.admissionNumber}
-                  onChange={handleChange}
-                  placeholder="e.g. STU-2026-001"
-                  className={`${styles.input} ${errors.admissionNumber ? styles.inputError : ""}`}
+                  value={admissionNumber}
+                  readOnly
+                  aria-describedby="admission-number-help"
+                  className={styles.input}
                 />
-                {errors.admissionNumber && (
-                  <span className={styles.fieldError}>✕ {errors.admissionNumber}</span>
-                )}
+                <span id="admission-number-help" className={styles.fieldHint}>
+                  Generated automatically from the active academic year
+                </span>
               </div>
 
               <div className={styles.field}>

@@ -11,7 +11,6 @@ const getTodayDateString = () => new Date().toISOString().split("T")[0];
 export default function NewTeacherPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    employeeNumber: "",
     firstName: "",
     lastName: "",
     gender: "",
@@ -27,6 +26,7 @@ export default function NewTeacherPage() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [employeeNumber] = useState("Generated on save");
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -44,9 +44,6 @@ export default function NewTeacherPage() {
   function validate() {
     const errs = {};
 
-    if (!form.employeeNumber.trim()) {
-      errs.employeeNumber = "Employee number is required";
-    }
     if (!form.firstName.trim()) {
       errs.firstName = "First name is required";
     }
@@ -136,21 +133,16 @@ export default function NewTeacherPage() {
 
             <div className={styles.formGrid}>
               <div className={styles.field}>
-                <label className={styles.label}>
-                  Employee Number<span className={styles.required}>*</span>
-                </label>
+                <label className={styles.label}>Employee Number</label>
                 <input
-                  name="employeeNumber"
-                  value={form.employeeNumber}
-                  onChange={handleChange}
-                  placeholder="e.g. TCH001"
-                  className={`${styles.input} ${errors.employeeNumber ? styles.inputError : ""}`}
+                  value={employeeNumber}
+                  readOnly
+                  aria-describedby="employee-number-help"
+                  className={styles.input}
                 />
-                {errors.employeeNumber && (
-                  <span className={styles.fieldError}>
-                    <span>✕</span> {errors.employeeNumber}
-                  </span>
-                )}
+                <span id="employee-number-help" className={styles.fieldHint}>
+                  Generated automatically from the active academic year
+                </span>
               </div>
 
               <div className={styles.field}>

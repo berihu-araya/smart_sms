@@ -194,6 +194,11 @@
   gap: 4px;
 }
 
+.fieldHint {
+  font-size: 12px;
+  color: #667085;
+}
+
 /* ===== Action Buttons ===== */
 .actions {
   padding: 20px 28px;

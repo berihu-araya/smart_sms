@@ -5,10 +5,10 @@ const {
   validateUpdateStudentInput,
 } = require('../src/modules/students/student.validation');
 
-test('validateCreateStudentInput rejects missing required fields', () => {
+test('validateCreateStudentInput rejects missing student identity fields', () => {
   const result = validateCreateStudentInput({});
 
-  assert.equal(result.errors.admissionNumber, 'Admission number is required');
+  assert.equal(result.errors.admissionNumber, undefined);
   assert.equal(result.errors.firstName, 'First name is required');
   assert.equal(result.errors.lastName, 'Last name is required');
 });

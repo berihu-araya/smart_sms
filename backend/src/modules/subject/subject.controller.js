@@ -17,10 +17,6 @@ const subjectService =
     new SubjectRepository(db)
   );
 
-
-
-
-
 async function listSubjects(req, res, next) {
 
   try {
@@ -126,7 +122,7 @@ async function getSubjectById(req, res, next) {
 
 
 
-  } catch(error) {
+  } catch (error) {
 
     return next(error);
 
@@ -201,7 +197,7 @@ async function createSubject(req, res, next) {
 
 
 
-  } catch(error) {
+  } catch (error) {
 
     return next(error);
 
@@ -236,12 +232,12 @@ async function updateSubject(req, res, next) {
 
     return res.status(400).json({
 
-      success:false,
+      success: false,
 
       message:
         'Validation failed',
 
-      data:idErrors,
+      data: idErrors,
 
     });
 
@@ -267,7 +263,7 @@ async function updateSubject(req, res, next) {
 
     return res.status(400).json({
 
-      success:false,
+      success: false,
 
       message:
         'Validation failed',
@@ -300,7 +296,7 @@ async function updateSubject(req, res, next) {
 
     return res.status(200).json({
 
-      success:true,
+      success: true,
 
       message:
         'Subject updated successfully.',
@@ -311,7 +307,7 @@ async function updateSubject(req, res, next) {
 
 
 
-  } catch(error) {
+  } catch (error) {
 
 
     return next(error);
@@ -349,12 +345,12 @@ async function deleteSubject(req, res, next) {
 
     return res.status(400).json({
 
-      success:false,
+      success: false,
 
       message:
         'Validation failed',
 
-      data:errors,
+      data: errors,
 
     });
 
@@ -379,7 +375,7 @@ async function deleteSubject(req, res, next) {
 
     return res.status(200).json({
 
-      success:true,
+      success: true,
 
       message:
         'Subject deleted successfully.',
@@ -390,7 +386,7 @@ async function deleteSubject(req, res, next) {
 
 
 
-  } catch(error) {
+  } catch (error) {
 
 
     return next(error);

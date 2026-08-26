@@ -47,17 +47,23 @@ class StudentService {
   }
 
   async createStudent(payload) {
-    // If parent data is provided, handle atomic parent registration
-    if (payload.parent && !payload.parentId) {
-      const client = await db.connect();
-      try {
-        await client.query('BEGIN');
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
 
+      const admissionNumber = await this.repository.generateAdmissionNumber(client);
+      const studentPayload = {
+        ...payload,
+        admissionNumber,
+      };
+
+      // If parent data is provided, handle atomic parent registration.
+      if (studentPayload.parent && !studentPayload.parentId) {
         let parentId = null;
 
         // Check if a parent with this exact phone number already exists
-        if (payload.parent.phone) {
-          const existingParent = await this.parentRepository.findByPhone(payload.parent.phone, client);
+        if (studentPayload.parent.phone) {
+          const existingParent = await this.parentRepository.findByPhone(studentPayload.parent.phone, client);
           if (existingParent) {
             parentId = existingParent.id;
           }
@@ -65,44 +71,26 @@ class StudentService {
 
         // If no existing parent by phone, create a new parent record
         if (!parentId) {
-          const createdParent = await this.parentRepository.create(payload.parent, client);
+          const createdParent = await this.parentRepository.create(studentPayload.parent, client);
           parentId = createdParent.id;
         }
 
         // Prepare student payload with linked parentId
-        const studentPayload = {
-          ...payload,
-          parentId,
-        };
-
-        const student = await this.repository.createStudent(studentPayload, client);
-        await client.query('COMMIT');
-
-        // Return full student data including parent info
-        return await this.repository.findById(student.id);
-      } catch (error) {
-        await client.query('ROLLBACK');
-        if (error.code === '23505') {
-          throw new StudentConflictError('A student with this admission number already exists');
-        }
-        throw error;
-      } finally {
-        client.release();
+        studentPayload.parentId = parentId;
       }
-    }
 
-    // Standard creation if parentId was already chosen directly
-    try {
-      const student = await this.repository.createStudent(payload);
-      if (!student) {
-        throw new StudentConflictError('Unable to create student');
-      }
+      const student = await this.repository.createStudent(studentPayload, client);
+      await client.query('COMMIT');
+
       return await this.repository.findById(student.id);
     } catch (error) {
+      await client.query('ROLLBACK');
       if (error.code === '23505') {
         throw new StudentConflictError('A student with this admission number already exists');
       }
       throw error;
+    } finally {
+      client.release();
     }
   }
 

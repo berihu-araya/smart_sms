@@ -6,7 +6,6 @@ const {
 
 test('validateCreateStudentInput parses nested parent information for auto-registration', () => {
   const result = validateCreateStudentInput({
-    admissionNumber: 'STU-2026-999',
     firstName: 'Nahom',
     lastName: 'Mesfin',
     gender: 'MALE',
@@ -21,7 +20,7 @@ test('validateCreateStudentInput parses nested parent information for auto-regis
     },
   });
 
-  assert.equal(result.admissionNumber, 'STU-2026-999');
+  assert.equal(result.admissionNumber, undefined);
   assert.equal(result.firstName, 'Nahom');
   assert.equal(result.lastName, 'Mesfin');
   assert.ok(result.parent);
@@ -33,7 +32,6 @@ test('validateCreateStudentInput parses nested parent information for auto-regis
 
 test('validateCreateStudentInput parses flat parent fields', () => {
   const result = validateCreateStudentInput({
-    admissionNumber: 'STU-2026-888',
     firstName: 'Selam',
     lastName: 'Tadesse',
     gender: 'FEMALE',

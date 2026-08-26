@@ -36,10 +36,6 @@ function validateCreateTeacherInput(input = {}) {
   const status = normalizeOptionalString(input.status).toUpperCase() || TEACHER_STATUSES.ACTIVE;
   const errors = {};
 
-  if (!employeeNumber) {
-    errors.employeeNumber = 'Employee number is required';
-  }
-
   if (!firstName) {
     errors.firstName = 'First name is required';
   }
@@ -73,7 +69,7 @@ function validateCreateTeacherInput(input = {}) {
   }
 
   return {
-    employeeNumber,
+    employeeNumber: employeeNumber || undefined,
     firstName,
     lastName,
     gender,

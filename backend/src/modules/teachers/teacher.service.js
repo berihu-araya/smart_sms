@@ -1,4 +1,5 @@
 const { TEACHER_STATUSES } = require('./teacher.model');
+const { db } = require('../../config/database');
 
 class TeacherNotFoundError extends Error {
   constructor(message = 'Teacher not found') {
@@ -42,13 +43,27 @@ class TeacherService {
   }
 
   async createTeacher(payload) {
-    const teacher = await this.repository.create(payload);
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      const employeeNumber = await this.repository.generateEmployeeNumber(client);
+      const teacher = await this.repository.create({ ...payload, employeeNumber }, client);
 
-    if (!teacher) {
-      throw new TeacherConflictError('Unable to create teacher');
+      if (!teacher) {
+        throw new TeacherConflictError('Unable to create teacher');
+      }
+
+      await client.query('COMMIT');
+      return teacher;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') {
+        throw new TeacherConflictError('A teacher with this employee number already exists');
+      }
+      throw error;
+    } finally {
+      client.release();
     }
-
-    return teacher;
   }
 
   async updateTeacher(id, payload) {

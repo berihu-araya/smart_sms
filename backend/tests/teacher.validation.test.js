@@ -5,10 +5,11 @@ const {
   validateUpdateTeacherInput,
 } = require('../src/modules/teachers/teacher.validation');
 
-test('validateCreateTeacherInput rejects missing employee number', () => {
+test('validateCreateTeacherInput allows the system to generate employee number', () => {
   const result = validateCreateTeacherInput({ firstName: 'John', lastName: 'Doe', gender: 'MALE' });
 
-  assert.equal(result.errors.employeeNumber, 'Employee number is required');
+  assert.equal(result.employeeNumber, undefined);
+  assert.equal(result.errors.employeeNumber, undefined);
 });
 
 test('validateCreateTeacherInput rejects missing first name', () => {

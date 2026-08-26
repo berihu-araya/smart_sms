@@ -60,8 +60,16 @@ export default function NewParentPage() {
 
     setSaving(true);
     try {
-      await parentService.createParent(form);
-      router.push("/dashboard/parents");
+      await parentService.createParent({
+        fullName: form.fullName.trim(),
+        relationship: form.relationship,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        occupation: form.occupation.trim() || null,
+        address: form.address.trim() || null,
+      });
+      router.replace("/dashboard/parents");
+      router.refresh();
     } catch (err) {
       setApiError(err.message || "Failed to register parent. Please try again.");
     } finally {

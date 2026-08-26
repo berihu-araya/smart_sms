@@ -75,8 +75,50 @@ class TeacherRepository {
     return result.rows[0] || null;
   }
 
-  async create(payload) {
-    const result = await this.database.query(
+  async generateEmployeeNumber(client) {
+    const activeYearResult = await client.query(
+      `
+        SELECT EXTRACT(YEAR FROM start_date)::integer AS start_year
+        FROM academic_years
+        WHERE is_active = true
+          AND status = 'ACTIVE'
+          AND deleted_at IS NULL
+        LIMIT 1
+      `
+    );
+    const startYear = activeYearResult.rows[0]?.start_year;
+
+    if (!startYear) {
+      const error = new Error('An active academic year is required to generate an employee number');
+      error.code = 'ACTIVE_ACADEMIC_YEAR_REQUIRED';
+      throw error;
+    }
+
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [`teacher-employee-number:${startYear}`]
+    );
+
+    const sequenceResult = await client.query(
+      `
+        SELECT COALESCE(
+          MAX((substring(employee_number FROM '^TCH-([0-9]+)-'))::integer),
+          0
+        ) + 1 AS next_number
+        FROM teachers
+        WHERE employee_number ~ $1
+      `,
+      [`^TCH-[0-9]+-${startYear}/[0-9]{2}$`]
+    );
+    const sequenceNumber = sequenceResult.rows[0].next_number;
+    const academicYear = `${startYear}/${String(startYear + 1).slice(-2)}`;
+
+    return `TCH-${String(sequenceNumber).padStart(4, '0')}-${academicYear}`;
+  }
+
+  async create(payload, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
       `
         INSERT INTO teachers (
           user_id,

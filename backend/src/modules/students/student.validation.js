@@ -81,10 +81,6 @@ function validateCreateStudentInput(input = {}) {
     };
   }
 
-  if (!admissionNumber) {
-    errors.admissionNumber = 'Admission number is required';
-  }
-
   if (!firstName) {
     errors.firstName = 'First name is required';
   }
@@ -130,7 +126,7 @@ function validateCreateStudentInput(input = {}) {
   }
 
   return {
-    admissionNumber,
+    admissionNumber: admissionNumber || undefined,
     firstName,
     lastName,
     gender,
