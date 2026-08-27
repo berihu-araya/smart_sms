@@ -3,6 +3,9 @@
   flex-direction: column;
   gap: 20px;
   padding: 24px;
+  color: #172033;
+  background: #f5f7fb;
+  min-height: 100%;
 }
 
 .headerRow {
@@ -14,6 +17,9 @@
 
 .headerRow h1 {
   margin: 0 0 6px;
+  color: #101828;
+  font-size: clamp(24px, 3vw, 32px);
+  letter-spacing: -0.02em;
 }
 
 .headerRow p {
@@ -33,9 +39,17 @@
 }
 
 .primaryButton {
-  background: #2563eb;
+  background: #155eef;
   color: white;
   padding: 12px 18px;
+  box-shadow: 0 5px 12px rgba(21, 94, 239, 0.2);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primaryButton:hover {
+  background: #004eeb;
+  box-shadow: 0 8px 18px rgba(21, 94, 239, 0.28);
+  transform: translateY(-1px);
 }
 
 .linkButton {
@@ -47,22 +61,31 @@
 .summaryCard,
 .tableCard {
   background: white;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.05);
 }
 
 .summaryCard {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(150px, 0.55fr) minmax(240px, 1.2fr) minmax(220px, 1fr);
   gap: 16px;
+  align-items: end;
 }
 
 .summaryLabel {
   display: block;
-  color: #667085;
+  color: #475467;
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.filterField {
+  display: block;
 }
 
 .summaryCard strong {
@@ -71,10 +94,40 @@
 
 .searchInput {
   width: 100%;
-  border: 1px solid #d0d5dd;
+  min-height: 42px;
+  border: 1px solid #cfd7e5;
   border-radius: 10px;
   padding: 10px 12px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
   box-sizing: border-box;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.searchInput:focus {
+  border-color: #155eef;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(21, 94, 239, 0.13);
+}
+
+.selectShell {
+  position: relative;
+  display: block;
+}
+
+.selectIcon {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 13px;
+  color: #155eef;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.iconSelect {
+  padding-left: 36px;
 }
 
 .table {
@@ -82,11 +135,194 @@
   border-collapse: collapse;
 }
 
+.groupsCard {
+  background: white;
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.05);
+}
+
+.groupsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  color: #172033;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.groupsHeader span,
+.nestedHeader span,
+.emptyGroup {
+  color: #667085;
+  font-size: 13px;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupItem {
+  border: 1px solid #e1e7f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.groupItem:has(.groupContent) {
+  border-color: #b9cdfa;
+  box-shadow: 0 7px 18px rgba(21, 94, 239, 0.08);
+}
+
+.groupButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  padding: 16px;
+  background: linear-gradient(90deg, #f8faff 0%, #ffffff 100%);
+  color: #101828;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.groupButton:hover {
+  background: #f1f5ff;
+}
+
+.groupButton:focus-visible {
+  outline: 3px solid rgba(21, 94, 239, 0.25);
+  outline-offset: -3px;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.groupIcon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  background: #e8efff;
+  color: #155eef;
+  font-size: 16px;
+}
+
+.groupButton small {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.groupMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #475467;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.groupMeta svg {
+  color: #2563eb;
+  font-size: 14px;
+}
+
+.groupContent {
+  padding: 12px 16px 16px;
+  background: #fbfcfe;
+}
+
+.groupTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.groupTable th,
+.groupTable td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eef2f6;
+  text-align: left;
+  font-size: 13px;
+}
+
+.groupTable th {
+  color: #667085;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.nestedGroup + .nestedGroup {
+  margin-top: 18px;
+}
+
+.nestedHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.nestedTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #344054;
+}
+
+.nestedTitle svg {
+  color: #667085;
+}
+
+.emptyGroup {
+  margin: 8px 0;
+}
+
 .table th,
 .table td {
   text-align: left;
   padding: 12px 10px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.table tbody tr:nth-child(odd),
+.groupTable tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+
+.table tbody tr:nth-child(even),
+.groupTable tbody tr:nth-child(even) {
+  background: #e7ebf3;
+}
+
+.table tbody tr,
+.groupTable tbody tr {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.table tbody tr:hover,
+.groupTable tbody tr:hover {
+  background: #e8f0ff;
+  box-shadow: inset 3px 0 0 #155eef;
+}
+
+.table tbody tr:last-child td,
+.groupTable tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .table th {
@@ -174,18 +410,50 @@
   color: #9a5b00;
 }
 
+.loading {
+  margin: 24px;
+  background: #fff;
+  border: 1px solid #e5eaf2;
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 16px;
+  }
+
+  .headerRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summaryCard {
+    grid-template-columns: 1fr;
   }
 
   .tableCard {
     overflow-x: auto;
   }
 
+  .groupsCard {
+    overflow-x: auto;
+  }
+
+  .groupsHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .actionButtons {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .groupButton {
+    align-items: flex-start;
+  }
+
+  .groupMeta {
+    flex-shrink: 0;
   }
 }
 

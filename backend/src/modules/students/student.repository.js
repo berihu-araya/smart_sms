@@ -3,25 +3,67 @@ class StudentRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', limit = 20, offset = 0 } = {}, client = null) {
+  async findAll({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', limit = 20, offset = 0 } = {}, client = null) {
     const db = client || this.database;
-    const searchPattern = `%${search.trim()}%`;
+    const conditions = ['s.deleted_at IS NULL'];
+    const values = [];
+    let index = 1;
+
+    const nameFilter = name.trim() || search.trim();
+    if (nameFilter) {
+      conditions.push(`(
+        LOWER(s.first_name) LIKE LOWER($${index})
+        OR LOWER(s.last_name) LIKE LOWER($${index})
+        OR LOWER(CONCAT_WS(' ', s.first_name, s.last_name)) LIKE LOWER($${index})
+        OR LOWER(s.admission_number) LIKE LOWER($${index})
+        OR LOWER(COALESCE(p.full_name, '')) LIKE LOWER($${index})
+      )`);
+      values.push(`%${nameFilter}%`);
+      index += 1;
+    }
+
+    if (gender.trim()) {
+      conditions.push(`s.gender = $${index}`);
+      values.push(gender.trim());
+      index += 1;
+    }
+
+    if (gradeId.trim()) {
+      conditions.push(`g.id = $${index}`);
+      values.push(gradeId.trim());
+      index += 1;
+    }
+
+    if (sectionId.trim()) {
+      conditions.push(`s.section_id = $${index}`);
+      values.push(sectionId.trim());
+      index += 1;
+    }
+
+    if (status.trim()) {
+      conditions.push(`s.status = $${index}`);
+      values.push(status.trim());
+      index += 1;
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const countValues = [...values];
 
     const countResult = await db.query(
       `
         SELECT COUNT(*) AS total
         FROM students s
         LEFT JOIN parents p ON p.id = s.parent_id
-        WHERE s.deleted_at IS NULL
-          AND (
-            LOWER(s.admission_number) LIKE LOWER($1)
-            OR LOWER(s.first_name) LIKE LOWER($1)
-            OR LOWER(s.last_name) LIKE LOWER($1)
-            OR LOWER(COALESCE(p.full_name, '')) LIKE LOWER($1)
-          )
+        LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+        LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
+        ${whereClause}
       `,
-      [searchPattern]
+      countValues
     );
+
+    values.push(limit, offset);
+    const limitIndex = index;
+    const offsetIndex = index + 1;
 
     const result = await db.query(
       `
@@ -54,17 +96,11 @@ class StudentRepository {
         LEFT JOIN parents p ON p.id = s.parent_id
         LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
         LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
-        WHERE s.deleted_at IS NULL
-          AND (
-            LOWER(s.admission_number) LIKE LOWER($1)
-            OR LOWER(s.first_name) LIKE LOWER($1)
-            OR LOWER(s.last_name) LIKE LOWER($1)
-            OR LOWER(COALESCE(p.full_name, '')) LIKE LOWER($1)
-          )
+        ${whereClause}
         ORDER BY s.created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
-      [searchPattern, limit, offset]
+      values
     );
 
     return {

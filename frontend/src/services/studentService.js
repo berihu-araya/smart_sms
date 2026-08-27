@@ -1,10 +1,17 @@
 import { request } from "./apiClient";
 
 const studentService = {
-  listStudents: async ({ search = "", limit = 20, offset = 0 } = {}) => {
-    const response = await request(
-      `/api/v1/students?search=${encodeURIComponent(search)}&limit=${limit}&offset=${offset}`
-    );
+  listStudents: async ({ name = "", gender = "", gradeId = "", sectionId = "", status = "", limit = 20, offset = 0 } = {}) => {
+    const params = new URLSearchParams();
+    if (name) params.append("name", name);
+    if (gender) params.append("gender", gender);
+    if (gradeId) params.append("gradeId", gradeId);
+    if (sectionId) params.append("sectionId", sectionId);
+    if (status) params.append("status", status);
+    params.append("limit", limit);
+    params.append("offset", offset);
+
+    const response = await request(`/api/v1/students?${params.toString()}`);
 
     return response.data;
   },

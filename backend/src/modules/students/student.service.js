@@ -24,8 +24,8 @@ class StudentService {
     this.parentRepository = parentRepository || new ParentRepository(db);
   }
 
-  async listStudents({ search = '', limit = 20, offset = 0 } = {}) {
-    const data = await this.repository.findAll({ search, limit, offset });
+  async listStudents({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', limit = 20, offset = 0 } = {}) {
+    const data = await this.repository.findAll({ search, name, gender, gradeId, sectionId, status, limit, offset });
 
     return {
       page: Math.floor(offset / limit) + 1,
