@@ -1,66 +1,187 @@
-.page {
-  min-height: 100vh;
-  padding: 2rem clamp(1rem, 4vw, 3rem);
-  background: #f8fafc;
-  color: #101828;
-}
-
-.breadcrumb {
+.container {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 2rem;
-  color: #667085;
-  font-size: 0.875rem;
-}
-
-.breadcrumb a {
-  color: #175cd3;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.header h1 {
-  margin-bottom: 0.5rem;
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
 }
 
-.header p,
-.section p {
-  margin: 0;
-  color: #667085;
+.subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
 }
 
-.section {
+.navGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.navCard {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  max-width: 52rem;
+  gap: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.navCard:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.navIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.navTitle {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #1e293b;
+  margin-bottom: 0.2rem;
+}
+
+.navDesc {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.settingsCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.formBody {
   padding: 1.5rem;
-  border: 1px solid #e4e7ec;
-  border-radius: 8px;
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-.section h2 {
-  margin-bottom: 0.5rem;
-  font-size: 1.125rem;
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
 
-.link {
-  flex-shrink: 0;
-  padding: 0.625rem 0.875rem;
-  border-radius: 6px;
-  background: #175cd3;
-  color: #fff;
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.85rem;
   font-weight: 600;
+  color: #334155;
 }
 
-@media (max-width: 600px) {
-  .section {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+.input, .select, .textarea {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  font-size: 0.95rem;
+  background: #f8fafc;
+  transition: all 0.15s ease;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.cardFooter {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btnPrimary {
+  padding: 0.65rem 1.5rem;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 0.85rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.alertSuccess {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.alertError {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }

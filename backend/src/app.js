@@ -13,9 +13,16 @@ const groupRoutes = require('./modules/subject/groups/group.routes');
 const gradeSubjectRoutes = require('./modules/grades/subjects/grade-subject.routes');
 const academicYearRoutes = require('./modules/academic-years/academic-year.routes');
 
-const teacherSubjectRoutes =
-require('./modules/teachers/subjects/teacher-subject.routes');
+const teacherSubjectRoutes = require('./modules/teachers/subjects/teacher-subject.routes');
 const parentRoutes = require('./modules/parents/parent.routes');
+
+const attendanceRoutes = require('./modules/attendance/attendance.routes');
+const examRoutes = require('./modules/exams/exam.routes');
+const markRoutes = require('./modules/marks/mark.routes');
+const resultRoutes = require('./modules/results/result.routes');
+const userRoutes = require('./modules/users/user.routes');
+const roleRoutes = require('./modules/roles/role.routes');
+const settingRoutes = require('./modules/settings/setting.routes');
 
 const app = express();
 
@@ -40,17 +47,25 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/students', studentRoutes);
 app.use('/api/v1/parents', parentRoutes);
 
-app.use('/api/v1/grades/subjects',gradeSubjectRoutes);
+app.use('/api/v1/grades/subjects', gradeSubjectRoutes);
 app.use('/api/v1/grades', gradeRoutes);
 
 app.use('/api/v1/sections', sectionRoutes);
-app.use('/api/v1/teachers/subjects',teacherSubjectRoutes);
+app.use('/api/v1/teachers/subjects', teacherSubjectRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
 
 app.use('/api/v1/academic-years', academicYearRoutes);
 
 app.use('/api/v1/subjects/groups', groupRoutes);
 app.use('/api/v1/subjects', subjectRoutes);
+
+app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/exams', examRoutes);
+app.use('/api/v1/marks', markRoutes);
+app.use('/api/v1/results', resultRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/roles', roleRoutes);
+app.use('/api/v1/settings', settingRoutes);
 
 
 

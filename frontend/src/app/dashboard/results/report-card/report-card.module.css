@@ -1,0 +1,318 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.backLink:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btnPrint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btnPrint:hover {
+  background: #1d4ed8;
+}
+
+/* Printable Report Card Sheet */
+.reportSheet {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 2px solid #0f172a;
+  padding: 2.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+}
+
+/* School Header */
+.schoolHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+}
+
+.schoolLogo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #1e3a8a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  border: 3px solid #f59e0b;
+}
+
+.schoolInfo {
+  text-align: center;
+  flex: 1;
+}
+
+.schoolName {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+
+.schoolMotto {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.schoolContact {
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.documentTitle {
+  text-align: center;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+}
+
+/* Student Bio Grid */
+.bioGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem 1.5rem;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.bioItem {
+  font-size: 0.9rem;
+}
+
+.bioLabel {
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  margin-right: 0.35rem;
+}
+
+.bioValue {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Academic Table */
+.academicTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border: 1px solid #cbd5e1;
+}
+
+.academicTable th {
+  background: #1e3a8a;
+  color: #ffffff;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #cbd5e1;
+  text-align: center;
+}
+
+.academicTable th.thLeft {
+  text-align: left;
+}
+
+.academicTable td {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.academicTable td.tdLeft {
+  text-align: left;
+  font-weight: 600;
+}
+
+.gradeLetter {
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* Summary Box */
+.summaryBox {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 2px solid #1e3a8a;
+  background: #f8fafc;
+  border-radius: 6px;
+  margin-bottom: 1.75rem;
+  text-align: center;
+  overflow: hidden;
+}
+
+.summaryCol {
+  padding: 0.85rem;
+  border-right: 1px solid #cbd5e1;
+}
+
+.summaryCol:last-child {
+  border-right: none;
+}
+
+.summaryLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.summaryVal {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+/* Conduct and Grading Key */
+.conductAndKey {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  font-size: 0.85rem;
+}
+
+.subCard {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  background: #ffffff;
+}
+
+.subCardTitle {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.35rem;
+}
+
+/* Signatures */
+.signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-top: 3rem;
+  text-align: center;
+}
+
+.signatureLine {
+  border-top: 1px dashed #475569;
+  padding-top: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.signatureDate {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+/* Print Overrides */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1cm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .topBar {
+    display: none !important;
+  }
+
+  .reportSheet {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .academicTable th {
+    background: #e2e8f0 !important;
+    color: #000000 !important;
+  }
+}
