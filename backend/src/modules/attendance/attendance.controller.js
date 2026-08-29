@@ -96,6 +96,40 @@ async function getDailySummary(req, res, next) {
   }
 }
 
+async function getMonthlyMatrix(req, res, next) {
+  const sectionId = req.query.sectionId;
+  const now = new Date();
+  const year = Number(req.query.year || now.getFullYear());
+  const month = Number(req.query.month || (now.getMonth() + 1));
+
+  if (!sectionId || !isValidUUID(sectionId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid sectionId is required',
+      data: null,
+    });
+  }
+
+  if (isNaN(year) || year < 2000 || year > 2100 || isNaN(month) || month < 1 || month > 12) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid year and month (1-12) are required',
+      data: null,
+    });
+  }
+
+  try {
+    const data = await attendanceService.getMonthlyMatrix({ sectionId, year, month });
+    return res.status(200).json({
+      success: true,
+      message: 'Monthly attendance matrix loaded successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function getStudentAttendance(req, res, next) {
   const studentId = req.params.studentId;
 
@@ -127,5 +161,6 @@ module.exports = {
   getRosterSheet,
   recordBulkAttendance,
   getDailySummary,
+  getMonthlyMatrix,
   getStudentAttendance,
 };

@@ -22,15 +22,27 @@ export async function getAttendanceSummary({ date, sectionId }) {
   return response.data;
 }
 
+export async function getMonthlyAttendanceMatrix({ sectionId, year, month }) {
+  const params = { sectionId };
+  if (year) params.year = year;
+  if (month) params.month = month;
+  const query = new URLSearchParams(params).toString();
+  const response = await request(`/api/v1/attendance/matrix?${query}`);
+  return response.data;
+}
+
 export async function getStudentAttendance(studentId, { limit = 30, offset = 0 } = {}) {
   const query = new URLSearchParams({ limit, offset }).toString();
   const response = await request(`/api/v1/attendance/student/${studentId}?${query}`);
   return response.data;
 }
 
-export default {
+const attendanceService = {
   getAttendanceSheet,
   saveBulkAttendance,
   getAttendanceSummary,
+  getMonthlyAttendanceMatrix,
   getStudentAttendance,
 };
+
+export default attendanceService;

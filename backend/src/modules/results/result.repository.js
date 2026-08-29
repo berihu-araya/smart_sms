@@ -17,12 +17,12 @@ class ResultRepository {
   async getSectionSubjects(sectionId) {
     const result = await this.database.query(
       `
-      SELECT DISTINCT sub.id, sub.name, sub.code
+      SELECT DISTINCT sub.id, sub.subject_name AS name, sub.subject_code AS code
       FROM subjects sub
       JOIN sections sec ON sec.id = $1
       JOIN grade_subjects gs ON gs.grade_id = sec.grade_id AND gs.subject_id = sub.id
       WHERE sub.deleted_at IS NULL
-      ORDER BY sub.name ASC
+      ORDER BY sub.subject_name ASC
       `,
       [sectionId]
     );
@@ -30,7 +30,7 @@ class ResultRepository {
     // If grade_subjects is empty, fallback to all active subjects
     if (result.rows.length === 0) {
       const fallback = await this.database.query(
-        `SELECT id, name, code FROM subjects WHERE deleted_at IS NULL ORDER BY name ASC`
+        `SELECT id, subject_name AS name, subject_code AS code FROM subjects WHERE deleted_at IS NULL ORDER BY subject_name ASC`
       );
       return fallback.rows;
     }
@@ -47,7 +47,6 @@ class ResultRepository {
         s.first_name,
         s.last_name,
         s.gender,
-        s.photo,
         sec.name AS section_name,
         g.name AS grade_name
       FROM students s
@@ -93,8 +92,8 @@ class ResultRepository {
         e.weight_percentage,
         e.max_marks,
         e.term_or_semester,
-        sub.name AS subject_name,
-        sub.code AS subject_code
+        sub.subject_name AS subject_name,
+        sub.subject_code AS subject_code
       FROM marks m
       JOIN exams e ON e.id = m.exam_id
       JOIN subjects sub ON sub.id = m.subject_id
@@ -116,7 +115,6 @@ class ResultRepository {
         s.last_name,
         s.gender,
         s.date_of_birth,
-        s.photo,
         sec.id AS section_id,
         sec.name AS section_name,
         g.name AS grade_name,
@@ -186,13 +184,13 @@ class ResultRepository {
         e.max_marks,
         e.term_or_semester,
         sub.id AS subject_id,
-        sub.name AS subject_name,
-        sub.code AS subject_code
+        sub.subject_name AS subject_name,
+        sub.subject_code AS subject_code
       FROM marks m
       JOIN exams e ON e.id = m.exam_id
       JOIN subjects sub ON sub.id = m.subject_id
       ${whereClause}
-      ORDER BY sub.name ASC, e.exam_date ASC
+      ORDER BY sub.subject_name ASC, e.exam_date ASC
       `,
       params
     );

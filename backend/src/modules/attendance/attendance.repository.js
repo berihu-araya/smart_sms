@@ -12,7 +12,6 @@ class AttendanceRepository {
         s.first_name,
         s.last_name,
         s.gender,
-        s.photo,
         COALESCE(a.status, 'PRESENT') AS current_status,
         a.id AS attendance_id,
         a.remark,
@@ -34,59 +33,59 @@ class AttendanceRepository {
     return result.rows;
   }
 
+  /**
+   * Senior Multi-Row Parameterized UPSERT
+   * Executes in a single database round-trip (O(1) latency) instead of looping N times.
+   */
   async bulkUpsertAttendance({ sectionId, date, academicYearId, recordedBy, records }) {
-    const client = await this.database.connect();
-    try {
-      await client.query('BEGIN');
+    if (!records || records.length === 0) return [];
 
-      const savedRecords = [];
+    const valueTuples = [];
+    const params = [];
+    let paramIndex = 1;
 
-      for (const rec of records) {
-        const result = await client.query(
-          `
-          INSERT INTO attendance (
-            student_id,
-            section_id,
-            academic_year_id,
-            date,
-            status,
-            remark,
-            recorded_by,
-            created_at,
-            updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-          ON CONFLICT (student_id, date)
-          DO UPDATE SET
-            status = EXCLUDED.status,
-            remark = EXCLUDED.remark,
-            section_id = EXCLUDED.section_id,
-            academic_year_id = COALESCE(EXCLUDED.academic_year_id, attendance.academic_year_id),
-            recorded_by = EXCLUDED.recorded_by,
-            updated_at = CURRENT_TIMESTAMP
-          RETURNING *
-          `,
-          [
-            rec.studentId,
-            sectionId,
-            academicYearId || null,
-            date,
-            rec.status,
-            rec.remark || null,
-            recordedBy || null,
-          ]
-        );
-        savedRecords.push(result.rows[0]);
-      }
-
-      await client.query('COMMIT');
-      return savedRecords;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    for (const rec of records) {
+      valueTuples.push(
+        `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+      );
+      params.push(
+        rec.studentId,
+        sectionId,
+        academicYearId || null,
+        date,
+        rec.status,
+        rec.remark || null,
+        recordedBy || null
+      );
+      paramIndex += 7;
     }
+
+    const query = `
+      INSERT INTO attendance (
+        student_id,
+        section_id,
+        academic_year_id,
+        date,
+        status,
+        remark,
+        recorded_by,
+        created_at,
+        updated_at
+      )
+      VALUES ${valueTuples.join(', ')}
+      ON CONFLICT (student_id, date)
+      DO UPDATE SET
+        status = EXCLUDED.status,
+        remark = EXCLUDED.remark,
+        section_id = EXCLUDED.section_id,
+        academic_year_id = COALESCE(EXCLUDED.academic_year_id, attendance.academic_year_id),
+        recorded_by = EXCLUDED.recorded_by,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `;
+
+    const result = await this.database.query(query, params);
+    return result.rows;
   }
 
   async getAttendanceSummary({ date, sectionId = null }) {
@@ -120,6 +119,66 @@ class AttendanceRepository {
       absent_count: 0,
       late_count: 0,
       excused_count: 0,
+    };
+  }
+
+  /**
+   * Monthly Attendance Grid / Heatmap Query
+   * Fetches the entire month's attendance matrix for a section.
+   */
+  async findSectionMonthlyMatrix(sectionId, year, month) {
+    const paddedMonth = String(month).padStart(2, '0');
+    const startDate = `${year}-${paddedMonth}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`;
+
+    const studentsResult = await this.database.query(
+      `
+      SELECT
+        s.id AS student_id,
+        s.admission_number,
+        s.first_name,
+        s.last_name,
+        s.gender,
+        sec.name AS section_name,
+        g.name AS grade_name
+      FROM students s
+      JOIN sections sec ON sec.id = s.section_id
+      LEFT JOIN grades g ON g.id = sec.grade_id
+      WHERE s.section_id = $1
+        AND s.deleted_at IS NULL
+        AND s.status = 'ACTIVE'
+      ORDER BY s.first_name ASC, s.last_name ASC
+      `,
+      [sectionId]
+    );
+
+    const attendanceResult = await this.database.query(
+      `
+      SELECT
+        a.student_id,
+        TO_CHAR(a.date, 'YYYY-MM-DD') as date_str,
+        EXTRACT(DAY FROM a.date)::int as day_number,
+        a.status,
+        a.remark
+      FROM attendance a
+      WHERE a.section_id = $1
+        AND a.date >= $2
+        AND a.date <= $3
+        AND a.deleted_at IS NULL
+      ORDER BY a.date ASC
+      `,
+      [sectionId, startDate, endDate]
+    );
+
+    return {
+      year,
+      month,
+      daysInMonth: lastDay,
+      startDate,
+      endDate,
+      students: studentsResult.rows,
+      attendanceRecords: attendanceResult.rows,
     };
   }
 

@@ -34,6 +34,8 @@ class MarkRepository {
   }
 
   async batchUpsertMarks({ examId, subjectId, sectionId, teacherId, marks }) {
+    if (!marks || marks.length === 0) return [];
+
     const client = await this.database.connect();
     try {
       await client.query('BEGIN');
@@ -114,15 +116,15 @@ class MarkRepository {
         e.max_marks,
         e.term_or_semester,
         sub.id AS subject_id,
-        sub.name AS subject_name,
-        sub.code AS subject_code
+        sub.subject_name AS subject_name,
+        sub.subject_code AS subject_code
       FROM marks m
       JOIN exams e ON e.id = m.exam_id
       JOIN subjects sub ON sub.id = m.subject_id
       WHERE m.student_id = $1
         AND e.deleted_at IS NULL
         ${whereYear}
-      ORDER BY e.exam_date DESC, sub.name ASC
+      ORDER BY e.exam_date DESC, sub.subject_name ASC
       `,
       params
     );

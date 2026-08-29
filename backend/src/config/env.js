@@ -16,10 +16,10 @@ function requireEnvironmentVariable(name) {
 module.exports = {
   port: Number(process.env.PORT || 5000),
   jwtSecret: requireEnvironmentVariable("JWT_SECRET"),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "15m",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "30d",
   passwordResetTokenHours:
     process.env.PASSWORD_RESET_TOKEN_HOURS || 1,
-  
+
   database: {
     host: requireEnvironmentVariable("DATABASE_HOST"),
     port: Number(process.env.DATABASE_PORT || 5432),

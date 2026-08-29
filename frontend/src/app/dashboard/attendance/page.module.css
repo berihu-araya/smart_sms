@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.5rem;
-  max-width: 1400px;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -27,11 +27,43 @@
   font-size: 0.95rem;
 }
 
+/* Mode Switcher Tabs */
+.tabBar {
+  display: flex;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  width: fit-content;
+  border: 1px solid #e2e8f0;
+}
+
+.tabButton {
+  padding: 0.55rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tabButton.activeTab {
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 .filterCard {
   background: #ffffff;
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   border: 1px solid #e2e8f0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -59,8 +91,8 @@
   background-color: #f8fafc;
   color: #1e293b;
   font-size: 0.95rem;
-  transition: all 0.2s ease;
   outline: none;
+  transition: all 0.15s ease;
 }
 
 .select:focus,
@@ -82,12 +114,12 @@
   gap: 0.5rem;
   transition: all 0.2s ease;
   cursor: pointer;
+  border: none;
   height: 42px;
 }
 
 .btnPrimary:hover:not(:disabled) {
   background-color: #1d4ed8;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
 }
 
 .btnPrimary:disabled {
@@ -95,21 +127,73 @@
   cursor: not-allowed;
 }
 
+.btnSuccess {
+  padding: 0.65rem 1.25rem;
+  background-color: #16a34a;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  height: 42px;
+}
+
+.btnSuccess:hover {
+  background-color: #15803d;
+}
+
+/* Rapid Keyboard Assistant Banner */
+.keyboardAssistantBanner {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.keyHint {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.keyBadge {
+  background: #334155;
+  color: #38bdf8;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 700;
+  border: 1px solid #475569;
+}
+
+/* 5 Clean KPI Cards Grid */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.15rem;
 }
 
 .statCard {
   background: #ffffff;
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  padding: 1.15rem 1.25rem;
   border: 1px solid #e2e8f0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .statIcon {
@@ -119,7 +203,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.3rem;
+  flex-shrink: 0;
 }
 
 .statTotal { background: #f1f5f9; color: #475569; }
@@ -128,18 +213,46 @@
 .statLate { background: #fef3c7; color: #d97706; }
 .statExcused { background: #e0f2fe; color: #0284c7; }
 
+.statContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+}
+
 .statContent h4 {
   font-size: 0.8rem;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.2rem;
+  margin: 0;
 }
 
 .statValue {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #1e293b;
+}
+
+/* Sub-reasons list inside Excused card */
+.excusedSubTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.excusedSubChip {
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .rosterSection {
@@ -147,7 +260,7 @@
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rosterHeader {
@@ -171,6 +284,7 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .btnSecondary {
@@ -183,6 +297,9 @@
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .btnSecondary:hover {
@@ -193,12 +310,12 @@
 
 .tableWrapper {
   overflow-x: auto;
+  min-height: 250px;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  text-align: left;
 }
 
 .table th {
@@ -210,16 +327,22 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid #e2e8f0;
+  text-align: left;
 }
 
 .table td {
-  padding: 1rem;
+  padding: 0.9rem 1rem;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
 
 .table tr:hover {
   background: #f8fafc;
+}
+
+.focusedRow {
+  background: #eff6ff !important;
+  border-left: 4px solid #3b82f6;
 }
 
 .studentInfo {
@@ -258,6 +381,8 @@
   border-radius: 8px;
   padding: 3px;
   gap: 3px;
+  align-items: center;
+  position: relative;
 }
 
 .statusPill {
@@ -269,6 +394,10 @@
   transition: all 0.15s ease;
   color: #64748b;
   background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .statusPill.activePresent {
@@ -295,6 +424,56 @@
   box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
 }
 
+/* Excused Reason Dropdown Menu */
+.excusedDropdownContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.excusedMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  z-index: 50;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.excusedMenuItem {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #334155;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.excusedMenuItem:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.excusedMenuItem.selectedItem {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
 .remarkInput {
   width: 100%;
   max-width: 240px;
@@ -318,6 +497,167 @@
   gap: 1rem;
 }
 
+/* =========================================================
+   Interactive Calendar Grid View
+   ========================================================= */
+.calendarContainer {
+  padding: 1.5rem;
+}
+
+.calendarNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.calendarNavTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.calendarNavButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendarWeekdayHeader {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #64748b;
+  padding: 0.5rem;
+  text-transform: uppercase;
+}
+
+.calendarDayCell {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-height: 95px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.calendarDayCell:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.calendarDayCell.todayCell {
+  border: 2px solid #3b82f6;
+  background: #f0f9ff;
+}
+
+.calendarDayCell.selectedCell {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.calendarDayCell.inactiveCell {
+  background: #f8fafc;
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dayNumber {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.dayBadges {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.miniBadge {
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+}
+
+.miniPresent { background: #dcfce7; color: #166534; }
+.miniAbsent { background: #fee2e2; color: #991b1b; }
+.miniExcused { background: #e0f2fe; color: #075985; }
+.miniLate { background: #fef3c7; color: #92400e; }
+
+/* Monthly Matrix View */
+.matrixTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.matrixTable th {
+  background: #f8fafc;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.matrixTable th.stickyCol {
+  position: sticky;
+  left: 0;
+  background: #f8fafc;
+  z-index: 10;
+  text-align: left;
+  min-width: 180px;
+  padding-left: 0.75rem;
+}
+
+.matrixTable td {
+  padding: 0.4rem;
+  border: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+.matrixTable td.stickyCol {
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+  z-index: 10;
+  text-align: left;
+  padding-left: 0.75rem;
+  font-weight: 600;
+}
+
+.matrixCell {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.matrixP { background: #dcfce7; color: #166534; }
+.matrixA { background: #fee2e2; color: #991b1b; }
+.matrixL { background: #fef3c7; color: #92400e; }
+.matrixE { background: #e0f2fe; color: #075985; }
+.matrixEmpty { color: #cbd5e1; font-weight: normal; }
+
 .emptyState {
   padding: 3.5rem 1.5rem;
   text-align: center;
@@ -334,9 +674,6 @@
   padding: 0.85rem 1.25rem;
   border-radius: 8px;
   font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
 }
 
 .alertSuccess {
