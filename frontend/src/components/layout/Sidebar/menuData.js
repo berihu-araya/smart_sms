@@ -158,6 +158,12 @@ const menuData = [
         roles: ["School Admin", "Admin", "Teacher", "Student"],
       },
       {
+        title: "Marks Entry",
+        icon: FaClipboardList,
+        link: "/dashboard/marks",
+        roles: ["School Admin", "Admin", "Teacher"],
+      },
+      {
         title: "Results",
         icon: FaChartLine,
         link: "/dashboard/results",

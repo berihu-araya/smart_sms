@@ -37,7 +37,7 @@ class ExamRepository {
         e.created_at,
         e.updated_at,
         g.name AS grade_name,
-        sub.name AS subject_name,
+        sub.subject_name AS subject_name,
         ay.name AS academic_year_name,
         (SELECT COUNT(*) FROM marks m WHERE m.exam_id = e.id) AS marks_entered_count
       FROM exams e
@@ -60,7 +60,7 @@ class ExamRepository {
       SELECT
         e.*,
         g.name AS grade_name,
-        sub.name AS subject_name,
+        sub.subject_name AS subject_name,
         ay.name AS academic_year_name
       FROM exams e
       LEFT JOIN grades g ON g.id = e.grade_id

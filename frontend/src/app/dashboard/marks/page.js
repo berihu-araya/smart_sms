@@ -1,7 +1,8 @@
 'use strict';
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import styles from './page.module.css';
 import { getMarksSheet, saveBatchMarks } from '@/services/markService';
 import { listExams } from '@/services/examService';
@@ -10,15 +11,20 @@ import { listSections } from '@/services/sectionService';
 import {
   HiDocumentText,
   HiCheckCircle,
+  HiClipboardDocumentList,
+  HiAcademicCap,
   HiSparkles,
 } from 'react-icons/hi2';
 
-export default function MarksEntryPage() {
+function MarksEntryContent() {
+  const searchParams = useSearchParams();
+  const initialExamId = searchParams.get('examId') || '';
+
   const [exams, setExams] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [sections, setSections] = useState([]);
 
-  const [selectedExam, setSelectedExam] = useState('');
+  const [selectedExam, setSelectedExam] = useState(initialExamId);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
 
@@ -47,7 +53,12 @@ export default function MarksEntryPage() {
         setSubjects(subjectItems);
         setSections(sectionItems);
 
-        if (examItems.length > 0) setSelectedExam(examItems[0].id);
+        if (initialExamId) {
+          setSelectedExam(initialExamId);
+        } else if (examItems.length > 0) {
+          setSelectedExam(examItems[0].id);
+        }
+
         if (subjectItems.length > 0) setSelectedSubject(subjectItems[0].id);
         if (sectionItems.length > 0) setSelectedSection(sectionItems[0].id);
       } catch (err) {
@@ -55,7 +66,7 @@ export default function MarksEntryPage() {
       }
     }
     loadMeta();
-  }, []);
+  }, [initialExamId]);
 
   const loadMarksSheet = useCallback(async () => {
     if (!selectedExam || !selectedSubject || !selectedSection) return;
@@ -169,7 +180,7 @@ export default function MarksEntryPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Marks & Evaluation Entry</h1>
+          <h1 className={styles.title}>Marks & Assessment Entry</h1>
           <p className={styles.subtitle}>
             Enter exam scores, continuous assessments, and grade evaluations in batch mode.
           </p>
@@ -182,7 +193,7 @@ export default function MarksEntryPage() {
       {/* Filter Row */}
       <div className={styles.filterCard}>
         <div className={styles.formGroup}>
-          <label className={styles.label}>Examination *</label>
+          <label className={styles.label}>Examination Assessment *</label>
           <select
             className={styles.select}
             value={selectedExam}
@@ -190,7 +201,7 @@ export default function MarksEntryPage() {
           >
             {exams.map((ex) => (
               <option key={ex.id} value={ex.id}>
-                {ex.title} ({ex.term_or_semester} • {ex.max_marks} pts)
+                {ex.title} ({ex.term_or_semester} • {ex.max_marks} pts • {ex.weight_percentage}%)
               </option>
             ))}
           </select>
@@ -205,14 +216,14 @@ export default function MarksEntryPage() {
           >
             {subjects.map((sub) => (
               <option key={sub.id} value={sub.id}>
-                {sub.name} ({sub.code})
+                {sub.subject_name || sub.name} ({sub.subject_code || sub.code})
               </option>
             ))}
           </select>
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Section *</label>
+          <label className={styles.label}>Class Section *</label>
           <select
             className={styles.select}
             value={selectedSection}
@@ -233,7 +244,7 @@ export default function MarksEntryPage() {
             disabled={loading || !selectedExam || !selectedSubject || !selectedSection}
           >
             <HiDocumentText size={18} />
-            {loading ? 'Loading...' : 'Load Marks Sheet'}
+            {loading ? 'Loading...' : 'Refresh Sheet'}
           </button>
         </div>
       </div>
@@ -255,11 +266,12 @@ export default function MarksEntryPage() {
       {/* Marks Sheet Table */}
       <div className={styles.sheetCard}>
         {loading ? (
-          <div className={styles.emptyState}>Loading marks sheet...</div>
+          <div className={styles.emptyState}>Loading marks spreadsheet...</div>
         ) : marksList.length === 0 ? (
           <div className={styles.emptyState}>
-            <h3>No Students in Roster</h3>
-            <p>Select an exam, subject, and section above to start recording student grades.</p>
+            <HiAcademicCap className={styles.emptyIcon} />
+            <h3>No Students in Selected Section</h3>
+            <p>Select an exam, subject, and active section above to begin recording scores.</p>
           </div>
         ) : (
           <div className={styles.tableWrapper}>
@@ -337,11 +349,19 @@ export default function MarksEntryPage() {
               disabled={saving}
             >
               <HiCheckCircle size={18} />
-              {saving ? 'Submitting...' : 'Save & Publish Marks'}
+              {saving ? 'Submitting...' : 'Save & Calculate Marks'}
             </button>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function MarksEntryPage() {
+  return (
+    <Suspense fallback={<div className={styles.emptyState}>Loading Marks Entry...</div>}>
+      <MarksEntryContent />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import styles from './page.module.css';
 import {
   listExams,
@@ -14,12 +15,71 @@ import { listSubjects } from '@/services/subjectService';
 import { listAcademicYears } from '@/services/academicYearService';
 import {
   HiPlus,
-  HiMagnifyingGlass,
   HiCheckBadge,
   HiClock,
   HiTrash,
   HiArrowPath,
+  HiClipboardDocumentList,
+  HiAcademicCap,
+  HiDocumentText,
+  HiSparkles,
+  HiCalendar,
+  HiTag,
+  HiXMark,
 } from 'react-icons/hi2';
+
+const EXAM_TYPE_PRESETS = [
+  {
+    type: 'MIDTERM',
+    title: 'Midterm Exam',
+    icon: '📑',
+    defaultWeight: 30,
+    defaultMax: 100,
+    desc: 'Formal mid-semester evaluation',
+    color: '#f59e0b',
+    bg: '#fef3c7',
+  },
+  {
+    type: 'FINAL',
+    title: 'Final Exam',
+    icon: '📝',
+    defaultWeight: 50,
+    defaultMax: 100,
+    desc: 'Summative semester terminal assessment',
+    color: '#4f46e5',
+    bg: '#e0e7ff',
+  },
+  {
+    type: 'QUIZ',
+    title: 'Quiz / Test',
+    icon: '⚡',
+    defaultWeight: 10,
+    defaultMax: 20,
+    desc: 'Short continuous assessment quiz',
+    color: '#10b981',
+    bg: '#d1fae5',
+  },
+  {
+    type: 'ASSIGNMENT',
+    title: 'Assignment / Homework',
+    icon: '📚',
+    defaultWeight: 10,
+    defaultMax: 50,
+    desc: 'Take-home coursework or essay',
+    color: '#8b5cf6',
+    bg: '#ede9fe',
+  },
+  {
+    type: 'PROJECT',
+    title: 'Project / Lab',
+    icon: '🔬',
+    defaultWeight: 15,
+    defaultMax: 50,
+    desc: 'Practical experiment or team project',
+    color: '#06b6d4',
+    bg: '#cffafe',
+  },
+];
 
 export default function ExamsPage() {
   const [exams, setExams] = useState([]);
@@ -40,10 +100,10 @@ export default function ExamsPage() {
   const [formData, setFormData] = useState({
     title: '',
     termOrSemester: 'Semester 1',
-    examType: 'FINAL',
-    weightPercentage: '40',
-    maxMarks: '100',
-    examDate: '',
+    examType: 'MIDTERM',
+    weightPercentage: 30,
+    maxMarks: 100,
+    examDate: new Date().toISOString().split('T')[0],
     gradeId: '',
     subjectId: '',
     academicYearId: '',
@@ -103,6 +163,24 @@ export default function ExamsPage() {
     loadExamsList();
   }, [loadExamsList]);
 
+  // Smart Type Selector: Auto-populates recommended weights and max marks
+  const handleSelectExamType = (preset) => {
+    setFormData((prev) => ({
+      ...prev,
+      examType: preset.type,
+      weightPercentage: preset.defaultWeight,
+      maxMarks: preset.defaultMax,
+      title: prev.title || `${preset.title} - ${prev.termOrSemester}`,
+    }));
+  };
+
+  const handleQuickTitle = (suggestion) => {
+    setFormData((prev) => ({
+      ...prev,
+      title: `${suggestion} (${prev.termOrSemester})`,
+    }));
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -117,10 +195,10 @@ export default function ExamsPage() {
       setFormData({
         title: '',
         termOrSemester: 'Semester 1',
-        examType: 'FINAL',
-        weightPercentage: '40',
-        maxMarks: '100',
-        examDate: '',
+        examType: 'MIDTERM',
+        weightPercentage: 30,
+        maxMarks: 100,
+        examDate: new Date().toISOString().split('T')[0],
         gradeId: '',
         subjectId: '',
         academicYearId: selectedYear,
@@ -147,7 +225,7 @@ export default function ExamsPage() {
   };
 
   const handleDeleteExam = async (id) => {
-    if (!confirm('Are you sure you want to delete this exam?')) return;
+    if (!confirm('Are you sure you want to delete this examination cycle?')) return;
     try {
       await deleteExam(id);
       setExams((prev) => prev.filter((ex) => ex.id !== id));
@@ -164,28 +242,81 @@ export default function ExamsPage() {
         return styles.badgeMidterm;
       case 'QUIZ':
         return styles.badgeQuiz;
+      case 'PROJECT':
+        return styles.badgeProject;
       default:
         return styles.badgeAssignment;
     }
   };
 
+  // KPIs
+  const totalExams = exams.length;
+  const publishedCount = exams.filter((e) => e.is_published).length;
+  const totalMarksCount = exams.reduce((acc, curr) => acc + Number(curr.marks_entered_count || 0), 0);
+
+  // Selected names for live preview
+  const selectedGradeObj = grades.find((g) => g.id === formData.gradeId);
+  const selectedSubjectObj = subjects.find((s) => s.id === formData.subjectId);
+  const selectedTypeObj = EXAM_TYPE_PRESETS.find((p) => p.type === formData.examType) || EXAM_TYPE_PRESETS[0];
+
   return (
     <div className={styles.container}>
+      {/* Top Header */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Examinations & Assessments</h1>
           <p className={styles.subtitle}>
-            Create exam cycles, configure assessment weight percentages, and publish tests.
+            Plan assessment cycles, configure grading weights, and streamline marks entry.
           </p>
         </div>
-        <button className={styles.btnPrimary} onClick={() => setIsModalOpen(true)}>
-          <HiPlus size={18} />
-          Create New Exam
-        </button>
+        <div className={styles.headerActions}>
+          <Link href="/dashboard/marks" className={styles.btnSecondary}>
+            <HiClipboardDocumentList size={18} />
+            Enter Student Marks
+          </Link>
+          <button className={styles.btnPrimary} onClick={() => setIsModalOpen(true)}>
+            <HiPlus size={18} />
+            Create New Exam
+          </button>
+        </div>
       </div>
 
-      {error && <div style={{ color: '#dc2626', fontWeight: 500 }}>{error}</div>}
+      {/* Analytics KPI Bar */}
+      <div className={styles.kpiGrid}>
+        <div className={styles.kpiCard}>
+          <div className={`${styles.kpiIcon} ${styles.kpiTotal}`}>
+            <HiDocumentText />
+          </div>
+          <div>
+            <div className={styles.kpiLabel}>Total Assessments</div>
+            <div className={styles.kpiValue}>{totalExams}</div>
+          </div>
+        </div>
 
+        <div className={styles.kpiCard}>
+          <div className={`${styles.kpiIcon} ${styles.kpiPublished}`}>
+            <HiCheckBadge />
+          </div>
+          <div>
+            <div className={styles.kpiLabel}>Published & Active</div>
+            <div className={styles.kpiValue}>{publishedCount}</div>
+          </div>
+        </div>
+
+        <div className={styles.kpiCard}>
+          <div className={`${styles.kpiIcon} ${styles.kpiMarks}`}>
+            <HiClipboardDocumentList />
+          </div>
+          <div>
+            <div className={styles.kpiLabel}>Student Scores Recorded</div>
+            <div className={styles.kpiValue}>{totalMarksCount}</div>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className={styles.errorAlert}>{error}</div>}
+
+      {/* Filter Bar */}
       <div className={styles.filterCard}>
         <input
           type="text"
@@ -213,7 +344,7 @@ export default function ExamsPage() {
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
         >
-          <option value="">All Academic Years</option>
+          <option value="">All Academic Sessions</option>
           {academicYears.map((y) => (
             <option key={y.id} value={y.id}>
               {y.name} {y.is_active ? '(Active)' : ''}
@@ -221,18 +352,23 @@ export default function ExamsPage() {
           ))}
         </select>
 
-        <button className={styles.btnAction} onClick={loadExamsList}>
+        <button className={styles.btnAction} onClick={loadExamsList} title="Refresh">
           <HiArrowPath size={16} />
         </button>
       </div>
 
+      {/* Exams Table */}
       <div className={styles.tableCard}>
         {loading ? (
-          <div className={styles.emptyState}>Loading exams...</div>
+          <div className={styles.emptyState}>Loading examination schedules...</div>
         ) : exams.length === 0 ? (
           <div className={styles.emptyState}>
+            <HiAcademicCap className={styles.emptyIcon} />
             <h3>No Examinations Found</h3>
-            <p>Get started by creating the first examination or test cycle.</p>
+            <p>Get started by scheduling your first midterm, quiz, or final examination.</p>
+            <button className={styles.btnPrimary} onClick={() => setIsModalOpen(true)} style={{ marginTop: '1rem' }}>
+              <HiPlus size={16} /> Create First Exam
+            </button>
           </div>
         ) : (
           <table className={styles.table}>
@@ -243,6 +379,7 @@ export default function ExamsPage() {
                 <th>Grade & Subject</th>
                 <th>Max / Weight</th>
                 <th>Exam Date</th>
+                <th>Marks Progress</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -251,9 +388,9 @@ export default function ExamsPage() {
               {exams.map((ex) => (
                 <tr key={ex.id}>
                   <td>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{ex.title}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      {ex.term_or_semester} • {ex.academic_year_name || 'All Sessions'}
+                    <div className={styles.examTitle}>{ex.title}</div>
+                    <div className={styles.examSubtitle}>
+                      {ex.term_or_semester} • {ex.academic_year_name || 'Academic Session'}
                     </div>
                   </td>
                   <td>
@@ -262,7 +399,7 @@ export default function ExamsPage() {
                     </span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: 500, color: '#334155' }}>
+                    <div style={{ fontWeight: 600, color: '#334155' }}>
                       {ex.subject_name || 'All Subjects'}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
@@ -270,12 +407,25 @@ export default function ExamsPage() {
                     </div>
                   </td>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{ex.max_marks} pts</div>
+                    <div style={{ fontWeight: 700, color: '#1e293b' }}>{ex.max_marks} pts</div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      Weight: {ex.weight_percentage}%
+                      Weight: <strong>{ex.weight_percentage}%</strong>
                     </div>
                   </td>
-                  <td>{ex.exam_date || 'TBD'}</td>
+                  <td>
+                    <div style={{ fontSize: '0.9rem', color: '#334155' }}>
+                      {ex.exam_date || 'TBD'}
+                    </div>
+                  </td>
+                  <td>
+                    <Link
+                      href={`/dashboard/marks?examId=${ex.id}`}
+                      className={styles.marksProgressPill}
+                    >
+                      <HiClipboardDocumentList />
+                      <span>{ex.marks_entered_count || 0} entered</span>
+                    </Link>
+                  </td>
                   <td>
                     {ex.is_published ? (
                       <span className={styles.statusPublished}>
@@ -289,16 +439,24 @@ export default function ExamsPage() {
                   </td>
                   <td>
                     <div className={styles.actions}>
+                      <Link
+                        href={`/dashboard/marks?examId=${ex.id}`}
+                        className={styles.btnEnterMarks}
+                        title="Enter Marks"
+                      >
+                        Enter Marks ➔
+                      </Link>
                       <button
                         className={styles.btnAction}
                         onClick={() => handleTogglePublish(ex.id, ex.is_published)}
+                        title={ex.is_published ? 'Unpublish' : 'Publish'}
                       >
                         {ex.is_published ? 'Unpublish' : 'Publish'}
                       </button>
                       <button
-                        className={styles.btnAction}
-                        style={{ color: '#dc2626' }}
+                        className={`${styles.btnAction} ${styles.btnDelete}`}
                         onClick={() => handleDeleteExam(ex.id)}
+                        title="Delete Exam"
                       >
                         <HiTrash />
                       </button>
@@ -311,72 +469,152 @@ export default function ExamsPage() {
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* ================= SMART & ATTRACTIVE CREATE MODAL ================= */}
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Create New Examination</h2>
+              <div>
+                <h2 className={styles.modalTitle}>Schedule Assessment Cycle</h2>
+                <p className={styles.modalSubtitle}>
+                  Choose an assessment preset or customize weights, terms, and maximum marks.
+                </p>
+              </div>
               <button
                 className={styles.modalClose}
                 onClick={() => setIsModalOpen(false)}
               >
-                &times;
+                <HiXMark />
               </button>
             </div>
+
             <form onSubmit={handleCreateSubmit}>
               <div className={styles.modalBody}>
+                {/* 1. Assessment Type Presets */}
+                <div>
+                  <label className={styles.label}>
+                    <HiSparkles style={{ color: '#f59e0b' }} /> Select Assessment Type Preset:
+                  </label>
+                  <div className={styles.presetGrid}>
+                    {EXAM_TYPE_PRESETS.map((preset) => {
+                      const isSelected = formData.examType === preset.type;
+                      return (
+                        <div
+                          key={preset.type}
+                          className={`${styles.presetCard} ${isSelected ? styles.presetActive : ''}`}
+                          onClick={() => handleSelectExamType(preset)}
+                        >
+                          <div className={styles.presetIcon}>{preset.icon}</div>
+                          <div className={styles.presetTitle}>{preset.title}</div>
+                          <div className={styles.presetDesc}>{preset.desc}</div>
+                          <div className={styles.presetBadge}>
+                            {preset.defaultWeight}% Weight • {preset.defaultMax} Max
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Live Dynamic Preview Card */}
+                <div className={styles.previewContainer}>
+                  <div className={styles.previewHeader}>
+                    <span>Live Exam Preview</span>
+                    <span className={`${styles.badge} ${getBadgeClass(formData.examType)}`}>
+                      {formData.examType}
+                    </span>
+                  </div>
+                  <div className={styles.previewTitle}>
+                    {formData.title || 'Untitled Assessment'}
+                  </div>
+                  <div className={styles.previewMeta}>
+                    <span>
+                      <HiCalendar /> {formData.examDate || 'Date: TBD'}
+                    </span>
+                    <span>
+                      <HiTag /> {formData.termOrSemester}
+                    </span>
+                    <span>
+                      <HiAcademicCap /> {selectedGradeObj?.name || 'All Grade Levels'}
+                    </span>
+                    <span>
+                      📚 {selectedSubjectObj ? `${selectedSubjectObj.subject_name || selectedSubjectObj.name}` : 'All Subjects'}
+                    </span>
+                    <span>
+                      ⚖️ <strong>{formData.weightPercentage}%</strong> Weight
+                    </span>
+                    <span>
+                      🎯 <strong>{formData.maxMarks}</strong> Max Points
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Title & Quick Presets */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>Exam Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Final Semester Examination 2026"
+                    placeholder="e.g. Midterm Assessment Examination 2026"
                     className={styles.input}
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   />
+                  <div className={styles.quickTitleRow}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                      Quick Suggestions:
+                    </span>
+                    {['Midterm Exam', 'Final Examination', 'Quiz 1', 'Assignment 1', 'Lab Test'].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={styles.quickTag}
+                        onClick={() => handleQuickTitle(t)}
+                      >
+                        + {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* 4. Term, Weight & Max Marks */}
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>Exam Type</label>
-                    <select
-                      className={styles.input}
-                      value={formData.examType}
-                      onChange={(e) => setFormData({ ...formData, examType: e.target.value })}
-                    >
-                      <option value="MIDTERM">Midterm Exam</option>
-                      <option value="FINAL">Final Exam</option>
-                      <option value="QUIZ">Quiz / Continuous Test</option>
-                      <option value="ASSIGNMENT">Assignment / Project</option>
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Term / Semester</label>
+                    <label className={styles.label}>Term / Semester *</label>
                     <select
                       className={styles.input}
                       value={formData.termOrSemester}
-                      onChange={(e) =>
-                        setFormData({ ...formData, termOrSemester: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, termOrSemester: e.target.value })}
                     >
                       <option value="Semester 1">Semester 1</option>
                       <option value="Semester 2">Semester 2</option>
                       <option value="Term 1">Term 1</option>
                       <option value="Term 2">Term 2</option>
                       <option value="Term 3">Term 3</option>
+                      <option value="Quarter 1">Quarter 1</option>
+                      <option value="Quarter 2">Quarter 2</option>
                     </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Exam Date</label>
+                    <input
+                      type="date"
+                      className={styles.input}
+                      value={formData.examDate}
+                      onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
+                    />
                   </div>
                 </div>
 
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>Max Marks</label>
+                    <label className={styles.label}>Maximum Marks (Points) *</label>
                     <input
                       type="number"
                       required
+                      min="1"
+                      max="1000"
                       className={styles.input}
                       value={formData.maxMarks}
                       onChange={(e) => setFormData({ ...formData, maxMarks: e.target.value })}
@@ -384,22 +622,23 @@ export default function ExamsPage() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>Weight Percentage (%)</label>
+                    <label className={styles.label}>Assessment Weight (% toward Final Grade) *</label>
                     <input
                       type="number"
                       required
+                      min="1"
+                      max="100"
                       className={styles.input}
                       value={formData.weightPercentage}
-                      onChange={(e) =>
-                        setFormData({ ...formData, weightPercentage: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, weightPercentage: e.target.value })}
                     />
                   </div>
                 </div>
 
+                {/* 5. Grade & Subject Target */}
                 <div className={styles.formGrid}>
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>Grade Level</label>
+                    <label className={styles.label}>Target Grade Level (Optional)</label>
                     <select
                       className={styles.input}
                       value={formData.gradeId}
@@ -415,7 +654,7 @@ export default function ExamsPage() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>Subject</label>
+                    <label className={styles.label}>Target Subject (Optional)</label>
                     <select
                       className={styles.input}
                       value={formData.subjectId}
@@ -424,21 +663,42 @@ export default function ExamsPage() {
                       <option value="">All Subjects</option>
                       {subjects.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.name} ({s.code})
+                          {s.subject_name || s.name} ({s.subject_code || s.code})
                         </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Exam Date</label>
-                  <input
-                    type="date"
-                    className={styles.input}
-                    value={formData.examDate}
-                    onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
-                  />
+                {/* 6. Academic Year & Publication */}
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Academic Session</label>
+                    <select
+                      className={styles.input}
+                      value={formData.academicYearId}
+                      onChange={(e) => setFormData({ ...formData, academicYearId: e.target.value })}
+                    >
+                      <option value="">Select Academic Year</option>
+                      {academicYears.map((y) => (
+                        <option key={y.id} value={y.id}>
+                          {y.name} {y.is_active ? '(Active)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Status on Creation</label>
+                    <select
+                      className={styles.input}
+                      value={formData.isPublished ? 'true' : 'false'}
+                      onChange={(e) => setFormData({ ...formData, isPublished: e.target.value === 'true' })}
+                    >
+                      <option value="true">Published (Visible to Teachers & Marks Entry)</option>
+                      <option value="false">Draft Mode (Hidden)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -455,7 +715,7 @@ export default function ExamsPage() {
                   className={styles.btnPrimary}
                   disabled={submitting}
                 >
-                  {submitting ? 'Creating...' : 'Save Exam'}
+                  <HiSparkles /> {submitting ? 'Saving Assessment...' : 'Schedule & Save Exam'}
                 </button>
               </div>
             </form>
