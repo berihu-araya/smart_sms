@@ -278,12 +278,14 @@ function ReportCardContent() {
             </div>
 
             <div className={styles.subCard}>
-              <div className={styles.subCardTitle}>Official Grading Key</div>
+              <div className={styles.subCardTitle}>Official 100% Grading Key</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', fontSize: '0.75rem' }}>
-                <div><strong>A+ / A (85-100%):</strong> Superior (4.0)</div>
-                <div><strong>B+ / B (70-84%):</strong> Very Good (3.0-3.5)</div>
-                <div><strong>C+ / C (50-69%):</strong> Pass (2.0-2.5)</div>
-                <div><strong>D / F (0-49%):</strong> Unsatisfactory (0.0-1.0)</div>
+                <div><strong>A (80–100%):</strong> Excellent (4.0)</div>
+                <div><strong>B (70–79%):</strong> Very Good (3.0)</div>
+                <div><strong>C (60–69%):</strong> Pass (2.0)</div>
+                <div><strong>D (50–59%):</strong> Conditional (1.0)</div>
+                <div><strong>F (0–49%):</strong> Fail (0.0)</div>
+                <div><strong>Pending:</strong> Total &lt; 100%</div>
               </div>
             </div>
           </div>
