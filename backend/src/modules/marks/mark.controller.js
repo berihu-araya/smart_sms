@@ -22,7 +22,39 @@ async function getMarksSheet(req, res, next) {
   }
 
   try {
-    const data = await markService.getMarksSheet(query);
+    const role = (req.user?.role || '').toLowerCase();
+    let teacherId = null;
+
+    if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherRes = await db.query(
+        `SELECT id FROM teachers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [req.user.sub]
+      );
+
+      teacherId = teacherRes.rows[0]?.id || null;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher is not assigned to any class subjects',
+          data: null,
+        });
+      }
+
+      const assignmentCheck = await db.query(
+        `SELECT 1 FROM teacher_subjects WHERE teacher_id = $1 AND subject_id = $2 AND section_id = $3 AND deleted_at IS NULL LIMIT 1`,
+        [teacherId, query.subjectId, query.sectionId]
+      );
+
+      if (!assignmentCheck.rows.length) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to this class and subject',
+          data: null,
+        });
+      }
+    }
+
+    const data = await markService.getMarksSheet({ ...query, teacherId });
     return res.status(200).json({
       success: true,
       message: 'Marks sheet loaded successfully',
@@ -45,7 +77,38 @@ async function saveBatchMarks(req, res, next) {
   }
 
   try {
-    const teacherId = req.user ? req.user.teacherId || null : null;
+    const role = (req.user?.role || '').toLowerCase();
+    let teacherId = null;
+
+    if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherRes = await db.query(
+        `SELECT id FROM teachers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [req.user.sub]
+      );
+
+      teacherId = teacherRes.rows[0]?.id || null;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher is not assigned to any class subjects',
+          data: null,
+        });
+      }
+
+      const assignmentCheck = await db.query(
+        `SELECT 1 FROM teacher_subjects WHERE teacher_id = $1 AND subject_id = $2 AND section_id = $3 AND deleted_at IS NULL LIMIT 1`,
+        [teacherId, input.subjectId, input.sectionId]
+      );
+
+      if (!assignmentCheck.rows.length) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to this class and subject',
+          data: null,
+        });
+      }
+    }
+
     const data = await markService.saveBatchMarks({
       examId: input.examId,
       subjectId: input.subjectId,
@@ -70,8 +133,60 @@ async function getStudentMarks(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase();
+    let teacherId = null;
+
+    if (role.includes('student') && !role.includes('admin')) {
+      const studentRes = await db.query(
+        `SELECT id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [req.user.sub]
+      );
+
+      if (!studentRes.rows.length || studentRes.rows[0].id !== req.params.studentId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Students can only access their own marks',
+          data: null,
+        });
+      }
+    }
+
+    if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherRes = await db.query(
+        `SELECT id FROM teachers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [req.user.sub]
+      );
+
+      teacherId = teacherRes.rows[0]?.id || null;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher is not assigned to any class subjects',
+          data: null,
+        });
+      }
+
+      const assignmentCheck = await db.query(
+        `SELECT 1
+         FROM teacher_subjects ts
+         JOIN students s ON s.section_id = ts.section_id
+         WHERE ts.teacher_id = $1 AND s.id = $2 AND ts.deleted_at IS NULL
+         LIMIT 1`,
+        [teacherId, req.params.studentId]
+      );
+
+      if (!assignmentCheck.rows.length) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to this student\'s class',
+          data: null,
+        });
+      }
+    }
+
     const data = await markService.getStudentMarks(req.params.studentId, {
       academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
+      teacherId,
     });
 
     return res.status(200).json({

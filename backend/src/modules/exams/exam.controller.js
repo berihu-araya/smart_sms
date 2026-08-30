@@ -11,10 +11,30 @@ const examService = new ExamService(new ExamRepository(db));
 
 async function listExams(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase();
+    let teacherId = null;
+
+    if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherRes = await db.query(
+        `SELECT id FROM teachers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [req.user.sub]
+      );
+
+      teacherId = teacherRes.rows[0]?.id || null;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher is not assigned to any class subjects',
+          data: null,
+        });
+      }
+    }
+
     const data = await examService.listExams({
       search: req.query.search || '',
       academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
       gradeId: req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null,
+      teacherId,
       limit: Number(req.query.limit || 50),
       offset: Number(req.query.offset || 0),
     });

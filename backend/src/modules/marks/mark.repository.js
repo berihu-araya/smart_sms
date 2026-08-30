@@ -3,6 +3,25 @@ class MarkRepository {
     this.database = database;
   }
 
+  async isTeacherAssignedToMarksScope({ teacherId, subjectId, sectionId }) {
+    if (!teacherId || !subjectId || !sectionId) return false;
+
+    const result = await this.database.query(
+      `
+      SELECT 1
+      FROM teacher_subjects ts
+      WHERE ts.teacher_id = $1
+        AND ts.subject_id = $2
+        AND ts.section_id = $3
+        AND ts.deleted_at IS NULL
+      LIMIT 1
+      `,
+      [teacherId, subjectId, sectionId]
+    );
+
+    return result.rows.length > 0;
+  }
+
   async getMarksSheet(examId, subjectId, sectionId) {
     const result = await this.database.query(
       `
@@ -92,13 +111,27 @@ class MarkRepository {
     }
   }
 
-  async getStudentMarks(studentId, { academicYearId = null } = {}) {
+  async getStudentMarks(studentId, { academicYearId = null, teacherId = null } = {}) {
     const params = [studentId];
-    let whereYear = '';
+    let whereClause = 'WHERE m.student_id = $1 AND e.deleted_at IS NULL';
+    let index = 2;
 
     if (academicYearId) {
-      whereYear = 'AND e.academic_year_id = $2';
+      whereClause += ` AND e.academic_year_id = $${index}`;
       params.push(academicYearId);
+      index++;
+    }
+
+    if (teacherId) {
+      whereClause += ` AND m.subject_id IN (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = $${index}
+          AND ts.section_id = (SELECT s.section_id FROM students s WHERE s.id = $1)
+          AND ts.deleted_at IS NULL
+      )`;
+      params.push(teacherId);
+      index++;
     }
 
     const result = await this.database.query(
@@ -121,9 +154,7 @@ class MarkRepository {
       FROM marks m
       JOIN exams e ON e.id = m.exam_id
       JOIN subjects sub ON sub.id = m.subject_id
-      WHERE m.student_id = $1
-        AND e.deleted_at IS NULL
-        ${whereYear}
+      ${whereClause}
       ORDER BY e.exam_date DESC, sub.subject_name ASC
       `,
       params

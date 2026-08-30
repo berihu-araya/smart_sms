@@ -14,21 +14,37 @@ class ResultRepository {
     return result.rows;
   }
 
-  async getSectionSubjects(sectionId) {
+  async getSectionSubjects(sectionId, teacherId = null) {
+    const params = [sectionId];
+    let whereClause = 'WHERE sub.deleted_at IS NULL';
+    let index = 2;
+
+    if (teacherId) {
+      whereClause += ` AND sub.id IN (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = $${index}
+          AND ts.section_id = $1
+          AND ts.deleted_at IS NULL
+      )`;
+      params.push(teacherId);
+      index++;
+    }
+
     const result = await this.database.query(
       `
       SELECT DISTINCT sub.id, sub.subject_name AS name, sub.subject_code AS code
       FROM subjects sub
       JOIN sections sec ON sec.id = $1
       JOIN grade_subjects gs ON gs.grade_id = sec.grade_id AND gs.subject_id = sub.id
-      WHERE sub.deleted_at IS NULL
+      ${whereClause}
       ORDER BY sub.subject_name ASC
       `,
-      [sectionId]
+      params
     );
 
-    // If grade_subjects is empty, fallback to all active subjects
-    if (result.rows.length === 0) {
+    // If grade_subjects is empty, fallback to all active subjects only for unrestricted queries.
+    if (!teacherId && result.rows.length === 0) {
       const fallback = await this.database.query(
         `SELECT id, subject_name AS name, subject_code AS code FROM subjects WHERE deleted_at IS NULL ORDER BY subject_name ASC`
       );
@@ -62,7 +78,7 @@ class ResultRepository {
     return result.rows;
   }
 
-  async getSectionMarks(sectionId, { academicYearId = null, term = null } = {}) {
+  async getSectionMarks(sectionId, { academicYearId = null, term = null, teacherId = null } = {}) {
     const params = [sectionId];
     let whereClause = `WHERE m.section_id = $1 AND e.deleted_at IS NULL`;
     let index = 2;
@@ -76,6 +92,18 @@ class ResultRepository {
     if (term) {
       whereClause += ` AND LOWER(e.term_or_semester) = LOWER($${index})`;
       params.push(term);
+      index++;
+    }
+
+    if (teacherId) {
+      whereClause += ` AND m.subject_id IN (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = $${index}
+          AND ts.section_id = $1
+          AND ts.deleted_at IS NULL
+      )`;
+      params.push(teacherId);
       index++;
     }
 
@@ -105,7 +133,7 @@ class ResultRepository {
     return result.rows;
   }
 
-  async getStudentReportCardData(studentId, { academicYearId = null, term = null } = {}) {
+  async getStudentReportCardData(studentId, { academicYearId = null, term = null, teacherId = null } = {}) {
     const studentRes = await this.database.query(
       `
       SELECT
@@ -169,6 +197,18 @@ class ResultRepository {
       whereClause += ` AND LOWER(e.term_or_semester) = LOWER($${index})`;
       params.push(term);
       index++;
+    }
+
+    if (teacherId) {
+      whereClause += ` AND m.subject_id IN (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = $${index}
+          AND ts.section_id = $${index + 1}
+          AND ts.deleted_at IS NULL
+      )`;
+      params.push(teacherId, student.section_id);
+      index += 2;
     }
 
     const marksRes = await this.database.query(

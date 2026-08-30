@@ -29,12 +29,12 @@ class ResultService {
     return { letter: 'F', gradePoint: 0.0, description: 'Fail / Unsatisfactory' };
   }
 
-  async calculateSectionResults({ sectionId, academicYearId, term }) {
+  async calculateSectionResults({ sectionId, academicYearId, term, teacherId = null }) {
     const [gradingScales, students, subjects, marks] = await Promise.all([
       this.repository.getGradingScales(),
       this.repository.getSectionStudents(sectionId),
-      this.repository.getSectionSubjects(sectionId),
-      this.repository.getSectionMarks(sectionId, { academicYearId, term }),
+      this.repository.getSectionSubjects(sectionId, teacherId),
+      this.repository.getSectionMarks(sectionId, { academicYearId, term, teacherId }),
     ]);
 
     // Map marks by student and subject
@@ -181,10 +181,11 @@ class ResultService {
     };
   }
 
-  async getReportCard(studentId, { academicYearId = null, term = null } = {}) {
+  async getReportCard(studentId, { academicYearId = null, term = null, teacherId = null } = {}) {
     const rawData = await this.repository.getStudentReportCardData(studentId, {
       academicYearId,
       term,
+      teacherId,
     });
 
     if (!rawData || !rawData.student) {

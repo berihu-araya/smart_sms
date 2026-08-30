@@ -4,12 +4,26 @@ class MarkService {
     this.examRepository = examRepository;
   }
 
-  async getMarksSheet({ examId, subjectId, sectionId }) {
+  async getMarksSheet({ examId, subjectId, sectionId, teacherId = null }) {
     const exam = await this.examRepository.findById(examId);
     if (!exam) {
       const error = new Error('Exam not found');
       error.status = 404;
       throw error;
+    }
+
+    if (teacherId) {
+      const allowedAssignment = await this.repository.isTeacherAssignedToMarksScope({
+        teacherId,
+        subjectId,
+        sectionId,
+      });
+
+      if (!allowedAssignment) {
+        const error = new Error('You are not assigned to this class/subject exam');
+        error.status = 403;
+        throw error;
+      }
     }
 
     const students = await this.repository.getMarksSheet(examId, subjectId, sectionId);
@@ -38,6 +52,20 @@ class MarkService {
       const error = new Error('Exam not found');
       error.status = 404;
       throw error;
+    }
+
+    if (teacherId) {
+      const allowedAssignment = await this.repository.isTeacherAssignedToMarksScope({
+        teacherId,
+        subjectId,
+        sectionId,
+      });
+
+      if (!allowedAssignment) {
+        const error = new Error('You are not assigned to this class/subject exam');
+        error.status = 403;
+        throw error;
+      }
     }
 
     const maxAllowed = Number(exam.max_marks || 100);
