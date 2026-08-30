@@ -6,6 +6,7 @@ import Link from 'next/link';
 import styles from './page.module.css';
 import { getSectionResults } from '@/services/resultService';
 import { listSections } from '@/services/sectionService';
+import { listGrades } from '@/services/gradeService';
 import { listAcademicYears } from '@/services/academicYearService';
 import {
   HiTrophy,
@@ -19,9 +20,11 @@ import {
 } from 'react-icons/hi2';
 
 export default function ResultsPage() {
+  const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
 
+  const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedTerm, setSelectedTerm] = useState('Semester 1');
@@ -33,18 +36,32 @@ export default function ResultsPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [secRes, yRes] = await Promise.all([
+        const [gRes, secRes, yRes] = await Promise.all([
+          listGrades({ limit: 100 }).catch(() => ({ items: [] })),
           listSections({ limit: 100 }).catch(() => ({ items: [] })),
           listAcademicYears({ limit: 100 }).catch(() => ({ items: [] })),
         ]);
 
+        const gItems = gRes?.items || gRes?.data?.items || [];
         const secItems = secRes?.items || secRes?.data?.items || [];
         const yItems = yRes?.items || yRes?.data?.items || [];
 
-        setSections(secItems);
+        setGrades(gItems);
         setAcademicYears(yItems);
 
-        if (secItems.length > 0) setSelectedSection(secItems[0].id);
+        if (gItems.length > 0) {
+          const firstGrade = gItems[0].id;
+          setSelectedGrade((current) => current || firstGrade);
+        }
+
+        setSections(secItems);
+
+        if (secItems.length > 0) {
+          setSelectedSection((current) => current || secItems[0].id);
+        } else {
+          setSelectedSection('');
+        }
+
         const activeYear = yItems.find((y) => y.is_active);
         if (activeYear) setSelectedYear(activeYear.id);
       } catch (err) {
@@ -53,6 +70,38 @@ export default function ResultsPage() {
     }
     loadMeta();
   }, []);
+
+  useEffect(() => {
+    async function loadSectionsForGrade() {
+      try {
+        const secRes = await listSections({
+          gradeId: selectedGrade || '',
+          limit: 100,
+        }).catch(() => ({ items: [] }));
+
+        const secItems = secRes?.items || secRes?.data?.items || [];
+        setSections(secItems);
+
+        if (secItems.length === 0) {
+          setSelectedSection('');
+          return;
+        }
+
+        setSelectedSection((current) => {
+          if (current && secItems.some((section) => section.id === current)) {
+            return current;
+          }
+          return secItems[0].id;
+        });
+      } catch (err) {
+        console.error('Failed to load sections for grade:', err);
+        setSections([]);
+        setSelectedSection('');
+      }
+    }
+
+    loadSectionsForGrade();
+  }, [selectedGrade]);
 
   const loadResults = useCallback(async () => {
     if (!selectedSection) return;
@@ -111,17 +160,38 @@ export default function ResultsPage() {
       {/* Filter Row */}
       <div className={styles.filterCard}>
         <div className={styles.formGroup}>
+          <label className={styles.label}>Grade Level</label>
+          <select
+            className={styles.select}
+            value={selectedGrade}
+            onChange={(e) => setSelectedGrade(e.target.value)}
+          >
+            <option value="">All Grades</option>
+            {grades.map((grade) => (
+              <option key={grade.id} value={grade.id}>
+                {grade.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.formGroup}>
           <label className={styles.label}>Class Section *</label>
           <select
             className={styles.select}
             value={selectedSection}
             onChange={(e) => setSelectedSection(e.target.value)}
+            disabled={sections.length === 0}
           >
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} {s.room_number ? `(${s.room_number})` : ''}
-              </option>
-            ))}
+            {sections.length === 0 ? (
+              <option value="">No sections in this grade</option>
+            ) : (
+              sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.room_number ? `(${s.room_number})` : ''}
+                </option>
+              ))
+            )}
           </select>
         </div>
 

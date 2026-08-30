@@ -49,36 +49,54 @@ function MarksEntryContent() {
   // Input refs for rapid keyboard navigation (Enter / Down / Up)
   const inputRefs = useRef({});
 
-  // 1. Initial Load: Grades and All Exams
+  // 1. Initial Load: Grades and grade-scoped exams
   useEffect(() => {
     async function loadInitial() {
       try {
-        const [gRes, eRes] = await Promise.all([
-          listGrades({ limit: 100 }).catch(() => ({ items: [] })),
-          listExams({ limit: 100 }).catch(() => []),
-        ]);
-
+        const gRes = await listGrades({ limit: 100 }).catch(() => ({ items: [] }));
         const gradeItems = gRes?.items || gRes?.data?.items || [];
-        const examItems = eRes || [];
 
         setGrades(gradeItems);
-        setExams(examItems);
 
         if (gradeItems.length > 0) {
-          setSelectedGrade(gradeItems[0].id);
-        }
-
-        if (urlExamId) {
-          setSelectedExam(urlExamId);
-        } else if (examItems.length > 0) {
-          setSelectedExam(examItems[0].id);
+          setSelectedGrade((current) => current || gradeItems[0].id);
         }
       } catch (err) {
-        console.error('Failed to load initial data:', err);
+        console.error('Failed to load grades:', err);
       }
     }
     loadInitial();
-  }, [urlExamId]);
+  }, []);
+
+  useEffect(() => {
+    async function loadExamsForGrade() {
+      if (!selectedGrade) {
+        setExams([]);
+        setSelectedExam('');
+        return;
+      }
+
+      try {
+        const eRes = await listExams({ gradeId: selectedGrade, limit: 100 }).catch(() => []);
+        const examItems = eRes || [];
+
+        setExams(examItems);
+
+        if (urlExamId && examItems.some((exam) => exam.id === urlExamId)) {
+          setSelectedExam(urlExamId);
+          return;
+        }
+
+        setSelectedExam(examItems[0]?.id || '');
+      } catch (err) {
+        console.error('Failed to load exams for grade:', err);
+        setExams([]);
+        setSelectedExam('');
+      }
+    }
+
+    loadExamsForGrade();
+  }, [selectedGrade, urlExamId]);
 
   // 2. When Grade Changes: Load Sections and Grade-specific Subjects
   useEffect(() => {
