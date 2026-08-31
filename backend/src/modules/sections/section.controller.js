@@ -14,6 +14,9 @@ async function listSections(req, res, next) {
     const data = await sectionService.listSections({
       search: req.query.search || '',
       gradeId: req.query.gradeId || req.query.grade_id || '',
+      status: req.query.status || 'active',
+      sortBy: req.query.sortBy || 'name',
+      sortOrder: req.query.sortOrder || 'ASC',
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });
@@ -41,6 +44,26 @@ async function getSectionById(req, res, next) {
     return res.status(200).json({
       success: true,
       message: 'Section loaded successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function checkSectionReferences(req, res, next) {
+  const { id, errors } = validateSectionId(req.params.id);
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  }
+
+  try {
+    const data = await sectionService.checkSectionReferences(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Section references calculated successfully.',
       data,
     });
   } catch (error) {
@@ -114,7 +137,27 @@ async function deleteSection(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      message: 'Section deleted successfully.',
+      message: 'Section deactivated successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function restoreSection(req, res, next) {
+  const { id, errors } = validateSectionId(req.params.id);
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  }
+
+  try {
+    const data = await sectionService.restoreSection(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Section restored successfully.',
       data,
     });
   } catch (error) {
@@ -125,8 +168,9 @@ async function deleteSection(req, res, next) {
 module.exports = {
   listSections,
   getSectionById,
+  checkSectionReferences,
   createSection,
   updateSection,
   deleteSection,
+  restoreSection,
 };
-

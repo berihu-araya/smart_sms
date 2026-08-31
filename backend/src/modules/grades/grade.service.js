@@ -19,29 +19,62 @@ class GradeService {
     this.repository = repository;
   }
 
-  async listGrades({ search = '', limit = 20, offset = 0 } = {}) {
-    const grades = await this.repository.findAll({ search, limit, offset });
+  async listGrades({
+    search = '',
+    status = 'active',
+    sortBy = 'name',
+    sortOrder = 'ASC',
+    limit = 20,
+    offset = 0,
+  } = {}) {
+    const parsedLimit = Math.max(1, Number(limit) || 20);
+    const parsedOffset = Math.max(0, Number(offset) || 0);
+
+    const { items, total } = await this.repository.findAll({
+      search,
+      status,
+      sortBy,
+      sortOrder,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
 
     return {
-      page: Math.floor(offset / limit) + 1,
-      limit,
-      items: grades,
+      page: Math.floor(parsedOffset / parsedLimit) + 1,
+      limit: parsedLimit,
+      total,
+      totalPages: Math.ceil(total / parsedLimit),
+      items,
     };
   }
 
   async getGradeById(id) {
     const grade = await this.repository.findById(id);
-
     if (!grade) {
       throw new GradeNotFoundError();
     }
-
     return grade;
   }
 
-  async createGrade(payload) {
-    const grade = await this.repository.create(payload);
+  async checkGradeReferences(id) {
+    const grade = await this.repository.findById(id);
+    if (!grade) {
+      throw new GradeNotFoundError();
+    }
+    const references = await this.repository.checkReferences(id);
+    return {
+      grade,
+      ...references,
+    };
+  }
 
+  async createGrade(payload) {
+    const existing = await this.repository.findByName(payload.name);
+    if (existing) {
+      throw new GradeConflictError(`Grade with name "${payload.name}" already exists.`);
+    }
+
+    const grade = await this.repository.create(payload);
     if (!grade) {
       throw new GradeConflictError('Unable to create grade');
     }
@@ -51,26 +84,39 @@ class GradeService {
 
   async updateGrade(id, payload) {
     const existing = await this.repository.findById(id);
-
     if (!existing) {
       throw new GradeNotFoundError();
     }
 
-    const updatedGrade = await this.repository.update(id, payload);
+    if (payload.name && payload.name.trim() !== existing.name) {
+      const duplicate = await this.repository.findByName(payload.name, id);
+      if (duplicate) {
+        throw new GradeConflictError(`Another grade with name "${payload.name}" already exists.`);
+      }
+    }
 
+    const updatedGrade = await this.repository.update(id, payload);
     return updatedGrade;
   }
 
   async deleteGrade(id) {
     const existing = await this.repository.findById(id);
-
     if (!existing) {
       throw new GradeNotFoundError();
     }
 
     const deletedGrade = await this.repository.softDelete(id);
-
     return deletedGrade;
+  }
+
+  async restoreGrade(id) {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new GradeNotFoundError();
+    }
+
+    const restoredGrade = await this.repository.restore(id);
+    return restoredGrade;
   }
 }
 
@@ -79,4 +125,3 @@ module.exports = {
   GradeNotFoundError,
   GradeConflictError,
 };
-

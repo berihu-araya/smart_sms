@@ -7,10 +7,13 @@ test('SectionService.listSections forwards gradeId to repository.findAll', async
   const mockRepo = {
     async findAll(args) {
       capturedArgs = args;
-      return [
-        { id: 'sec-1', name: 'Section A', grade_id: 'grade-10' },
-        { id: 'sec-2', name: 'Section B', grade_id: 'grade-10' },
-      ];
+      return {
+        items: [
+          { id: 'sec-1', name: 'Section A', grade_id: 'grade-10' },
+          { id: 'sec-2', name: 'Section B', grade_id: 'grade-10' },
+        ],
+        total: 2,
+      };
     },
   };
 
@@ -25,6 +28,9 @@ test('SectionService.listSections forwards gradeId to repository.findAll', async
   assert.deepEqual(capturedArgs, {
     search: 'sec',
     gradeId: 'grade-10',
+    status: 'active',
+    sortBy: 'name',
+    sortOrder: 'ASC',
     limit: 10,
     offset: 0,
   });
@@ -32,4 +38,5 @@ test('SectionService.listSections forwards gradeId to repository.findAll', async
   assert.equal(result.items[0].grade_id, 'grade-10');
   assert.equal(result.limit, 10);
   assert.equal(result.page, 1);
+  assert.equal(result.total, 2);
 });

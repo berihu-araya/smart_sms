@@ -1,417 +1,195 @@
 const SubjectRepository = require('./subject.repository');
-const {
-  SubjectService,
-} = require('./subject.service');
-
+const { SubjectService } = require('./subject.service');
 const {
   validateCreateSubjectInput,
   validateUpdateSubjectInput,
   validateSubjectId,
 } = require('./subject.validation');
-
 const { db } = require('../../config/database');
 
-
-const subjectService =
-  new SubjectService(
-    new SubjectRepository(db)
-  );
+const subjectService = new SubjectService(new SubjectRepository(db));
 
 async function listSubjects(req, res, next) {
-
   try {
-
-    const data =
-      await subjectService.listSubjects({
-
-        search:
-          req.query.search || '',
-
-        limit:
-          Number(req.query.limit || 20),
-
-        offset:
-          Number(req.query.offset || 0),
-
-      });
-
-
-
-    return res.status(200).json({
-
-      success: true,
-
-      message:
-        'Subjects loaded successfully.',
-
-      data,
-
+    const data = await subjectService.listSubjects({
+      search: req.query.search || '',
+      status: req.query.status || 'active',
+      sortBy: req.query.sortBy || 'subject_name',
+      sortOrder: req.query.sortOrder || 'ASC',
+      limit: Number(req.query.limit || 20),
+      offset: Number(req.query.offset || 0),
     });
 
-
-
+    return res.status(200).json({
+      success: true,
+      message: 'Subjects loaded successfully.',
+      data,
+    });
   } catch (error) {
-
     return next(error);
-
   }
-
 }
-
-
-
-
-
-
-
 
 async function getSubjectById(req, res, next) {
+  const { id, errors } = validateSubjectId(req.params.id);
 
-
-  const {
-    id,
-    errors,
-  } =
-    validateSubjectId(
-      req.params.id
-    );
-
-
-
-  if (
-    Object.keys(errors).length > 0
-  ) {
-
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
-
       success: false,
-
-      message:
-        'Validation failed',
-
+      message: 'Validation failed',
       data: errors,
-
     });
-
   }
-
-
-
-
 
   try {
-
-
-    const data =
-      await subjectService.getSubjectById(
-        id
-      );
-
-
+    const data = await subjectService.getSubjectById(id);
 
     return res.status(200).json({
-
       success: true,
-
-      message:
-        'Subject loaded successfully.',
-
+      message: 'Subject loaded successfully.',
       data,
-
     });
-
-
-
   } catch (error) {
-
     return next(error);
-
   }
-
 }
 
+async function checkSubjectReferences(req, res, next) {
+  const { id, errors } = validateSubjectId(req.params.id);
 
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      data: errors,
+    });
+  }
 
+  try {
+    const data = await subjectService.checkSubjectReferences(id);
 
-
-
-
-
+    return res.status(200).json({
+      success: true,
+      message: 'Subject references calculated successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 async function createSubject(req, res, next) {
+  const input = validateCreateSubjectInput(req.body);
 
-
-  const input =
-    validateCreateSubjectInput(
-      req.body
-    );
-
-
-
-  if (
-    Object.keys(input.errors).length > 0
-  ) {
-
-
+  if (Object.keys(input.errors).length > 0) {
     return res.status(400).json({
-
       success: false,
-
-      message:
-        'Validation failed',
-
-      data:
-        input.errors,
-
+      message: 'Validation failed',
+      data: input.errors,
     });
-
-
   }
 
-
-
-
-
-
   try {
-
-
-    const data =
-      await subjectService.createSubject(
-        input
-      );
-
-
+    const data = await subjectService.createSubject(input);
 
     return res.status(201).json({
-
       success: true,
-
-      message:
-        'Subject created successfully.',
-
+      message: 'Subject created successfully.',
       data,
-
     });
-
-
-
-
   } catch (error) {
-
     return next(error);
-
   }
-
 }
-
-
-
-
-
-
-
-
 
 async function updateSubject(req, res, next) {
+  const { id, errors: idErrors } = validateSubjectId(req.params.id);
 
-
-  const {
-    id,
-    errors: idErrors,
-  } =
-    validateSubjectId(
-      req.params.id
-    );
-
-
-
-  if (
-    Object.keys(idErrors).length > 0
-  ) {
-
+  if (Object.keys(idErrors).length > 0) {
     return res.status(400).json({
-
       success: false,
-
-      message:
-        'Validation failed',
-
+      message: 'Validation failed',
       data: idErrors,
-
     });
-
   }
 
+  const input = validateUpdateSubjectInput(req.body);
 
-
-
-
-
-
-  const input =
-    validateUpdateSubjectInput(
-      req.body
-    );
-
-
-
-  if (
-    Object.keys(input.errors).length > 0
-  ) {
-
-
+  if (Object.keys(input.errors).length > 0) {
     return res.status(400).json({
-
       success: false,
-
-      message:
-        'Validation failed',
-
-      data:
-        input.errors,
-
+      message: 'Validation failed',
+      data: input.errors,
     });
-
-
   }
-
-
-
-
-
-
-
 
   try {
-
-
-    const data =
-      await subjectService.updateSubject(
-        id,
-        input
-      );
-
-
+    const data = await subjectService.updateSubject(id, input);
 
     return res.status(200).json({
-
       success: true,
-
-      message:
-        'Subject updated successfully.',
-
+      message: 'Subject updated successfully.',
       data,
-
     });
-
-
-
   } catch (error) {
-
-
     return next(error);
-
-
   }
-
 }
-
-
-
-
-
-
-
-
 
 async function deleteSubject(req, res, next) {
+  const { id, errors } = validateSubjectId(req.params.id);
 
-
-  const {
-    id,
-    errors,
-  } =
-    validateSubjectId(
-      req.params.id
-    );
-
-
-
-  if (
-    Object.keys(errors).length > 0
-  ) {
-
-
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
-
       success: false,
-
-      message:
-        'Validation failed',
-
+      message: 'Validation failed',
       data: errors,
-
     });
-
-
   }
-
-
-
-
-
-
 
   try {
-
-
-    const data =
-      await subjectService.deleteSubject(
-        id
-      );
-
-
+    const data = await subjectService.deleteSubject(id);
 
     return res.status(200).json({
-
       success: true,
-
-      message:
-        'Subject deleted successfully.',
-
+      message: 'Subject deactivated successfully.',
       data,
-
     });
-
-
-
   } catch (error) {
-
-
     return next(error);
-
-
   }
-
 }
 
+async function restoreSubject(req, res, next) {
+  const { id, errors } = validateSubjectId(req.params.id);
 
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      data: errors,
+    });
+  }
 
+  try {
+    const data = await subjectService.restoreSubject(id);
 
-
-
+    return res.status(200).json({
+      success: true,
+      message: 'Subject restored successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 module.exports = {
-
   listSubjects,
-
   getSubjectById,
-
+  checkSubjectReferences,
   createSubject,
-
   updateSubject,
-
   deleteSubject,
-
+  restoreSubject,
 };

@@ -5,22 +5,30 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import subjectService from "@/services/subjectService";
 import teacherSubjectService from "@/services/teacherSubjectService";
+import StatusBadge from "@/components/common/StatusBadge";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import styles from "./details.module.css";
-
-const STATUS_CONFIG = {
-  ACTIVE: { bg: "#dcfce7", color: "#166534" },
-  INACTIVE: { bg: "#f3f4f6", color: "#6b7280" },
-  ARCHIVED: { bg: "#fee2e2", color: "#991b1b" },
-};
+import {
+  HiBookOpen,
+  HiAcademicCap,
+  HiPencilSquare,
+  HiTrash,
+  HiArrowLeft,
+  HiUserPlus,
+} from "react-icons/hi2";
 
 export default function SubjectDetailsPage() {
   const params = useParams();
   const router = useRouter();
-const [subject, setSubject] = useState(null);
+  const [subject, setSubject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [deleting, setDeleting] = useState(false);
   const [assignments, setAssignments] = useState([]);
+
+  // Deactivation confirm state
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deleteReferences, setDeleteReferences] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function loadSubject() {
@@ -47,21 +55,31 @@ const [subject, setSubject] = useState(null);
     }
   }, [params]);
 
-  async function handleDelete() {
-    if (!window.confirm("Are you sure you want to delete this subject?")) {
-      return;
-    }
-
-    setDeleting(true);
+  const handleInitiateDelete = async () => {
     try {
-      await subjectService.deleteSubject(params.id);
-      router.push("/dashboard/subjects");
+      setDeleting(true);
+      setIsConfirmOpen(true);
+      const refData = await subjectService.checkSubjectReferences(params.id);
+      setDeleteReferences(refData);
     } catch (err) {
-      alert(err.message || "Failed to delete subject");
+      console.error("Failed to check subject references:", err);
+      setDeleteReferences(null);
     } finally {
       setDeleting(false);
     }
-  }
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await subjectService.deleteSubject(params.id);
+      setIsConfirmOpen(false);
+      router.push("/dashboard/subjects");
+    } catch (err) {
+      alert(err.message || "Failed to deactivate subject");
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return <div className={styles.loading}>Loading subject details...</div>;
@@ -75,8 +93,6 @@ const [subject, setSubject] = useState(null);
     return <div className={styles.loading}>Subject not found.</div>;
   }
 
-  const statusStyle = STATUS_CONFIG[subject.status] || STATUS_CONFIG.INACTIVE;
-
   return (
     <div className={styles.page}>
       {/* Breadcrumb */}
@@ -85,7 +101,7 @@ const [subject, setSubject] = useState(null);
         <span className={styles.separator}>/</span>
         <Link href="/dashboard/subjects">Subjects</Link>
         <span className={styles.separator}>/</span>
-        <span className={styles.current}>Details</span>
+        <span className={styles.current}>{subject.subject_name}</span>
       </nav>
 
       <div className={styles.card}>
@@ -96,29 +112,29 @@ const [subject, setSubject] = useState(null);
               {subject.subject_name?.[0]}
             </div>
             <div>
-              <h1 className={styles.title}>{subject.subject_name}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <h1 className={styles.title}>{subject.subject_name}</h1>
+                <StatusBadge status={subject.status} />
+              </div>
               <p className={styles.subtitle}>{subject.subject_code}</p>
             </div>
           </div>
           <div className={styles.headerActions}>
-            <span
-              className={styles.statusBadge}
-              style={{ background: statusStyle.bg, color: statusStyle.color }}
-            >
-              {subject.status}
-            </span>
             <Link
-              href={`/dashboard/subjects/${subject.id}/edit`}
+              href={`/dashboard/grades/subjects?subject_id=${subject.id}`}
               className={styles.btnSecondary}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
-              Edit
+              <HiAcademicCap size={16} /> Curriculum Map
             </Link>
             <button
-              onClick={handleDelete}
+              type="button"
+              onClick={handleInitiateDelete}
               disabled={deleting}
               className={styles.btnDanger}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
-              {deleting ? "Deleting..." : "Delete"}
+              <HiTrash size={16} /> Deactivate
             </button>
           </div>
         </div>
@@ -142,11 +158,11 @@ const [subject, setSubject] = useState(null);
           <div className={styles.section}>
             <h3 className={styles.sectionTitle}>📊 Academic Details</h3>
             <div className={styles.infoGrid}>
-              <Field label="Credit Hours" value={subject.credit_hours ?? "—"} />
+              <Field label="Credit Hours" value={subject.credit_hours !== null && subject.credit_hours !== undefined ? `${subject.credit_hours} hrs` : "—"} />
               <Field label="Pass Mark" value={subject.pass_mark ?? "—"} />
               <Field label="Maximum Mark" value={subject.max_mark ?? "—"} />
-              <Field label="Is Elective" value={subject.is_elective ? "Yes" : "No"} />
-              <Field label="Is Lab" value={subject.is_lab ? "Yes" : "No"} />
+              <Field label="Is Elective" value={subject.is_elective ? "Yes (Elective)" : "No (Core)"} />
+              <Field label="Is Lab" value={subject.is_lab ? "Yes (Practical Lab)" : "No (Theory Only)"} />
             </div>
           </div>
 
@@ -166,9 +182,9 @@ const [subject, setSubject] = useState(null);
               <Link
                 href={`/dashboard/teachers/subjects/new`}
                 className={styles.btnSecondary}
-                style={{ padding: "6px 14px", fontSize: 13 }}
+                style={{ padding: "6px 14px", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}
               >
-                + Assign Teacher
+                <HiUserPlus size={15} /> Assign Teacher
               </Link>
             </div>
             {assignments.length === 0 ? (
@@ -196,19 +212,7 @@ const [subject, setSubject] = useState(null);
                         <td style={{ padding: "8px 10px" }}>{a.section_name}</td>
                         <td style={{ padding: "8px 10px" }}>{a.academic_year_name}</td>
                         <td style={{ padding: "8px 10px" }}>
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              padding: "2px 8px",
-                              borderRadius: 999,
-                              fontSize: 11,
-                              fontWeight: 700,
-                              background: a.status === "ACTIVE" ? "#dcfce7" : "#f3f4f6",
-                              color: a.status === "ACTIVE" ? "#166534" : "#6b7280",
-                            }}
-                          >
-                            {a.status}
-                          </span>
+                          <StatusBadge status={a.status} />
                         </td>
                         <td style={{ padding: "8px 10px" }}>
                           <Link
@@ -230,10 +234,23 @@ const [subject, setSubject] = useState(null);
         {/* Footer */}
         <div className={styles.footer}>
           <Link href="/dashboard/subjects" className={styles.backLink}>
-            ← Back to Subjects
+            <HiArrowLeft size={16} /> Back to Subjects
           </Link>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Deactivate Subject"
+        itemName={subject?.subject_name}
+        itemType="subject"
+        references={deleteReferences}
+        loading={deleting}
+        confirmText="Confirm Deactivation"
+      />
     </div>
   );
 }
@@ -246,4 +263,3 @@ function Field({ label, value }) {
     </div>
   );
 }
-

@@ -1,57 +1,108 @@
-/* This file is responsible for interacting with the database to 
-perform CRUD operations on the grades data. It uses SQL queries to fetch, 
-insert, update, and delete records in the grades table. 
-The repository pattern is used here to encapsulate the data access 
-logic and provide a clean interface for the service layer to interact
-  with the database.
-*/
 class GradeRepository {
   constructor(database) {
     this.database = database;
-  } /*The constructor takes a database object as a parameter and assigns it
-    to the instance variable this.database. 
-    This allows the repository to use the database connection for executing queries.
-     */
-  async findAll({ search = '', limit = 20, offset = 0 } = {}) {
+  }
+
+  async findAll({
+    search = '',
+    status = 'active', // 'active' | 'inactive' | 'all'
+    sortBy = 'name',
+    sortOrder = 'ASC',
+    limit = 20,
+    offset = 0,
+  } = {}) {
     const searchPattern = `%${search.trim()}%`;
+    const values = [searchPattern];
+    const conditions = [];
+
+    // Status filter
+    if (status === 'active') {
+      conditions.push('g.deleted_at IS NULL');
+    } else if (status === 'inactive') {
+      conditions.push('g.deleted_at IS NOT NULL');
+    }
+    // if status === 'all', no deleted_at filter is added
+
+    const statusClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
+
+    const whereClause = `
+      WHERE (
+        LOWER(g.name) LIKE LOWER($1)
+        OR LOWER(COALESCE(g.description, '')) LIKE LOWER($1)
+      )
+      ${statusClause}
+    `;
+
+    // 1. Total count
+    const countResult = await this.database.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM grades g
+      ${whereClause}
+      `,
+      values
+    );
+    const total = countResult.rows[0]?.total || 0;
+
+    // 2. Sorting whitelist
+    const allowedSortColumns = {
+      name: 'g.name',
+      created_at: 'g.created_at',
+      updated_at: 'g.updated_at',
+      section_count: 'section_count',
+    };
+    const sortCol = allowedSortColumns[sortBy] || 'g.name';
+    const sortDir = String(sortOrder).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    // 3. Paginated items
+    const limitIndex = values.length + 1;
+    const offsetIndex = values.length + 2;
+    const queryValues = [...values, limit, offset];
 
     const result = await this.database.query(
       `
-        SELECT
-          g.id,
-          g.name,
-          g.description,
-          g.created_at,
-          g.updated_at,
-          (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count
-        FROM grades g
-        WHERE g.deleted_at IS NULL
-          AND (
-            LOWER(g.name) LIKE LOWER($1)
-          )
-        ORDER BY g.name ASC
-        LIMIT $2 OFFSET $3
+      SELECT
+        g.id,
+        g.name,
+        g.description,
+        g.created_at,
+        g.updated_at,
+        g.deleted_at,
+        CASE WHEN g.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+        (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count,
+        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL) AS student_count,
+        (SELECT COUNT(*)::int FROM grade_subjects gs WHERE gs.grade_id = g.id AND gs.deleted_at IS NULL) AS subject_count
+      FROM grades g
+      ${whereClause}
+      ORDER BY ${sortCol} ${sortDir}
+      LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
-      [searchPattern, limit, offset]
+      queryValues
     );
 
-    return result.rows;
+    return {
+      items: result.rows,
+      total,
+    };
   }
 
   async findById(id) {
     const result = await this.database.query(
       `
-        SELECT
-          g.id,
-          g.name,
-          g.description,
-          g.created_at,
-          g.updated_at,
-          (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count
-        FROM grades g
-        WHERE g.id = $1
-          AND g.deleted_at IS NULL
-        LIMIT 1
+      SELECT
+        g.id,
+        g.name,
+        g.description,
+        g.created_at,
+        g.updated_at,
+        g.deleted_at,
+        CASE WHEN g.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
+        (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count,
+        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL) AS student_count,
+        (SELECT COUNT(*)::int FROM grade_subjects gs WHERE gs.grade_id = g.id AND gs.deleted_at IS NULL) AS subject_count
+      FROM grades g
+      WHERE g.id = $1
+      LIMIT 1
       `,
       [id]
     );
@@ -59,14 +110,70 @@ class GradeRepository {
     return result.rows[0] || null;
   }
 
+  async findByName(name, excludeId = null) {
+    const values = [name.trim()];
+    let excludeClause = '';
+    if (excludeId) {
+      values.push(excludeId);
+      excludeClause = `AND id != $2`;
+    }
+
+    const result = await this.database.query(
+      `
+      SELECT id, name
+      FROM grades
+      WHERE LOWER(name) = LOWER($1)
+        AND deleted_at IS NULL
+        ${excludeClause}
+      LIMIT 1
+      `,
+      values
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async checkReferences(id) {
+    const sectionRes = await this.database.query(
+      `SELECT COUNT(*)::int AS count FROM sections WHERE grade_id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+    const studentRes = await this.database.query(
+      `SELECT COUNT(*)::int AS count FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = $1 AND st.deleted_at IS NULL`,
+      [id]
+    );
+    const gradeSubjectRes = await this.database.query(
+      `SELECT COUNT(*)::int AS count FROM grade_subjects WHERE grade_id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+    const examRes = await this.database.query(
+      `SELECT COUNT(*)::int AS count FROM exams WHERE grade_id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+
+    const sections = sectionRes.rows[0]?.count || 0;
+    const students = studentRes.rows[0]?.count || 0;
+    const gradeSubjects = gradeSubjectRes.rows[0]?.count || 0;
+    const exams = examRes.rows[0]?.count || 0;
+
+    return {
+      sections,
+      students,
+      gradeSubjects,
+      exams,
+      totalReferences: sections + students + gradeSubjects + exams,
+      hasReferences: sections + students + gradeSubjects + exams > 0,
+    };
+  }
+
   async create(payload) {
     const result = await this.database.query(
       `
-        INSERT INTO grades (name, description)
-        VALUES ($1, $2)
-        RETURNING *
+      INSERT INTO grades (name, description)
+      VALUES ($1, $2)
+      RETURNING *
       `,
-      [payload.name, payload.description]
+      [payload.name, payload.description || null]
     );
 
     return result.rows[0];
@@ -94,11 +201,10 @@ class GradeRepository {
 
     const result = await this.database.query(
       `
-        UPDATE grades
-        SET ${fields.join(', ')}
-        WHERE id = $${index}
-          AND deleted_at IS NULL
-        RETURNING *
+      UPDATE grades
+      SET ${fields.join(', ')}
+      WHERE id = $${index}
+      RETURNING *
       `,
       values
     );
@@ -109,12 +215,28 @@ class GradeRepository {
   async softDelete(id) {
     const result = await this.database.query(
       `
-        UPDATE grades
-        SET deleted_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-          AND deleted_at IS NULL
-        RETURNING *
+      UPDATE grades
+      SET deleted_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [id]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async restore(id) {
+    const result = await this.database.query(
+      `
+      UPDATE grades
+      SET deleted_at = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND deleted_at IS NOT NULL
+      RETURNING *
       `,
       [id]
     );
@@ -124,4 +246,3 @@ class GradeRepository {
 }
 
 module.exports = GradeRepository;
-
