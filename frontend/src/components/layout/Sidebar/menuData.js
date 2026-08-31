@@ -134,6 +134,12 @@ const menuData = [
         roles: ["School Admin", "Admin", "Teacher", "Staff"],
       },
       {
+        title: "Subject Allocation",
+        icon: FaClipboardList,
+        link: "/dashboard/grades/subjects",
+        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+      },
+      {
         title: "Timetable",
         icon: FaCalendarAlt,
         link: "/dashboard/timetable",
