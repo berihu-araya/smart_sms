@@ -424,6 +424,24 @@ export default function GradeSubjectListPage() {
               />
             </div>
 
+            {/* Grade Filter Dropdown */}
+            <select
+              id="gradeSelect"
+              value={selectedGrade}
+              onChange={(e) => setSelectedGrade(e.target.value)}
+              className={styles.gradeSelect}
+            >
+              <option value="">All Grades ({grades.length})</option>
+              {grades.map((g) => {
+                const count = assignments.filter((a) => a.grade_id === g.id).length;
+                return (
+                  <option key={g.id} value={g.id}>
+                    {g.name} {count > 0 ? `(${count} subjects)` : "(no subjects)"}
+                  </option>
+                );
+              })}
+            </select>
+
             {/* Academic Year Selector */}
             <select
               value={selectedAcademicYear}
@@ -469,30 +487,6 @@ export default function GradeSubjectListPage() {
               <HiListBullet size={16} /> Table
             </button>
           </div>
-        </div>
-
-        {/* Grade Quick Filter Pills Bar */}
-        <div className={styles.gradePillsBar}>
-          <button
-            type="button"
-            className={`${styles.gradePill} ${selectedGrade === "" ? styles.gradePillActive : ""}`}
-            onClick={() => setSelectedGrade("")}
-          >
-            All Grades ({grades.length})
-          </button>
-          {grades.map((g) => {
-            const count = assignments.filter((a) => a.grade_id === g.id).length;
-            return (
-              <button
-                key={g.id}
-                type="button"
-                className={`${styles.gradePill} ${selectedGrade === g.id ? styles.gradePillActive : ""}`}
-                onClick={() => setSelectedGrade(g.id)}
-              >
-                {g.name} {count > 0 ? `(${count})` : ""}
-              </button>
-            );
-          })}
         </div>
       </div>
 

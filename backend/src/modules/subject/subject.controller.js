@@ -79,18 +79,18 @@ async function checkSubjectReferences(req, res, next) {
 }
 
 async function createSubject(req, res, next) {
-  const input = validateCreateSubjectInput(req.body);
+  const { errors, ...payload } = validateCreateSubjectInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await subjectService.createSubject(input);
+    const data = await subjectService.createSubject(payload);
 
     return res.status(201).json({
       success: true,
@@ -113,18 +113,18 @@ async function updateSubject(req, res, next) {
     });
   }
 
-  const input = validateUpdateSubjectInput(req.body);
+  const { errors, ...payload } = validateUpdateSubjectInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await subjectService.updateSubject(id, input);
+    const data = await subjectService.updateSubject(id, payload);
 
     return res.status(200).json({
       success: true,

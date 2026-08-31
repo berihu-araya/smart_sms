@@ -213,6 +213,7 @@
 .inputWrapper {
   position: relative;
   min-width: 240px;
+  max-width: 320px;
   flex: 1;
 }
 
@@ -242,7 +243,8 @@
   font-size: 16px;
 }
 
-.select {
+.select,
+.gradeSelect {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 10px 34px 10px 14px;
@@ -260,9 +262,14 @@
   min-width: 160px;
 }
 
-.select:focus {
+.select:focus,
+.gradeSelect:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.gradeSelect {
+  min-width: 180px;
 }
 
 /* View Mode Switcher */
@@ -293,48 +300,6 @@
   background: white;
   color: #0f172a;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-}
-
-/* Grade Pills Bar */
-.gradePillsBar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.gradePill {
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.gradePill:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #0f172a;
-}
-
-.gradePillActive {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-}
-
-.gradePillActive:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: white;
 }
 
 /* Card / Curriculum Grid View */

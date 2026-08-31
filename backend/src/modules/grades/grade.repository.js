@@ -180,14 +180,15 @@ class GradeRepository {
   }
 
   async update(id, payload) {
+    const allowedColumns = ['name', 'description'];
     const fields = [];
     const values = [];
     let index = 1;
 
-    Object.entries(payload).forEach(([key, value]) => {
-      if (value !== undefined) {
-        fields.push(`${key} = $${index}`);
-        values.push(value);
+    allowedColumns.forEach((col) => {
+      if (payload[col] !== undefined) {
+        fields.push(`${col} = $${index}`);
+        values.push(payload[col]);
         index += 1;
       }
     });

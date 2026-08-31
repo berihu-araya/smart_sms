@@ -243,14 +243,28 @@ class SubjectRepository {
   }
 
   async update(id, payload) {
+    const allowedColumns = [
+      'subject_code',
+      'subject_name',
+      'short_name',
+      'description',
+      'credit_hours',
+      'pass_mark',
+      'max_mark',
+      'is_elective',
+      'is_lab',
+      'display_order',
+      'status',
+    ];
+
     const fields = [];
     const values = [];
     let index = 1;
 
-    Object.entries(payload).forEach(([key, value]) => {
-      if (value !== undefined) {
-        fields.push(`${key} = $${index}`);
-        values.push(value);
+    allowedColumns.forEach((col) => {
+      if (payload[col] !== undefined) {
+        fields.push(`${col} = $${index}`);
+        values.push(payload[col]);
         index++;
       }
     });

@@ -72,18 +72,18 @@ async function checkSectionReferences(req, res, next) {
 }
 
 async function createSection(req, res, next) {
-  const input = validateCreateSectionInput(req.body);
+  const { errors, ...payload } = validateCreateSectionInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await sectionService.createSection(input);
+    const data = await sectionService.createSection(payload);
 
     return res.status(201).json({
       success: true,
@@ -96,24 +96,24 @@ async function createSection(req, res, next) {
 }
 
 async function updateSection(req, res, next) {
-  const { id, errors } = validateSectionId(req.params.id);
+  const { id, errors: idErrors } = validateSectionId(req.params.id);
 
-  if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  if (Object.keys(idErrors).length > 0) {
+    return res.status(400).json({ success: false, message: 'Validation failed', data: idErrors });
   }
 
-  const input = validateUpdateSectionInput(req.body);
+  const { errors, ...payload } = validateUpdateSectionInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await sectionService.updateSection(id, input);
+    const data = await sectionService.updateSection(id, payload);
 
     return res.status(200).json({
       success: true,

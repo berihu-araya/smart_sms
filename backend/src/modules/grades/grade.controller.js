@@ -79,18 +79,18 @@ async function checkGradeReferences(req, res, next) {
 }
 
 async function createGrade(req, res, next) {
-  const input = validateCreateGradeInput(req.body);
+  const { errors, ...payload } = validateCreateGradeInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await gradeService.createGrade(input);
+    const data = await gradeService.createGrade(payload);
 
     return res.status(201).json({
       success: true,
@@ -103,24 +103,24 @@ async function createGrade(req, res, next) {
 }
 
 async function updateGrade(req, res, next) {
-  const { id, errors } = validateGradeId(req.params.id);
+  const { id, errors: idErrors } = validateGradeId(req.params.id);
 
-  if (Object.keys(errors).length > 0) {
-    return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  if (Object.keys(idErrors).length > 0) {
+    return res.status(400).json({ success: false, message: 'Validation failed', data: idErrors });
   }
 
-  const input = validateUpdateGradeInput(req.body);
+  const { errors, ...payload } = validateUpdateGradeInput(req.body);
 
-  if (Object.keys(input.errors).length > 0) {
+  if (Object.keys(errors).length > 0) {
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      data: input.errors,
+      data: errors,
     });
   }
 
   try {
-    const data = await gradeService.updateGrade(id, input);
+    const data = await gradeService.updateGrade(id, payload);
 
     return res.status(200).json({
       success: true,

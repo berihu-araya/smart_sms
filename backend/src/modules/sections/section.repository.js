@@ -228,11 +228,7 @@ class SectionRepository {
   }
 
   async update(id, payload) {
-    const fields = [];
-    const values = [];
-    let index = 1;
-
-    const keyMap = {
+    const allowedMapping = {
       name: 'name',
       gradeId: 'grade_id',
       grade_id: 'grade_id',
@@ -241,12 +237,18 @@ class SectionRepository {
       capacity: 'capacity',
     };
 
+    const fields = [];
+    const values = [];
+    let index = 1;
+    const handledCols = new Set();
+
     Object.entries(payload).forEach(([key, value]) => {
-      const col = keyMap[key] || key;
-      if (value !== undefined) {
+      const col = allowedMapping[key];
+      if (col && value !== undefined && !handledCols.has(col)) {
         fields.push(`${col} = $${index}`);
         values.push(value);
         index += 1;
+        handledCols.add(col);
       }
     });
 
