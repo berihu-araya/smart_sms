@@ -436,7 +436,7 @@ export default function GradeSubjectListPage() {
                 const count = assignments.filter((a) => a.grade_id === g.id).length;
                 return (
                   <option key={g.id} value={g.id}>
-                    {g.name} {count > 0 ? `(${count} subjects)` : "(no subjects)"}
+                    {g.name} ({count} subject{count === 1 ? "" : "s"})
                   </option>
                 );
               })}

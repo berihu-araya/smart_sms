@@ -4,6 +4,7 @@ const {
   validateCreateGradeInput,
   validateUpdateGradeInput,
 } = require('../src/modules/grades/grade.validation');
+const { getGradeSortValue } = require('../src/modules/grades/grade.repository');
 
 test('validateCreateGradeInput rejects missing name', () => {
   const result = validateCreateGradeInput({});
@@ -50,4 +51,12 @@ test('validateUpdateGradeInput allows partial updates', () => {
   assert.equal(result.name, undefined);
   assert.equal(result.description, 'Just the description');
   assert.deepEqual(result.errors, {});
+});
+
+test('getGradeSortValue orders grades numerically ascending', () => {
+  const sorted = ['Grade 10', 'Grade 2', 'KG', 'Grade 1', 'Grade 12']
+    .slice()
+    .sort((a, b) => getGradeSortValue(a) - getGradeSortValue(b));
+
+  assert.deepEqual(sorted, ['KG', 'Grade 1', 'Grade 2', 'Grade 10', 'Grade 12']);
 });
