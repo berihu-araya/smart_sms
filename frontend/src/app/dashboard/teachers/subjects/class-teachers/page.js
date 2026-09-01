@@ -27,7 +27,7 @@ export default function ClassTeacherListPage() {
   const [filterTeacherId, setFilterTeacherId] = useState("");
   const [filterSectionId, setFilterSectionId] = useState("");
   const [filterAcademicYearId, setFilterAcademicYearId] = useState("");
-
+  // This useEffect will fetch teacher, section and academic year data for the filters
   useEffect(() => {
     async function loadFilterOptions() {
       try {

@@ -73,7 +73,7 @@
   gap: 16px;
 }
 
-.summaryCard > div {
+.summaryCard>div {
   display: flex;
   flex-direction: column;
 }

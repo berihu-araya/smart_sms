@@ -39,16 +39,24 @@ export default function NewClassTeacherPage() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [teachersData, gradesData, yearsData] = await Promise.all([
+        const [teachersData, gradesData, activeYearData] = await Promise.all([
           teacherService.listTeachers({ limit: 200 }),
           gradeService.listGrades({ limit: 200 }),
-          academicYearService.listAcademicYears({ limit: 200 }),
+          academicYearService.getActiveAcademicYear(),
         ]);
+
         setTeachers(teachersData.items || []);
         setGrades(gradesData.items || []);
-        setAcademicYears(yearsData.items || []);
+
+        if (activeYearData?.id) {
+          setForm((prev) => ({ ...prev, academic_year_id: activeYearData.id }));
+          setAcademicYears([activeYearData]);
+        } else {
+          setAcademicYears([]);
+        }
       } catch (err) {
         console.error("Failed to load options", err);
+        setAcademicYears([]);
       } finally {
         setLoadingOptions(false);
       }
@@ -239,7 +247,7 @@ export default function NewClassTeacherPage() {
                   disabled={!form.grade_id}
                   className={`${styles.select} ${errors.section_id ? styles.inputError : ""}`}
                 >
-                  <option value="">{form.grade_id ? "Select Section" : "Select Grade First"}</option>
+                    <option value="">{form.grade_id ? "Select Section" : "Select Grade First"}</option>
                   {sections.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -253,19 +261,12 @@ export default function NewClassTeacherPage() {
                 <label className={styles.label}>
                   Academic Year<span className={styles.required}>*</span>
                 </label>
-                <select
-                  name="academic_year_id"
-                  value={form.academic_year_id}
-                  onChange={handleChange}
-                  className={`${styles.select} ${errors.academic_year_id ? styles.inputError : ""}`}
-                >
-                  <option value="">Select Academic Year</option>
-                  {academicYears.map((y) => (
-                    <option key={y.id} value={y.id}>
-                      {y.name}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={academicYears[0]?.name || "Loading active academic year..."}
+                  readOnly
+                  className={`${styles.input} ${errors.academic_year_id ? styles.inputError : ""}`}
+                />
                 {errors.academic_year_id && (
                   <span className={styles.fieldError}>ℹ️ {errors.academic_year_id}</span>
                 )}
