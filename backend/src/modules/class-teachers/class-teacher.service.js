@@ -79,7 +79,11 @@ class ClassTeacherService {
   }
 
   async listAssignments(filters = {}) {
-    return this.repository.listAssignments(filters);
+    const items = await this.repository.listAssignments(filters);
+    return {
+      items,
+      total: items.length,
+    };
   }
 
   async deactivateAssignment(id) {

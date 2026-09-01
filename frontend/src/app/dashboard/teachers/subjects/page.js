@@ -33,6 +33,14 @@ export default function TeacherSubjectListPage() {
   const [classTeacherLoading, setClassTeacherLoading] = useState(true);
   const [classTeacherHasLoaded, setClassTeacherHasLoaded] = useState(false);
   const [classTeacherError, setClassTeacherError] = useState("");
+  const [showClassTeacherForm, setShowClassTeacherForm] = useState(false);
+  const [classTeacherForm, setClassTeacherForm] = useState({
+    teacher_id: "",
+    section_id: "",
+    academic_year_id: "",
+  });
+  const [classTeacherFormErrors, setClassTeacherFormErrors] = useState({});
+  const [classTeacherFormSaving, setClassTeacherFormSaving] = useState(false);
 
   // Teacher-Subject Filters
   const [search, setSearch] = useState("");
@@ -116,6 +124,78 @@ export default function TeacherSubjectListPage() {
 
     loadClassTeachers();
   }, [classTeacherSearch, classTeacherFilterTeacherId, classTeacherFilterAcademicYearId]);
+
+  // Handle class teacher form
+  const handleClassTeacherFormChange = (e) => {
+    const { name, value } = e.target;
+    setClassTeacherForm((prev) => ({ ...prev, [name]: value }));
+    if (classTeacherFormErrors[name]) {
+      setClassTeacherFormErrors((prev) => {
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+    }
+  };
+
+  const validateClassTeacherForm = () => {
+    const errs = {};
+    if (!classTeacherForm.teacher_id) errs.teacher_id = "Teacher is required";
+    if (!classTeacherForm.section_id) errs.section_id = "Section is required";
+    if (!classTeacherForm.academic_year_id) errs.academic_year_id = "Academic year is required";
+    return errs;
+  };
+
+  const handleAssignClassTeacher = async (e) => {
+    e.preventDefault();
+    setClassTeacherError("");
+
+    const errs = validateClassTeacherForm();
+    setClassTeacherFormErrors(errs);
+
+    if (Object.keys(errs).length > 0) {
+      return;
+    }
+
+    setClassTeacherFormSaving(true);
+
+    try {
+      await classTeacherService.assignClassTeacher({
+        teacher_id: classTeacherForm.teacher_id,
+        section_id: classTeacherForm.section_id,
+        academic_year_id: classTeacherForm.academic_year_id,
+      });
+
+      // Reload the list
+      const data = await classTeacherService.listClassTeachers({
+        limit: 100,
+        offset: 0,
+      });
+      setClassTeachers(data.items || []);
+
+      // Reset form
+      setClassTeacherForm({ teacher_id: "", section_id: "", academic_year_id: "" });
+      setShowClassTeacherForm(false);
+      setClassTeacherError("");
+    } catch (err) {
+      setClassTeacherError(err.message || "Unable to assign class teacher. Please try again.");
+    } finally {
+      setClassTeacherFormSaving(false);
+    }
+  };
+
+  const handleDeactivateClassTeacher = async (id, teacherName, sectionName) => {
+    if (!window.confirm(`Deactivate ${teacherName} as class teacher for ${sectionName}?`)) {
+      return;
+    }
+
+    try {
+      await classTeacherService.deactivateClassTeacher(id);
+      setClassTeachers(classTeachers.filter((a) => a.id !== id));
+    } catch (err) {
+      alert(err.message || "Failed to deactivate");
+    }
+  };
 
   const assignmentCount = useMemo(() => assignments.length, [assignments]);
   const classTeacherCount = useMemo(() => classTeachers.length, [classTeachers]);
@@ -281,10 +361,128 @@ export default function TeacherSubjectListPage() {
       {activeTab === "classTeachers" && (
         <>
           <div className={styles.tabButtonsRow}>
-            <Link href="/dashboard/class-teachers/new" className={styles.primaryButton}>
-              + Assign Class Teacher
-            </Link>
+            <button
+              onClick={() => setShowClassTeacherForm(!showClassTeacherForm)}
+              className={styles.primaryButton}
+            >
+              {showClassTeacherForm ? "✕ Cancel" : "+ Assign Class Teacher"}
+            </button>
           </div>
+
+          {/* Modal Overlay */}
+          {showClassTeacherForm && (
+            <div className={styles.modalOverlay} onClick={() => setShowClassTeacherForm(false)}>
+              <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                <div className={styles.modalHeader}>
+                  <h2>Assign Class Teacher</h2>
+                  <button
+                    type="button"
+                    className={styles.modalCloseBtn}
+                    onClick={() => setShowClassTeacherForm(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {classTeacherError && (
+                  <div className={styles.errorBox} style={{ marginBottom: "16px" }}>
+                    {classTeacherError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAssignClassTeacher} className={styles.modalForm}>
+                  <div className={styles.formField}>
+                    <label className={styles.label}>
+                      Teacher <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <select
+                      name="teacher_id"
+                      value={classTeacherForm.teacher_id}
+                      onChange={handleClassTeacherFormChange}
+                      className={`${styles.select} ${classTeacherFormErrors.teacher_id ? styles.inputError : ""}`}
+                    >
+                      <option value="">-- Select Teacher --</option>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.first_name} {t.last_name}
+                        </option>
+                      ))}
+                    </select>
+                    {classTeacherFormErrors.teacher_id && (
+                      <span style={{ color: "#ef4444", fontSize: "12px", display: "block", marginTop: "4px" }}>
+                        {classTeacherFormErrors.teacher_id}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.formField}>
+                    <label className={styles.label}>
+                      Section <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <select
+                      name="section_id"
+                      value={classTeacherForm.section_id}
+                      onChange={handleClassTeacherFormChange}
+                      className={`${styles.select} ${classTeacherFormErrors.section_id ? styles.inputError : ""}`}
+                    >
+                      <option value="">-- Select Section --</option>
+                      {sections.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.grade_name} - {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    {classTeacherFormErrors.section_id && (
+                      <span style={{ color: "#ef4444", fontSize: "12px", display: "block", marginTop: "4px" }}>
+                        {classTeacherFormErrors.section_id}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.formField}>
+                    <label className={styles.label}>
+                      Academic Year <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <select
+                      name="academic_year_id"
+                      value={classTeacherForm.academic_year_id}
+                      onChange={handleClassTeacherFormChange}
+                      className={`${styles.select} ${classTeacherFormErrors.academic_year_id ? styles.inputError : ""}`}
+                    >
+                      <option value="">-- Select Year --</option>
+                      {academicYears.map((y) => (
+                        <option key={y.id} value={y.id}>
+                          {y.name} {y.is_active ? "★ (Active)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {classTeacherFormErrors.academic_year_id && (
+                      <span style={{ color: "#ef4444", fontSize: "12px", display: "block", marginTop: "4px" }}>
+                        {classTeacherFormErrors.academic_year_id}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.modalFormActions}>
+                    <button
+                      type="button"
+                      onClick={() => setShowClassTeacherForm(false)}
+                      className={styles.secondaryButton}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={classTeacherFormSaving}
+                      className={styles.primaryButton}
+                    >
+                      {classTeacherFormSaving ? "Assigning..." : "Assign Class Teacher"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           <div className={styles.summaryCard}>
             <div>
@@ -328,10 +526,23 @@ export default function TeacherSubjectListPage() {
             </div>
           </div>
 
-          {classTeacherError ? <div className={styles.errorBox}>{classTeacherError}</div> : null}
+          {classTeacherError && !showClassTeacherForm && (
+            <div className={styles.errorBox}>{classTeacherError}</div>
+          )}
 
           {classTeacherLoading && !classTeacherHasLoaded ? (
             <div className={styles.loading}>Loading class teachers...</div>
+          ) : classTeachers.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#667085" }}>
+              <p>No class teachers assigned yet.</p>
+              <button
+                onClick={() => setShowClassTeacherForm(true)}
+                className={styles.primaryButton}
+                style={{ marginTop: "16px" }}
+              >
+                Assign First Class Teacher
+              </button>
+            </div>
           ) : (
             <div className={styles.tableCard}>
               <table className={styles.table}>
@@ -349,7 +560,7 @@ export default function TeacherSubjectListPage() {
                   {classTeachers.map((ct) => (
                     <tr key={ct.id}>
                       <td>
-                        <strong>{ct.teacher_first_name} {ct.teacher_last_name}</strong>
+                        <strong>{ct.teacher_name}</strong>
                       </td>
                       <td>{ct.section_name}</td>
                       <td>{ct.grade_name}</td>
@@ -366,19 +577,18 @@ export default function TeacherSubjectListPage() {
                         </span>
                       </td>
                       <td>
-                        <Link href={`/dashboard/class-teachers/${ct.id}`} className={styles.linkButton}>
-                          View
-                        </Link>
+                        <button
+                          onClick={() =>
+                            handleDeactivateClassTeacher(ct.id, ct.teacher_name, ct.section_name)
+                          }
+                          className={styles.dangerButton}
+                          style={{ fontSize: "12px", padding: "4px 8px" }}
+                        >
+                          Deactivate
+                        </button>
                       </td>
                     </tr>
                   ))}
-                  {classTeachers.length === 0 && (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
-                        No class teachers assigned. Assign a class teacher to get started.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>

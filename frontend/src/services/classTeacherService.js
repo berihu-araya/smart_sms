@@ -1,11 +1,20 @@
 import { request } from "./apiClient";
 
-export async function listClassTeachers({ search = "", limit = 20, offset = 0, sectionId = "" } = {}) {
+export async function listClassTeachers({ 
+  search = "", 
+  limit = 20, 
+  offset = 0, 
+  sectionId = "",
+  teacher_id = "",
+  academic_year_id = ""
+} = {}) {
   const params = new URLSearchParams({
     search,
     limit,
     offset,
     ...(sectionId && { section_id: sectionId }),
+    ...(teacher_id && { teacher_id }),
+    ...(academic_year_id && { academic_year_id }),
   }).toString();
 
   const response = await request(`/api/v1/class-teachers?${params}`);

@@ -7,6 +7,7 @@ const classTeacherService = new ClassTeacherService(new ClassTeacherRepository(d
 async function listClassTeachers(req, res, next) {
   try {
     const data = await classTeacherService.listAssignments({
+      search: req.query.search || '',
       section_id: req.query.section_id || req.query.sectionId || '',
       academic_year_id: req.query.academic_year_id || req.query.academicYearId || '',
       teacher_id: req.query.teacher_id || req.query.teacherId || '',
@@ -41,7 +42,7 @@ async function getClassTeacherBySection(req, res, next) {
 
 async function deactivateClassTeacher(req, res, next) {
   try {
-    const data = await classTeacherService.deactivateClassTeacher(req.params.id);
+    const data = await classTeacherService.deactivateAssignment(req.params.id);
     return res.status(200).json({ success: true, message: 'Class teacher assignment deactivated successfully.', data });
   } catch (error) {
     return next(error);

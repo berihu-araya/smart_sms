@@ -63,6 +63,7 @@ class ClassTeacherRepository {
   }
 
   async create(payload) {
+    const today = new Date().toISOString().split('T')[0];
     const result = await this.database.query(
       `
         INSERT INTO class_teachers (teacher_id, section_id, academic_year_id, status, assignment_date, end_date)
@@ -74,7 +75,7 @@ class ClassTeacherRepository {
         payload.section_id,
         payload.academic_year_id,
         payload.status || 'ACTIVE',
-        payload.assignment_date || new Date(),
+        payload.assignment_date || today,
         payload.end_date || null,
       ]
     );
@@ -99,10 +100,16 @@ class ClassTeacherRepository {
     return result.rows[0] || null;
   }
 
-  async listAssignments({ section_id, academic_year_id, teacher_id, status = 'ACTIVE', limit = 20, offset = 0 }) {
+  async listAssignments({ search = '', section_id, academic_year_id, teacher_id, status = 'ACTIVE', limit = 20, offset = 0 }) {
     const values = [status];
     const conditions = ['ct.status = $1'];
     let index = 2;
+
+    if (search) {
+      conditions.push(`(LOWER(CONCAT(t.first_name, ' ', t.last_name)) LIKE LOWER($${index}) OR LOWER(sec.name) LIKE LOWER($${index}))`);
+      values.push(`%${search}%`);
+      index += 1;
+    }
 
     if (section_id) {
       conditions.push(`ct.section_id = $${index}`);
@@ -132,6 +139,7 @@ class ClassTeacherRepository {
           CONCAT(t.first_name, ' ', t.last_name) AS teacher_name,
           ct.section_id,
           sec.name AS section_name,
+          g.name AS grade_name,
           ct.academic_year_id,
           ay.name AS academic_year_name,
           ct.status,
@@ -142,6 +150,7 @@ class ClassTeacherRepository {
         FROM class_teachers ct
         INNER JOIN teachers t ON t.id = ct.teacher_id
         INNER JOIN sections sec ON sec.id = ct.section_id
+        INNER JOIN grades g ON g.id = sec.grade_id
         INNER JOIN academic_years ay ON ay.id = ct.academic_year_id
         WHERE ${conditions.join(' AND ')}
         ORDER BY ay.name DESC, sec.name ASC

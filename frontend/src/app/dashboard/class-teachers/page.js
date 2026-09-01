@@ -87,11 +87,10 @@ export default function ClassTeachersListPage() {
 
   const filteredAssignments = assignments.filter(
     (a) =>
-      !selectedYear ||
-      a.academic_year_id === selectedYear ||
-      !search ||
-      a.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
-      a.section_name?.toLowerCase().includes(search.toLowerCase())
+      (!selectedYear || a.academic_year_id === selectedYear) &&
+      (!search ||
+        a.teacher_name?.toLowerCase().includes(search.toLowerCase()) ||
+        a.section_name?.toLowerCase().includes(search.toLowerCase()))
   );
 
   if (loading) {
