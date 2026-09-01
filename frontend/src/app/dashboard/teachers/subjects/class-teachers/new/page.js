@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import classTeacherService from "@/services/classTeacherService";
 import teacherService from "@/services/teacherService";
+import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
 import academicYearService from "@/services/academicYearService";
 import styles from "./new.module.css";
@@ -15,6 +16,7 @@ export default function NewClassTeacherPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     teacher_id: "",
+    grade_id: "",
     section_id: "",
     academic_year_id: "",
     start_date: getTodayDateString(),
@@ -29,6 +31,7 @@ export default function NewClassTeacherPage() {
 
   // Dropdown options
   const [teachers, setTeachers] = useState([]);
+  const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -36,13 +39,13 @@ export default function NewClassTeacherPage() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [teachersData, sectionsData, yearsData] = await Promise.all([
+        const [teachersData, gradesData, yearsData] = await Promise.all([
           teacherService.listTeachers({ limit: 200 }),
-          sectionService.listSections({ limit: 200 }),
+          gradeService.listGrades({ limit: 200 }),
           academicYearService.listAcademicYears({ limit: 200 }),
         ]);
         setTeachers(teachersData.items || []);
-        setSections(sectionsData.items || []);
+        setGrades(gradesData.items || []);
         setAcademicYears(yearsData.items || []);
       } catch (err) {
         console.error("Failed to load options", err);
@@ -53,11 +56,37 @@ export default function NewClassTeacherPage() {
     loadOptions();
   }, []);
 
+  useEffect(() => {
+    async function loadSectionsForGrade() {
+      if (!form.grade_id) {
+        setSections([]);
+        setForm((prev) => ({ ...prev, section_id: "" }));
+        return;
+      }
+
+      try {
+        const data = await sectionService.listSections({ gradeId: form.grade_id, limit: 100 });
+        setSections(data.items || []);
+        setForm((prev) => ({ ...prev, section_id: "" }));
+      } catch (err) {
+        console.error("Failed to load sections for grade", err);
+        setSections([]);
+        setForm((prev) => ({ ...prev, section_id: "" }));
+      }
+    }
+
+    loadSectionsForGrade();
+  }, [form.grade_id]);
+
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
     const fieldValue = type === "checkbox" ? checked : value;
-    
+
     setForm((prev) => ({ ...prev, [name]: fieldValue }));
+
+    if (name === "grade_id") {
+      setForm((prev) => ({ ...prev, grade_id: value, section_id: "" }));
+    }
 
     if (errors[name]) {
       setErrors((prev) => {
@@ -72,6 +101,7 @@ export default function NewClassTeacherPage() {
     const errs = {};
 
     if (!form.teacher_id) errs.teacher_id = "Teacher is required";
+    if (!form.grade_id) errs.grade_id = "Grade is required";
     if (!form.section_id) errs.section_id = "Section is required";
     if (!form.academic_year_id) errs.academic_year_id = "Academic year is required";
     if (!form.start_date) errs.start_date = "Start date is required";
@@ -180,15 +210,36 @@ export default function NewClassTeacherPage() {
 
               <div className={styles.field}>
                 <label className={styles.label}>
+                  Grade<span className={styles.required}>*</span>
+                </label>
+                <select
+                  name="grade_id"
+                  value={form.grade_id}
+                  onChange={handleChange}
+                  className={`${styles.select} ${errors.grade_id ? styles.inputError : ""}`}
+                >
+                  <option value="">Select Grade</option>
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.grade_id && <span className={styles.fieldError}>ℹ️ {errors.grade_id}</span>}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>
                   Section<span className={styles.required}>*</span>
                 </label>
                 <select
                   name="section_id"
                   value={form.section_id}
                   onChange={handleChange}
+                  disabled={!form.grade_id}
                   className={`${styles.select} ${errors.section_id ? styles.inputError : ""}`}
                 >
-                  <option value="">Select Section</option>
+                  <option value="">{form.grade_id ? "Select Section" : "Select Grade First"}</option>
                   {sections.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}

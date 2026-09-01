@@ -86,9 +86,14 @@ export default function TeacherSubjectListPage() {
           <p>Assign teachers to subjects for specific grades, sections, and academic years.</p>
         </div>
 
-        <Link href="/dashboard/teachers/subjects/new" className={styles.primaryButton}>
-          + New Assignment
-        </Link>
+        <div className={styles.headerActions}>
+          <Link href="/dashboard/teachers/subjects/class-teachers" className={styles.secondaryButton}>
+            Class Teacher Assignment
+          </Link>
+          <Link href="/dashboard/teachers/subjects/new" className={styles.primaryButton}>
+            + New Assignment
+          </Link>
+        </div>
       </div>
 
       <div className={styles.summaryCard}>

@@ -21,7 +21,15 @@
   color: #667085;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .primaryButton,
+.secondaryButton,
 .linkButton {
   display: inline-flex;
   align-items: center;
@@ -35,6 +43,13 @@
   background: #2563eb;
   color: white;
   padding: 12px 18px;
+}
+
+.secondaryButton {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 12px 18px;
+  border: 1px solid #c7d2fe;
 }
 
 .linkButton {
@@ -133,7 +148,14 @@
     align-items: flex-start;
   }
 
-  .primaryButton {
+  .headerActions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primaryButton,
+  .secondaryButton {
     width: 100%;
   }
 
