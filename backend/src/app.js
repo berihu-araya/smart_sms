@@ -14,6 +14,9 @@ const gradeSubjectRoutes = require('./modules/grades/subjects/grade-subject.rout
 const academicYearRoutes = require('./modules/academic-years/academic-year.routes');
 
 const teacherSubjectRoutes = require('./modules/teachers/subjects/teacher-subject.routes');
+const classTeacherRoutes = require('./modules/class-teachers/class-teacher.routes');
+const staffRoleRoutes = require('./modules/staff-roles/staff-role.routes');
+const unitRoutes = require('./modules/units/unit.routes');
 const parentRoutes = require('./modules/parents/parent.routes');
 
 const attendanceRoutes = require('./modules/attendance/attendance.routes');
@@ -52,6 +55,9 @@ app.use('/api/v1/grades', gradeRoutes);
 
 app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/teachers/subjects', teacherSubjectRoutes);
+app.use('/api/v1/class-teachers', classTeacherRoutes);
+app.use('/api/v1/staff-roles', staffRoleRoutes);
+app.use('/api/v1/units', unitRoutes);
 app.use('/api/v1/teachers', teacherRoutes);
 
 app.use('/api/v1/academic-years', academicYearRoutes);

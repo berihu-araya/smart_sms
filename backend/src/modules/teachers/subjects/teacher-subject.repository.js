@@ -350,6 +350,33 @@ class TeacherSubjectRepository {
     return result.rows[0] || null;
   }
 
+  async findTeachersBySubject(subjectId, limit = 100, offset = 0) {
+    const result = await this.database.query(
+      `
+      SELECT DISTINCT
+        t.id,
+        CONCAT(t.first_name, ' ', t.last_name) AS teacher_name,
+        t.first_name,
+        t.last_name,
+        t.email,
+        t.employee_number,
+        t.phone,
+        t.status
+      FROM teacher_subjects ts
+      INNER JOIN teachers t ON t.id = ts.teacher_id
+      WHERE ts.subject_id = $1
+        AND ts.deleted_at IS NULL
+        AND t.deleted_at IS NULL
+      ORDER BY t.first_name, t.last_name
+      LIMIT $2
+      OFFSET $3
+      `,
+      [subjectId, limit, offset]
+    );
+
+    return result.rows;
+  }
+
 }
 
 module.exports = TeacherSubjectRepository;

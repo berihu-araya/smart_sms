@@ -6,6 +6,7 @@ const {
   createTeacherSubject,
   updateTeacherSubject,
   deleteTeacherSubject,
+  getTeachersBySubject,
 } = require('./teacher-subject.controller');
 
 const authMiddleware =
@@ -18,6 +19,8 @@ router.use(authMiddleware);
 router.get('/', listTeacherSubjects);
 
 router.post('/', createTeacherSubject);
+
+router.get('/by-subject/:subjectId', getTeachersBySubject);
 
 router.get('/:id', getTeacherSubjectById);
 

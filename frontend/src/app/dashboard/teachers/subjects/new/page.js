@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import teacherSubjectService from "@/services/teacherSubjectService";
+import qualifiedTeachersService from "@/services/qualifiedTeachersService";
 import teacherService from "@/services/teacherService";
 import subjectService from "@/services/subjectService";
 import gradeService from "@/services/gradeService";
@@ -30,23 +31,26 @@ export default function NewTeacherSubjectPage() {
   const [apiError, setApiError] = useState("");
 
   // Dropdown options
-  const [teachers, setTeachers] = useState([]);
+  const [allTeachers, setAllTeachers] = useState([]);
+  const [filteredTeachers, setFilteredTeachers] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
 
   useEffect(() => {
     async function loadOptions() {
       try {
         const [teachersData, subjectsData, gradesData, yearsData] = await Promise.all([
-          teacherService.listTeachers({ limit: 200 }),
+          teacherService.listTeachers({ limit: 300 }),
           subjectService.listSubjects({ limit: 200 }),
           gradeService.listGrades({ limit: 200 }),
           academicYearService.listAcademicYears({ limit: 200 }),
         ]);
-        setTeachers(teachersData.items || []);
+        setAllTeachers(teachersData.items || []);
+        setFilteredTeachers(teachersData.items || []);
         setSubjects(subjectsData.items || []);
         setGrades(gradesData.items || []);
         setAcademicYears(yearsData.items || []);
@@ -58,6 +62,32 @@ export default function NewTeacherSubjectPage() {
     }
     loadOptions();
   }, []);
+
+  // Filter teachers when subject changes
+  useEffect(() => {
+    async function filterTeachersBySubject() {
+      if (!form.subject_id) {
+        setFilteredTeachers(allTeachers);
+        return;
+      }
+
+      try {
+        setLoadingTeachers(true);
+        const data = await qualifiedTeachersService.getTeachersBySubject(form.subject_id, {
+          limit: 300,
+        });
+        setFilteredTeachers(data.items || []);
+      } catch (err) {
+        console.error("Failed to load qualified teachers", err);
+        // Fallback to all teachers if filtering fails
+        setFilteredTeachers(allTeachers);
+      } finally {
+        setLoadingTeachers(false);
+      }
+    }
+
+    filterTeachersBySubject();
+  }, [form.subject_id, allTeachers]);
 
   // Load sections when grade changes
   useEffect(() => {
@@ -195,9 +225,12 @@ export default function NewTeacherSubjectPage() {
                   value={form.teacher_id}
                   onChange={handleChange}
                   className={`${styles.select} ${errors.teacher_id ? styles.inputError : ""}`}
+                  disabled={loadingTeachers}
                 >
-                  <option value="">Select Teacher</option>
-                  {teachers.map((t) => (
+                  <option value="">
+                    {loadingTeachers ? "Loading qualified teachers..." : form.subject_id ? `Select Teacher (${filteredTeachers.length} qualified)` : "Select Teacher"}
+                  </option>
+                  {filteredTeachers.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.first_name} {t.last_name} ({t.employee_number})
                     </option>

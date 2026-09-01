@@ -128,11 +128,19 @@ function MarksEntryContent() {
         // Use grade-specific subjects if mapped, otherwise fallback to all subjects
         let availableSubjects = [];
         if (gsItems.length > 0) {
-          availableSubjects = gsItems.map((gs) => ({
-            id: gs.subject_id || gs.subject?.id,
-            subject_name: gs.subject_name || gs.subject?.subject_name || gs.name,
-            subject_code: gs.subject_code || gs.subject?.subject_code || gs.code,
-          }));
+          // Deduplicate subjects by ID since multiple grade-subject mappings may reference the same subject
+          const uniqueSubjects = new Map();
+          gsItems.forEach((gs) => {
+            const subjectId = gs.subject_id || gs.subject?.id;
+            if (!uniqueSubjects.has(subjectId)) {
+              uniqueSubjects.set(subjectId, {
+                id: subjectId,
+                subject_name: gs.subject_name || gs.subject?.subject_name || gs.name,
+                subject_code: gs.subject_code || gs.subject?.subject_code || gs.code,
+              });
+            }
+          });
+          availableSubjects = Array.from(uniqueSubjects.values());
         } else {
           availableSubjects = allSubjects;
         }

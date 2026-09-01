@@ -164,10 +164,39 @@ async function deleteTeacherSubject(req, res, next) {
   }
 }
 
+async function getTeachersBySubject(req, res, next) {
+  const subjectId = req.params.subjectId;
+
+  if (!subjectId || typeof subjectId !== 'string' || subjectId.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: 'Subject ID is required',
+      data: { subjectId: 'Subject ID is required' },
+    });
+  }
+
+  try {
+    const data = await teacherSubjectService.getTeachersBySubject(
+      subjectId,
+      Number(req.query.limit || 100),
+      Number(req.query.offset || 0)
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Teachers for subject loaded successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listTeacherSubjects,
   getTeacherSubjectById,
   createTeacherSubject,
   updateTeacherSubject,
   deleteTeacherSubject,
+  getTeachersBySubject,
 };

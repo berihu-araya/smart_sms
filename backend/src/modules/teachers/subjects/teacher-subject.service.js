@@ -172,6 +172,15 @@ class TeacherSubjectService {
 
     return await this.repository.softDelete(id);
   }
+
+  async getTeachersBySubject(subjectId, limit = 100, offset = 0) {
+    const teachers = await this.repository.findTeachersBySubject(subjectId, limit, offset);
+    return {
+      page: Math.floor(offset / limit) + 1,
+      limit,
+      items: teachers,
+    };
+  }
 }
 
 module.exports = {
