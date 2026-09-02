@@ -27,10 +27,18 @@ class TimetableConflictError extends Error {
 }
 
 class TimetableService {
-  constructor(repository, periodRepository, availabilityRepository) {
+  constructor(repository, periodRepository, availabilityRepository, conflictService) {
     this.repository = repository;
     this.periodRepository = periodRepository;
     this.availabilityRepository = availabilityRepository;
+    this.conflictService = conflictService;
+  }
+
+  async validateTimetable(id) {
+    if (!this.conflictService) {
+      throw new Error('ConflictService not initialized');
+    }
+    return this.conflictService.validateTimetable(id);
   }
 
   // --- Timetables ---

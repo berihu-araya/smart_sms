@@ -2,6 +2,8 @@ const { db } = require('../../config/database');
 const TimetableRepository = require('./timetable.repository');
 const PeriodRepository = require('./periods/period.repository');
 const AvailabilityRepository = require('./availability/availability.repository');
+const ConflictRepository = require('./conflict/conflict.repository');
+const ConflictService = require('./conflict/conflict.service');
 const { TimetableService } = require('./timetable.service');
 const {
   validateCreateTimetableInput,
@@ -15,7 +17,14 @@ const {
 const repository = new TimetableRepository(db);
 const periodRepository = new PeriodRepository(db);
 const availabilityRepository = new AvailabilityRepository(db);
-const service = new TimetableService(repository, periodRepository, availabilityRepository);
+const conflictRepository = new ConflictRepository(db);
+const conflictService = new ConflictService(conflictRepository);
+const service = new TimetableService(
+  repository,
+  periodRepository,
+  availabilityRepository,
+  conflictService
+);
 
 // --- Timetable Headers ---
 
@@ -331,6 +340,31 @@ async function deleteEntry(req, res, next) {
   }
 }
 
+async function validateTimetable(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { isValid, error } = validateTimetableId(id);
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null,
+      });
+    }
+
+    const report = await service.validateTimetable(id);
+    return res.status(200).json({
+      success: true,
+      message: report.hasConflict
+        ? 'Timetable has scheduling conflicts that must be resolved'
+        : 'Timetable validation passed successfully',
+      data: report,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listTimetables,
   getTimetableById,
@@ -338,6 +372,7 @@ module.exports = {
   updateTimetable,
   deleteTimetable,
   cloneTimetable,
+  validateTimetable,
   listEntries,
   createEntry,
   updateEntry,

@@ -6,6 +6,7 @@ const {
   updateTimetable,
   deleteTimetable,
   cloneTimetable,
+  validateTimetable,
   listEntries,
   createEntry,
   updateEntry,
@@ -27,6 +28,7 @@ router.post('/', authorizeRoles('School Admin', 'Admin', 'Staff'), createTimetab
 router.put('/:id', authorizeRoles('School Admin', 'Admin', 'Staff'), updateTimetable);
 router.delete('/:id', authorizeRoles('School Admin', 'Admin'), deleteTimetable);
 router.post('/:id/clone', authorizeRoles('School Admin', 'Admin', 'Staff'), cloneTimetable);
+router.post('/:id/validate', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher'), validateTimetable);
 
 // --- Timetable Entry Routes ---
 router.get('/:id/entries', listEntries);
