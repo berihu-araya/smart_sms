@@ -61,6 +61,20 @@ export async function cloneTimetable(id, { name } = {}) {
   return res.data;
 }
 
+export async function getActiveTimetable(academicYearId = null) {
+  const params = new URLSearchParams();
+  if (academicYearId) params.append("academic_year_id", academicYearId);
+  const res = await request(`/api/v1/timetable/active?${params.toString()}`);
+  return res.data;
+}
+
+export async function getMySchedule(academicYearId = null) {
+  const params = new URLSearchParams();
+  if (academicYearId) params.append("academic_year_id", academicYearId);
+  const res = await request(`/api/v1/timetable/my-schedule?${params.toString()}`);
+  return res.data;
+}
+
 export async function validateTimetable(id) {
   const res = await request(`/api/v1/timetable/${id}/validate`, {
     method: "POST",
@@ -130,6 +144,8 @@ export async function checkEntryConflict(timetableId, payload) {
 const timetableService = {
   listTimetables,
   getTimetableById,
+  getActiveTimetable,
+  getMySchedule,
   createTimetable,
   updateTimetable,
   deleteTimetable,

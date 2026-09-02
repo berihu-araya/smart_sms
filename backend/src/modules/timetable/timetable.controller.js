@@ -365,13 +365,103 @@ async function validateTimetable(req, res, next) {
   }
 }
 
+async function getActiveTimetable(req, res, next) {
+  try {
+    const { academic_year_id, academicYearId } = req.query;
+    const active = await service.getActiveTimetable(academic_year_id || academicYearId);
+    return res.status(200).json({
+      success: true,
+      message: active ? 'Active timetable retrieved' : 'No active published timetable found',
+      data: active,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getMySchedule(req, res, next) {
+  try {
+    const { academic_year_id, academicYearId } = req.query;
+    const schedule = await service.getMySchedule(req.user, {
+      academicYearId: academic_year_id || academicYearId,
+    });
+    return res.status(200).json({
+      success: true,
+      message: 'Personal schedule retrieved successfully',
+      data: schedule,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function publishTimetable(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { isValid, error } = validateTimetableId(id);
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null,
+      });
+    }
+
+    const published = await service.publishTimetable(id, req.user?.sub || req.user?.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Timetable published successfully and set as active',
+      data: published,
+    });
+  } catch (error) {
+    if (error.name === 'TimetableConflictError') {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        data: {
+          hasConflict: true,
+          conflicts: error.conflicts,
+        },
+      });
+    }
+    next(error);
+  }
+}
+
+async function archiveTimetable(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { isValid, error } = validateTimetableId(id);
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: error,
+        data: null,
+      });
+    }
+
+    const archived = await service.archiveTimetable(id);
+    return res.status(200).json({
+      success: true,
+      message: 'Timetable archived successfully',
+      data: archived,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listTimetables,
   getTimetableById,
+  getActiveTimetable,
+  getMySchedule,
   createTimetable,
   updateTimetable,
   deleteTimetable,
   cloneTimetable,
+  publishTimetable,
+  archiveTimetable,
   validateTimetable,
   listEntries,
   createEntry,

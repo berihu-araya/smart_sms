@@ -226,6 +226,62 @@ class TimetableRepository {
     return result.rows[0] || null;
   }
 
+  async publishTimetable(id, userId = null, client = null) {
+    const db = client || this.database;
+    const timetable = await this.findTimetableById(id);
+    if (!timetable) return null;
+
+    await db.query(
+      `
+      UPDATE timetables
+      SET is_active = false,
+          status = 'ARCHIVED',
+          archived_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE academic_year_id = $1
+        AND LOWER(term) = LOWER($2)
+        AND id != $3
+        AND is_active = true
+        AND deleted_at IS NULL
+      `,
+      [timetable.academic_year_id, timetable.term, id]
+    );
+
+    const result = await db.query(
+      `
+      UPDATE timetables
+      SET is_active = true,
+          status = 'PUBLISHED',
+          published_at = CURRENT_TIMESTAMP,
+          published_by = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [userId, id]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  async archiveTimetable(id, client = null) {
+    const db = client || this.database;
+    const result = await db.query(
+      `
+      UPDATE timetables
+      SET is_active = false,
+          status = 'ARCHIVED',
+          archived_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [id]
+    );
+
+    return result.rows[0] || null;
+  }
+
   // --- Timetable Entries ---
 
   async findAllEntries({
@@ -577,6 +633,99 @@ class TimetableRepository {
     );
 
     return result.rows[0] || null;
+  }
+
+  async findActiveTimetableGlobal(academicYearId = null) {
+    let query = `
+      SELECT
+        t.id,
+        t.academic_year_id,
+        ay.name AS academic_year_name,
+        t.term,
+        t.name,
+        t.status,
+        t.version,
+        t.is_active,
+        t.published_at
+      FROM timetables t
+      INNER JOIN academic_years ay ON ay.id = t.academic_year_id
+      WHERE t.deleted_at IS NULL
+    `;
+    const values = [];
+    if (academicYearId) {
+      query += ` AND t.academic_year_id = $1`;
+      values.push(academicYearId);
+    } else {
+      query += ` AND ay.is_active = true`;
+    }
+    query += ` AND t.is_active = true AND t.status = 'PUBLISHED' ORDER BY t.updated_at DESC LIMIT 1`;
+
+    const result = await this.database.query(query, values);
+    if (result.rows.length > 0) return result.rows[0];
+
+    const fallback = await this.database.query(
+      `
+      SELECT
+        t.id,
+        t.academic_year_id,
+        ay.name AS academic_year_name,
+        t.term,
+        t.name,
+        t.status,
+        t.version,
+        t.is_active,
+        t.published_at
+      FROM timetables t
+      INNER JOIN academic_years ay ON ay.id = t.academic_year_id
+      WHERE t.deleted_at IS NULL
+      ORDER BY (t.status = 'PUBLISHED') DESC, t.updated_at DESC
+      LIMIT 1
+      `
+    );
+    return fallback.rows[0] || null;
+  }
+
+  async findUserTeachingContext(userId) {
+    const res = await this.database.query(
+      `SELECT id, first_name, last_name, employee_number, max_weekly_periods FROM teachers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [userId]
+    );
+    return res.rows[0] || null;
+  }
+
+  async findUserStudentContext(userId) {
+    const res = await this.database.query(
+      `SELECT s.id, s.first_name, s.last_name, s.section_id, sec.name as section_name, sec.grade_id, g.name as grade_name
+       FROM students s
+       LEFT JOIN sections sec ON sec.id = s.section_id
+       LEFT JOIN grades g ON g.id = sec.grade_id
+       WHERE s.user_id = $1 AND s.deleted_at IS NULL LIMIT 1`,
+      [userId]
+    );
+    return res.rows[0] || null;
+  }
+
+  async findUserParentContext(userId) {
+    const parentRes = await this.database.query(
+      `SELECT id, full_name, phone_number FROM parents WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [userId]
+    );
+    const parent = parentRes.rows[0] || null;
+    if (!parent) return null;
+
+    const childrenRes = await this.database.query(
+      `SELECT s.id, s.first_name, s.last_name, s.section_id, sec.name as section_name, sec.grade_id, g.name as grade_name
+       FROM student_parents sp
+       INNER JOIN students s ON s.id = sp.student_id AND s.deleted_at IS NULL
+       LEFT JOIN sections sec ON sec.id = s.section_id
+       LEFT JOIN grades g ON g.id = sec.grade_id
+       WHERE sp.parent_id = $1`,
+      [parent.id]
+    );
+    return {
+      parent,
+      children: childrenRes.rows,
+    };
   }
 }
 

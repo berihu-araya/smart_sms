@@ -22,6 +22,9 @@ import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
   HiArrowRight,
+  HiAcademicCap,
+  HiArrowsRightLeft,
+  HiDocumentChartBar,
 } from "react-icons/hi2";
 
 export default function TimetableDashboardPage() {
@@ -208,14 +211,29 @@ export default function TimetableDashboardPage() {
         <Link href="/dashboard/timetable" className={`${styles.navTab} ${styles.navTabActive}`}>
           <HiCalendarDays /> Master Timetables
         </Link>
+        <Link href="/dashboard/timetable/teacher" className={styles.navTab}>
+          <HiAcademicCap /> Teacher View
+        </Link>
+        <Link href="/dashboard/timetable/class" className={styles.navTab}>
+          <HiUserGroup /> Student / Class View
+        </Link>
+        <Link href="/dashboard/timetable/rooms/occupancy" className={styles.navTab}>
+          <HiBuildingOffice /> Room Occupancy
+        </Link>
+        <Link href="/dashboard/timetable/substitutions" className={styles.navTab}>
+          <HiArrowsRightLeft /> Substitutions
+        </Link>
+        <Link href="/dashboard/timetable/reports" className={styles.navTab}>
+          <HiDocumentChartBar /> Reports
+        </Link>
         <Link href="/dashboard/timetable/rooms" className={styles.navTab}>
           <HiBuildingOffice /> Rooms & Facilities
         </Link>
         <Link href="/dashboard/timetable/periods" className={styles.navTab}>
-          <HiClock /> Bell Schedule (Periods)
+          <HiClock /> Bell Schedule
         </Link>
         <Link href="/dashboard/timetable/availability" className={styles.navTab}>
-          <HiUserGroup /> Teacher Availability
+          <HiUserGroup /> Availability Matrix
         </Link>
       </div>
 

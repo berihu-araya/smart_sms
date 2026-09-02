@@ -70,6 +70,136 @@ class TimetableService {
     return timetable;
   }
 
+  async getActiveTimetable(academicYearId = null) {
+    const timetable = await this.repository.findActiveTimetableGlobal(academicYearId);
+    if (!timetable) return null;
+
+    let periods = [];
+    if (this.periodRepository) {
+      periods = await this.periodRepository.findAllPeriods({
+        academicYearId: timetable.academic_year_id,
+        isActive: true,
+      });
+    }
+
+    return {
+      timetable,
+      periods,
+    };
+  }
+
+  async getMySchedule(user, { academicYearId = null } = {}) {
+    const activeHeader = await this.getActiveTimetable(academicYearId);
+    if (!activeHeader || !activeHeader.timetable) {
+      return {
+        role: user?.role || 'Guest',
+        timetable: null,
+        periods: [],
+        entries: [],
+      };
+    }
+
+    const { timetable, periods } = activeHeader;
+    const role = (user?.role || '').toLowerCase();
+    const userId = user?.sub || user?.id;
+
+    if (role === 'teacher') {
+      const teacher = await this.repository.findUserTeachingContext(userId);
+      if (!teacher) {
+        return {
+          role: 'Teacher',
+          teacher: null,
+          timetable,
+          periods,
+          entries: [],
+          message: 'Teacher profile not linked to user account',
+        };
+      }
+
+      const entries = await this.repository.findEntriesByTimetableId(timetable.id, {
+        teacherId: teacher.id,
+      });
+
+      return {
+        role: 'Teacher',
+        teacher,
+        timetable,
+        periods,
+        entries,
+      };
+    }
+
+    if (role === 'student') {
+      const student = await this.repository.findUserStudentContext(userId);
+      if (!student || !student.section_id) {
+        return {
+          role: 'Student',
+          student: student || null,
+          timetable,
+          periods,
+          entries: [],
+          message: 'Student is not assigned to a section',
+        };
+      }
+
+      const entries = await this.repository.findEntriesByTimetableId(timetable.id, {
+        sectionId: student.section_id,
+      });
+
+      return {
+        role: 'Student',
+        student,
+        timetable,
+        periods,
+        entries,
+      };
+    }
+
+    if (role === 'parent') {
+      const parentData = await this.repository.findUserParentContext(userId);
+      if (!parentData || !parentData.parent) {
+        return {
+          role: 'Parent',
+          parent: null,
+          children: [],
+          timetable,
+          periods,
+          message: 'Parent profile not linked to user account',
+        };
+      }
+
+      const childrenWithSchedules = await Promise.all(
+        parentData.children.map(async (child) => {
+          let childEntries = [];
+          if (child.section_id) {
+            childEntries = await this.repository.findEntriesByTimetableId(timetable.id, {
+              sectionId: child.section_id,
+            });
+          }
+          return {
+            ...child,
+            entries: childEntries,
+          };
+        })
+      );
+
+      return {
+        role: 'Parent',
+        parent: parentData.parent,
+        children: childrenWithSchedules,
+        timetable,
+        periods,
+      };
+    }
+
+    return {
+      role: user?.role || 'Staff',
+      timetable,
+      periods,
+      entries: [],
+    };
+  }
+
   async createTimetable(payload) {
     const created = await this.repository.createTimetable(payload);
     return created;
@@ -97,6 +227,36 @@ class TimetableService {
 
     const deleted = await this.repository.softDeleteTimetable(id);
     return deleted;
+  }
+
+  async publishTimetable(id, userId = null) {
+    const existing = await this.repository.findTimetableById(id);
+    if (!existing) {
+      throw new TimetableNotFoundError();
+    }
+
+    if (this.conflictService) {
+      const report = await this.conflictService.validateTimetable(id);
+      if (report.hasConflict) {
+        throw new TimetableConflictError(
+          'Cannot publish timetable with blocking conflicts',
+          report.conflicts
+        );
+      }
+    }
+
+    const published = await this.repository.publishTimetable(id, userId);
+    return published;
+  }
+
+  async archiveTimetable(id) {
+    const existing = await this.repository.findTimetableById(id);
+    if (!existing) {
+      throw new TimetableNotFoundError();
+    }
+
+    const archived = await this.repository.archiveTimetable(id);
+    return archived;
   }
 
   async cloneTimetable(id, { name, userId }) {
