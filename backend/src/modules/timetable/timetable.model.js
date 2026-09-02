@@ -1,0 +1,23 @@
+/**
+ * Timetable Domain Model & Schema definitions
+ */
+
+const {
+  TIMETABLE_STATUSES,
+  PERIOD_TYPES,
+  ROOM_TYPES,
+  DAYS_OF_WEEK,
+  SUBSTITUTION_STATUSES,
+  CONFLICT_TYPES,
+  CONFLICT_SEVERITY,
+} = require('./timetable.constants');
+
+module.exports = {
+  TIMETABLE_STATUSES,
+  PERIOD_TYPES,
+  ROOM_TYPES,
+  DAYS_OF_WEEK,
+  SUBSTITUTION_STATUSES,
+  CONFLICT_TYPES,
+  CONFLICT_SEVERITY,
+};

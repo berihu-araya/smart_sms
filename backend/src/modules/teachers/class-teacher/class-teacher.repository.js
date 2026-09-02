@@ -4,13 +4,13 @@
  */
 class ClassTeacherRepository {
   constructor(database) {
-    this.database = database;
+    this.database = database;// this.database = database; this mean store the database object inside this repository so all methods can use it to perform queries
   }
 
   /**
    * Find all class teacher assignments with filters
    */
-  async findAll({
+  async findAll({ // this function performs asynchronous work database queries to retrieve class teacher assignments based on various filters and search criteria. It constructs a dynamic SQL query based on the provided parameters, ensuring that only relevant records are fetched from the database.
     teacher_id,
     section_id,
     academic_year_id,
@@ -18,9 +18,9 @@ class ClassTeacherRepository {
     search = '',
     limit = 20,
     offset = 0,
-  } = {}) {
-    const conditions = ['ct.deleted_at IS NULL'];
-    const values = [];
+  } = {}) {   // this function takes an object as an argument, which can contain various filters and options for retrieving class teacher assignments. The parameters have default values, so if they are not provided, the function will use the defaults.
+    const conditions = ['ct.deleted_at IS NULL']; // this line initializes an array called conditions with a single condition that filters out any records that have been soft-deleted (i.e., where the deleted_at column is not null). This ensures that only active records are considered in the query.
+    const values = []; // this line initializes an empty array called values, which will be used to store the values for the query parameters. These values will be substituted into the SQL query to prevent SQL injection and ensure safe querying.
     let index = 1;
 
     if (search) {
@@ -29,6 +29,7 @@ class ClassTeacherRepository {
           LOWER(t.first_name) LIKE LOWER($${index})
           OR LOWER(t.last_name) LIKE LOWER($${index})
           OR LOWER(sec.name) LIKE LOWER($${index})
+          OR LOWER(g.name) LIKE LOWER($${index})
         )
       `);
       values.push(`%${search.trim()}%`);
@@ -72,6 +73,7 @@ class ClassTeacherRepository {
         t.email,
         ct.section_id,
         sec.name AS section_name,
+        g.name AS grade_name,
         ct.academic_year_id,
         ay.name AS academic_year_name,
         ct.start_date,
@@ -85,6 +87,8 @@ class ClassTeacherRepository {
         ON t.id = ct.teacher_id
       INNER JOIN sections sec
         ON sec.id = ct.section_id
+      LEFT JOIN grades g
+        ON g.id = sec.grade_id
       INNER JOIN academic_years ay
         ON ay.id = ct.academic_year_id
       WHERE ${conditions.join(' AND ')}
@@ -112,6 +116,7 @@ class ClassTeacherRepository {
         t.email,
         ct.section_id,
         sec.name AS section_name,
+        g.name AS grade_name,
         ct.academic_year_id,
         ay.name AS academic_year_name,
         ct.start_date,
@@ -125,6 +130,8 @@ class ClassTeacherRepository {
         ON t.id = ct.teacher_id
       INNER JOIN sections sec
         ON sec.id = ct.section_id
+      LEFT JOIN grades g
+        ON g.id = sec.grade_id
       INNER JOIN academic_years ay
         ON ay.id = ct.academic_year_id
       WHERE ct.id = $1 AND ct.deleted_at IS NULL
@@ -150,6 +157,7 @@ class ClassTeacherRepository {
         t.email,
         ct.section_id,
         sec.name AS section_name,
+        g.name AS grade_name,
         ct.academic_year_id,
         ay.name AS academic_year_name,
         ct.start_date,
@@ -163,6 +171,8 @@ class ClassTeacherRepository {
         ON t.id = ct.teacher_id
       INNER JOIN sections sec
         ON sec.id = ct.section_id
+      LEFT JOIN grades g
+        ON g.id = sec.grade_id
       INNER JOIN academic_years ay
         ON ay.id = ct.academic_year_id
       WHERE

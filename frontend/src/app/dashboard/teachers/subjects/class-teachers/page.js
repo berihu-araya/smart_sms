@@ -161,6 +161,7 @@ export default function ClassTeacherListPage() {
             <tr>
               <th>Teacher</th>
               <th>Employee ID</th>
+              <th>Grade</th>
               <th>Section</th>
               <th>Academic Year</th>
               <th>Start Date</th>
@@ -176,6 +177,7 @@ export default function ClassTeacherListPage() {
                   <strong>{a.teacher_name}</strong>
                 </td>
                 <td>{a.employee_number}</td>
+                <td>{a.grade_name || "—"}</td>
                 <td>{a.section_name}</td>
                 <td>{a.academic_year_name}</td>
                 <td>{a.start_date ? new Date(a.start_date).toLocaleDateString() : "—"}</td>
@@ -203,7 +205,7 @@ export default function ClassTeacherListPage() {
             ))}
             {assignments.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
+                <td colSpan={9} style={{ textAlign: "center", padding: "24px", color: "#667085" }}>
                   No assignments found. Create a new assignment to get started.
                 </td>
               </tr>

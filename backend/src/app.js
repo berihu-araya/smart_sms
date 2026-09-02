@@ -24,6 +24,10 @@ const resultRoutes = require('./modules/results/result.routes');
 const userRoutes = require('./modules/users/user.routes');
 const roleRoutes = require('./modules/roles/role.routes');
 const settingRoutes = require('./modules/settings/setting.routes');
+const timetableRoutes = require('./modules/timetable/timetable.routes');
+const roomRoutes = require('./modules/timetable/rooms/room.routes');
+const periodRoutes = require('./modules/timetable/periods/period.routes');
+const availabilityRoutes = require('./modules/timetable/availability/availability.routes');
 
 const app = express();
 
@@ -68,6 +72,12 @@ app.use('/api/v1/results', resultRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/settings', settingRoutes);
+
+app.use('/api/v1/timetable/rooms', roomRoutes);
+app.use('/api/v1/rooms', roomRoutes);
+app.use('/api/v1/timetable/periods', periodRoutes);
+app.use('/api/v1/timetable/availability', availabilityRoutes);
+app.use('/api/v1/timetable', timetableRoutes);
 
 
 
