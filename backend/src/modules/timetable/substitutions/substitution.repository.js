@@ -37,19 +37,19 @@ class SubstitutionRepository {
     }
 
     if (date) {
-      conditions.push(`ts.substitution_date = $${index}`);
+      conditions.push(`ts.date = $${index}`);
       values.push(date);
       index += 1;
     }
 
     if (fromDate) {
-      conditions.push(`ts.substitution_date >= $${index}`);
+      conditions.push(`ts.date >= $${index}`);
       values.push(fromDate);
       index += 1;
     }
 
     if (toDate) {
-      conditions.push(`ts.substitution_date <= $${index}`);
+      conditions.push(`ts.date <= $${index}`);
       values.push(toDate);
       index += 1;
     }
@@ -94,18 +94,19 @@ class SubstitutionRepository {
         s.subject_name,
         s.subject_code,
         te.room_id,
-        r.name AS room_name,
+        COALESCE(r_rep.name, r.name) AS room_name,
+        ts.replacement_room_id,
         ts.original_teacher_id,
         CONCAT(orig_t.first_name, ' ', orig_t.last_name) AS original_teacher_name,
         orig_t.employee_number AS original_teacher_employee_number,
         ts.substitute_teacher_id,
         CONCAT(sub_t.first_name, ' ', sub_t.last_name) AS substitute_teacher_name,
         sub_t.employee_number AS substitute_teacher_employee_number,
-        TO_CHAR(ts.substitution_date, 'YYYY-MM-DD') AS substitution_date,
+        TO_CHAR(ts.date, 'YYYY-MM-DD') AS substitution_date,
+        TO_CHAR(ts.date, 'YYYY-MM-DD') AS date,
         ts.status,
         ts.reason,
-        ts.notes,
-        ts.requested_by,
+        ts.created_by AS requested_by,
         CONCAT(req_u.first_name, ' ', req_u.last_name) AS requested_by_name,
         ts.approved_by,
         CONCAT(app_u.first_name, ' ', app_u.last_name) AS approved_by_name,
@@ -117,12 +118,13 @@ class SubstitutionRepository {
       INNER JOIN sections sec ON sec.id = te.section_id
       INNER JOIN subjects s ON s.id = te.subject_id
       LEFT JOIN rooms r ON r.id = te.room_id
+      LEFT JOIN rooms r_rep ON r_rep.id = ts.replacement_room_id
       INNER JOIN teachers orig_t ON orig_t.id = ts.original_teacher_id
       INNER JOIN teachers sub_t ON sub_t.id = ts.substitute_teacher_id
-      LEFT JOIN users req_u ON req_u.id = ts.requested_by
+      LEFT JOIN users req_u ON req_u.id = ts.created_by
       LEFT JOIN users app_u ON app_u.id = ts.approved_by
       ${whereClause}
-      ORDER BY ts.substitution_date DESC, p.period_order ASC, ts.created_at DESC
+      ORDER BY ts.date DESC, p.period_order ASC, ts.created_at DESC
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
       values
@@ -152,18 +154,19 @@ class SubstitutionRepository {
         s.subject_name,
         s.subject_code,
         te.room_id,
-        r.name AS room_name,
+        COALESCE(r_rep.name, r.name) AS room_name,
+        ts.replacement_room_id,
         ts.original_teacher_id,
         CONCAT(orig_t.first_name, ' ', orig_t.last_name) AS original_teacher_name,
         orig_t.employee_number AS original_teacher_employee_number,
         ts.substitute_teacher_id,
         CONCAT(sub_t.first_name, ' ', sub_t.last_name) AS substitute_teacher_name,
         sub_t.employee_number AS substitute_teacher_employee_number,
-        TO_CHAR(ts.substitution_date, 'YYYY-MM-DD') AS substitution_date,
+        TO_CHAR(ts.date, 'YYYY-MM-DD') AS substitution_date,
+        TO_CHAR(ts.date, 'YYYY-MM-DD') AS date,
         ts.status,
         ts.reason,
-        ts.notes,
-        ts.requested_by,
+        ts.created_by AS requested_by,
         CONCAT(req_u.first_name, ' ', req_u.last_name) AS requested_by_name,
         ts.approved_by,
         CONCAT(app_u.first_name, ' ', app_u.last_name) AS approved_by_name,
@@ -175,9 +178,10 @@ class SubstitutionRepository {
       INNER JOIN sections sec ON sec.id = te.section_id
       INNER JOIN subjects s ON s.id = te.subject_id
       LEFT JOIN rooms r ON r.id = te.room_id
+      LEFT JOIN rooms r_rep ON r_rep.id = ts.replacement_room_id
       INNER JOIN teachers orig_t ON orig_t.id = ts.original_teacher_id
       INNER JOIN teachers sub_t ON sub_t.id = ts.substitute_teacher_id
-      LEFT JOIN users req_u ON req_u.id = ts.requested_by
+      LEFT JOIN users req_u ON req_u.id = ts.created_by
       LEFT JOIN users app_u ON app_u.id = ts.approved_by
       WHERE ts.id = $1 AND ts.deleted_at IS NULL
       LIMIT 1
@@ -240,7 +244,7 @@ class SubstitutionRepository {
     // 2. Check if teacher is already assigned as an approved substitute on this date & period
     const subConditions = [
       'ts.substitute_teacher_id = $1',
-      'ts.substitution_date = $2',
+      'ts.date = $2',
       'te.period_id = $3',
       "ts.status IN ('PENDING', 'APPROVED')",
       'ts.deleted_at IS NULL',
@@ -283,11 +287,11 @@ class SubstitutionRepository {
         timetable_entry_id,
         original_teacher_id,
         substitute_teacher_id,
-        substitution_date,
+        date,
         status,
         reason,
-        notes,
-        requested_by
+        created_by,
+        replacement_room_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
@@ -296,18 +300,18 @@ class SubstitutionRepository {
         payload.timetable_entry_id,
         payload.original_teacher_id,
         payload.substitute_teacher_id,
-        payload.substitution_date,
+        payload.substitution_date || payload.date,
         payload.status || 'PENDING',
         payload.reason || null,
-        payload.notes || null,
-        payload.requested_by || null,
+        payload.requested_by || payload.created_by || null,
+        payload.replacement_room_id || null,
       ]
     );
 
     return result.rows[0];
   }
 
-  async updateSubstitutionStatus(id, { status, approvedBy, notes }, client = null) {
+  async updateSubstitutionStatus(id, { status, approvedBy }, client = null) {
     const db = client || this.database;
     const fields = ['status = $1', 'updated_at = CURRENT_TIMESTAMP'];
     const values = [status];
@@ -316,12 +320,6 @@ class SubstitutionRepository {
     if (approvedBy) {
       fields.push(`approved_by = $${index}`);
       values.push(approvedBy);
-      index += 1;
-    }
-
-    if (notes !== undefined) {
-      fields.push(`notes = $${index}`);
-      values.push(notes);
       index += 1;
     }
 

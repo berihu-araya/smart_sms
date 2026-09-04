@@ -56,10 +56,19 @@ function MarksEntryContent() {
         const gRes = await listGrades({ limit: 100 }).catch(() => ({ items: [] }));
         const gradeItems = gRes?.items || gRes?.data?.items || [];
 
-        setGrades(gradeItems);
+        const uniqueGrades = [];
+        const seenGradeIds = new Set();
+        gradeItems.forEach((g) => {
+          if (g?.id && !seenGradeIds.has(g.id)) {
+            seenGradeIds.add(g.id);
+            uniqueGrades.push(g);
+          }
+        });
 
-        if (gradeItems.length > 0) {
-          setSelectedGrade((current) => current || gradeItems[0].id);
+        setGrades(uniqueGrades);
+
+        if (uniqueGrades.length > 0) {
+          setSelectedGrade((current) => current || uniqueGrades[0].id);
         }
       } catch (err) {
         console.error('Failed to load grades:', err);
@@ -78,16 +87,25 @@ function MarksEntryContent() {
 
       try {
         const eRes = await listExams({ gradeId: selectedGrade, limit: 100 }).catch(() => []);
-        const examItems = eRes || [];
+        const examItems = Array.isArray(eRes) ? eRes : eRes?.items || [];
 
-        setExams(examItems);
+        const uniqueExams = [];
+        const seenExamIds = new Set();
+        examItems.forEach((ex) => {
+          if (ex?.id && !seenExamIds.has(ex.id)) {
+            seenExamIds.add(ex.id);
+            uniqueExams.push(ex);
+          }
+        });
 
-        if (urlExamId && examItems.some((exam) => exam.id === urlExamId)) {
+        setExams(uniqueExams);
+
+        if (urlExamId && uniqueExams.some((exam) => exam.id === urlExamId)) {
           setSelectedExam(urlExamId);
           return;
         }
 
-        setSelectedExam(examItems[0]?.id || '');
+        setSelectedExam(uniqueExams[0]?.id || '');
       } catch (err) {
         console.error('Failed to load exams for grade:', err);
         setExams([]);
@@ -118,28 +136,47 @@ function MarksEntryContent() {
         const gsItems = gsRes?.items || gsRes?.data?.items || [];
         const allSubjects = allSubRes?.items || allSubRes?.data?.items || [];
 
-        setSections(sectionItems);
-        if (sectionItems.length > 0) {
-          setSelectedSection(sectionItems[0].id);
+        const uniqueSections = [];
+        const seenSectionIds = new Set();
+        sectionItems.forEach((sec) => {
+          if (sec?.id && !seenSectionIds.has(sec.id)) {
+            seenSectionIds.add(sec.id);
+            uniqueSections.push(sec);
+          }
+        });
+
+        setSections(uniqueSections);
+        if (uniqueSections.length > 0) {
+          setSelectedSection(uniqueSections[0].id);
         } else {
           setSelectedSection('');
         }
 
         // Use grade-specific subjects if mapped, otherwise fallback to all subjects
-        let availableSubjects = [];
-        if (gsItems.length > 0) {
-          availableSubjects = gsItems.map((gs) => ({
-            id: gs.subject_id || gs.subject?.id,
-            subject_name: gs.subject_name || gs.subject?.subject_name || gs.name,
-            subject_code: gs.subject_code || gs.subject?.subject_code || gs.code,
-          }));
-        } else {
-          availableSubjects = allSubjects;
-        }
+        const rawSubjects = gsItems.length > 0
+          ? gsItems.map((gs) => ({
+              id: gs.subject_id || gs.subject?.id || gs.id,
+              subject_name: gs.subject_name || gs.subject?.subject_name || gs.name,
+              subject_code: gs.subject_code || gs.subject?.subject_code || gs.code,
+            }))
+          : allSubjects.map((s) => ({
+              id: s.id,
+              subject_name: s.subject_name || s.name,
+              subject_code: s.subject_code || s.code,
+            }));
 
-        setSubjects(availableSubjects);
-        if (availableSubjects.length > 0) {
-          setSelectedSubject(availableSubjects[0].id);
+        const uniqueSubjects = [];
+        const seenSubjectIds = new Set();
+        rawSubjects.forEach((sub) => {
+          if (sub?.id && !seenSubjectIds.has(sub.id)) {
+            seenSubjectIds.add(sub.id);
+            uniqueSubjects.push(sub);
+          }
+        });
+
+        setSubjects(uniqueSubjects);
+        if (uniqueSubjects.length > 0) {
+          setSelectedSubject(uniqueSubjects[0].id);
         } else {
           setSelectedSubject('');
         }
@@ -366,8 +403,8 @@ function MarksEntryContent() {
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
             >
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
+              {grades.map((g, idx) => (
+                <option key={g.id ? `grade-${g.id}` : `grade-idx-${idx}`} value={g.id}>
                   {g.name}
                 </option>
               ))}
@@ -388,8 +425,8 @@ function MarksEntryContent() {
               {sections.length === 0 ? (
                 <option value="">No sections in grade</option>
               ) : (
-                sections.map((sec) => (
-                  <option key={sec.id} value={sec.id}>
+                sections.map((sec, idx) => (
+                  <option key={sec.id ? `sec-${sec.id}` : `sec-idx-${idx}`} value={sec.id}>
                     {sec.name} {sec.room_number ? `(${sec.room_number})` : ''}
                   </option>
                 ))
@@ -411,8 +448,8 @@ function MarksEntryContent() {
               {subjects.length === 0 ? (
                 <option value="">No subjects found</option>
               ) : (
-                subjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
+                subjects.map((sub, idx) => (
+                  <option key={sub.id ? `sub-${sub.id}` : `sub-idx-${idx}`} value={sub.id}>
                     {sub.subject_name || sub.name} ({sub.subject_code || sub.code})
                   </option>
                 ))
@@ -434,8 +471,8 @@ function MarksEntryContent() {
               {exams.length === 0 ? (
                 <option value="">No active exams scheduled</option>
               ) : (
-                exams.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
+                exams.map((ex, idx) => (
+                  <option key={ex.id ? `exam-${ex.id}` : `exam-idx-${idx}`} value={ex.id}>
                     {ex.title} ({ex.term_or_semester} • {ex.max_marks} pts • {ex.weight_percentage}% wt)
                   </option>
                 ))
