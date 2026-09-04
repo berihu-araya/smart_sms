@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 
 import { useAuth } from "@/hooks/useAuth";
+import { getTranslation } from "@/utils/translations";
 import styles from "./Sidebar.module.css";
 import menuData from "./menuData";
 
@@ -93,77 +94,74 @@ function MenuItem({
   level = 0,
   openMenus,
   toggleMenu,
+  isMini = false,
+  lang = "en",
 }) {
   const hasChildren = item.children?.length > 0;
-
   const Icon = item.icon;
-
   const isOpen = openMenus[level] === item.title;
-
-  const isActive =
-    pathname === item.link || hasActiveChild(item, pathname);
+  const isActive = pathname === item.link || hasActiveChild(item, pathname);
+  const displayTitle = getTranslation(lang, item.title, item.title);
 
   /* --------------------------
      Normal Link
   ---------------------------*/
-
   if (!hasChildren) {
     return (
       <Link
         href={item.link}
-        className={`${styles.menuItem} ${
-          pathname === item.link ? styles.active : ""
-        }`}
-        style={{
-          paddingLeft: `${18 + level * 20}px`,
-        }}
+        title={displayTitle}
+        className={`${styles.menuItem} ${isActive ? styles.active : ""}`}
+        style={!isMini ? { paddingLeft: `${18 + level * 16}px` } : undefined}
       >
         <Icon className={styles.icon} />
-
-        <span>{item.title}</span>
+        {!isMini && <span className={styles.menuLabel}>{displayTitle}</span>}
       </Link>
     );
   }
 
   /* --------------------------
-     Expandable Menu
+     Expandable Menu in Mini Mode (links to first child or acts as button)
   ---------------------------*/
+  if (isMini) {
+    const targetLink = item.children?.[0]?.link || "#";
+    return (
+      <Link
+        href={targetLink}
+        title={displayTitle}
+        className={`${styles.menuItem} ${isActive ? styles.active : ""}`}
+      >
+        <Icon className={styles.icon} />
+      </Link>
+    );
+  }
 
+  /* --------------------------
+     Expandable Menu in Full Mode
+  ---------------------------*/
   return (
     <div className={styles.menuGroup}>
       <button
         type="button"
         aria-expanded={isOpen}
-        onClick={() =>
-          toggleMenu(level, item.title)
-        }
-        className={`${styles.menuButton} ${
-          isActive ? styles.menuButtonActive : ""
-        }`}
+        title={displayTitle}
+        onClick={() => toggleMenu(level, item.title)}
+        className={`${styles.menuButton} ${isActive ? styles.menuButtonActive : ""}`}
         style={{
-          paddingLeft: `${18 + level * 20}px`,
+          paddingLeft: `${18 + level * 16}px`,
         }}
       >
         <div className={styles.menuLeft}>
           <Icon className={styles.icon} />
-
-          <span>{item.title}</span>
+          <span className={styles.menuLabel}>{displayTitle}</span>
         </div>
 
         <span className={styles.chevronIcon}>
-          {isOpen ? (
-            <FaChevronDown />
-          ) : (
-            <FaChevronRight />
-          )}
+          {isOpen ? <FaChevronDown /> : <FaChevronRight />}
         </span>
       </button>
 
-      <div
-        className={`${styles.subMenu} ${
-          isOpen ? styles.show : ""
-        }`}
-      >
+      <div className={`${styles.subMenu} ${isOpen ? styles.show : ""}`}>
         {item.children.map((child) => (
           <MenuItem
             key={child.title}
@@ -172,6 +170,8 @@ function MenuItem({
             level={level + 1}
             openMenus={openMenus}
             toggleMenu={toggleMenu}
+            isMini={isMini}
+            lang={lang}
           />
         ))}
       </div>
@@ -179,17 +179,38 @@ function MenuItem({
   );
 }
 
-
 /* -------------------------------------------------
-   Sidebar
+   Sidebar Component
 --------------------------------------------------*/
-
 export default function Sidebar({
   isVisible = true,
 }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const filteredMenuData = filterMenuByRole(menuData, user?.role);
+  const isMini = !isVisible;
+
+  const [lang, setLang] = useState("en");
+
+  useEffect(() => {
+    try {
+      const savedLang = localStorage.getItem("smart_sms_lang") || "en";
+      setLang(savedLang);
+    } catch {
+      // ignore
+    }
+
+    const handleLangChange = (event) => {
+      if (event.detail) {
+        setLang(event.detail);
+      }
+    };
+
+    window.addEventListener("smart-sms-lang-change", handleLangChange);
+    return () => {
+      window.removeEventListener("smart-sms-lang-change", handleLangChange);
+    };
+  }, []);
 
   const [openMenus, setOpenMenus] = useState(() => {
     return findActivePath(filteredMenuData, pathname) || {};
@@ -208,7 +229,6 @@ export default function Sidebar({
   /* ----------------------------------------
      Accordion Toggle
   -----------------------------------------*/
-
   const toggleMenu = (level, title) => {
     setOpenMenus((prev) => {
       const next = { ...prev };
@@ -219,7 +239,6 @@ export default function Sidebar({
             delete next[key];
           }
         });
-
         return next;
       }
 
@@ -230,7 +249,6 @@ export default function Sidebar({
       });
 
       next[level] = title;
-
       return next;
     });
   };
@@ -238,26 +256,21 @@ export default function Sidebar({
   return (
     <aside
       className={`${styles.sidebar} ${
-        isVisible
-          ? styles.sidebarVisible
-          : styles.sidebarCollapsed
+        isVisible ? styles.sidebarVisible : styles.sidebarMini
       }`}
     >
-      {/* Logo */}
-
+      {/* Sidebar Header / Logo */}
       <div className={styles.logo}>
-        <div className={styles.logoIcon}>
-          🎓
-        </div>
-
-        <div>
-          <h2>Smart SMS</h2>
-          <span>School System</span>
-        </div>
+        <div className={styles.logoIcon}>🎓</div>
+        {!isMini && (
+          <div className={styles.logoTextWrap}>
+            <h2>{getTranslation(lang, "platform_name", "Smart SMS")}</h2>
+            <span>{getTranslation(lang, "school_sub", "School System")}</span>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
-
       <nav className={styles.navMenu}>
         {filteredMenuData.map((menu) => (
           <MenuItem
@@ -267,6 +280,8 @@ export default function Sidebar({
             level={0}
             openMenus={openMenus}
             toggleMenu={toggleMenu}
+            isMini={isMini}
+            lang={lang}
           />
         ))}
       </nav>
