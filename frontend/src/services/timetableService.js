@@ -141,6 +141,32 @@ export async function checkEntryConflict(timetableId, payload) {
   return res.data;
 }
 
+export async function publishTimetable(id) {
+  const res = await request(`/api/v1/timetable/${id}/publish`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
+export async function archiveTimetable(id) {
+  const res = await request(`/api/v1/timetable/${id}/archive`, {
+    method: "POST",
+  });
+  return res.data;
+}
+
+export async function autoGenerateTimetable(id, options = {}) {
+  const res = await request(`/api/v1/timetable/${id}/auto-generate`, {
+    method: "POST",
+    body: JSON.stringify({
+      clear_existing: options.clearExisting ?? options.clear_existing ?? true,
+      enforce_availability: options.enforceAvailability ?? options.enforce_availability ?? true,
+      match_room_types: options.matchRoomTypes ?? options.match_room_types ?? true,
+    }),
+  });
+  return res.data;
+}
+
 const timetableService = {
   listTimetables,
   getTimetableById,
@@ -150,7 +176,10 @@ const timetableService = {
   updateTimetable,
   deleteTimetable,
   cloneTimetable,
+  publishTimetable,
+  archiveTimetable,
   validateTimetable,
+  autoGenerateTimetable,
   listTimetableEntries,
   createTimetableEntry,
   updateTimetableEntry,

@@ -30,7 +30,13 @@ const periodRoutes = require('./modules/timetable/periods/period.routes');
 const availabilityRoutes = require('./modules/timetable/availability/availability.routes');
 const substitutionRoutes = require('./modules/timetable/substitutions/substitution.routes');
 
+const { db } = require('./config/database');
+const AuthorizationService = require('./services/authorization.service');
+
 const app = express();
+
+const authorizationService = new AuthorizationService(db);
+app.set('authorizationService', authorizationService);
 
 app.use(cors()); // Enable CORS for all routes
 app.use(helmet());// Enable Helmet for security headers

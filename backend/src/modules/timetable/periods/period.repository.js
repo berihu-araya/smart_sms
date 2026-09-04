@@ -55,6 +55,10 @@ class PeriodRepository {
     return result.rows;
   }
 
+  async findAllPeriods(params) {
+    return this.findAll(params);
+  }
+
   async findById(id) {
     const result = await this.database.query(
       `

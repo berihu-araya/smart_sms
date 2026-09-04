@@ -41,6 +41,7 @@ async function listTimetables(req, res, next) {
       status,
       limit: parsedLimit,
       offset: parsedOffset,
+      schoolId: req.user?.school_id,
     });
 
     return res.status(200).json({

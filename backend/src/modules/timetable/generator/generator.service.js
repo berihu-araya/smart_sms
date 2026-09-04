@@ -1,4 +1,4 @@
-const { DAYS_OF_WEEK } = require('../timetable.constants');
+const { STANDARD_SCHOOL_DAYS } = require('../timetable.constants');
 
 class TimetableGeneratorService {
   constructor(database) {
@@ -121,6 +121,11 @@ class TimetableGeneratorService {
       `
     );
     const allTeachers = allTeachersRes.rows;
+    if (allTeachers.length === 0) {
+      const error = new Error('No active teachers found in the system. Please register at least one teacher before auto-generating schedules.');
+      error.status = 400;
+      throw error;
+    }
 
     // 6. Fetch Teacher Availability Matrix
     const availabilityRes = await db.query(
@@ -150,13 +155,13 @@ class TimetableGeneratorService {
     );
     const rooms = roomsRes.rows;
 
-    // Days to schedule
-    const days = [
-      DAYS_OF_WEEK.MONDAY,
-      DAYS_OF_WEEK.TUESDAY,
-      DAYS_OF_WEEK.WEDNESDAY,
-      DAYS_OF_WEEK.THURSDAY,
-      DAYS_OF_WEEK.FRIDAY,
+    // Days to schedule (Monday - Friday)
+    const days = STANDARD_SCHOOL_DAYS || [
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
     ];
 
     // 8. Track Occupied Slots Matrix

@@ -76,10 +76,17 @@ class TimetableService {
 
     let periods = [];
     if (this.periodRepository) {
-      periods = await this.periodRepository.findAllPeriods({
-        academicYearId: timetable.academic_year_id,
-        isActive: true,
-      });
+      if (typeof this.periodRepository.findAll === 'function') {
+        periods = await this.periodRepository.findAll({
+          academicYearId: timetable.academic_year_id,
+          isActive: true,
+        });
+      } else if (typeof this.periodRepository.findAllPeriods === 'function') {
+        periods = await this.periodRepository.findAllPeriods({
+          academicYearId: timetable.academic_year_id,
+          isActive: true,
+        });
+      }
     }
 
     return {
@@ -116,7 +123,8 @@ class TimetableService {
         };
       }
 
-      const entries = await this.repository.findEntriesByTimetableId(timetable.id, {
+      const entries = await this.repository.findAllEntries({
+        timetableId: timetable.id,
         teacherId: teacher.id,
       });
 
@@ -142,7 +150,8 @@ class TimetableService {
         };
       }
 
-      const entries = await this.repository.findEntriesByTimetableId(timetable.id, {
+      const entries = await this.repository.findAllEntries({
+        timetableId: timetable.id,
         sectionId: student.section_id,
       });
 
@@ -172,7 +181,8 @@ class TimetableService {
         parentData.children.map(async (child) => {
           let childEntries = [];
           if (child.section_id) {
-            childEntries = await this.repository.findEntriesByTimetableId(timetable.id, {
+            childEntries = await this.repository.findAllEntries({
+              timetableId: timetable.id,
               sectionId: child.section_id,
             });
           }

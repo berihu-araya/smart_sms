@@ -24,6 +24,8 @@ import {
   HiAcademicCap,
   HiOutlineCheckCircle,
   HiOutlineXCircle,
+  HiSparkles,
+  HiArrowPath,
 } from "react-icons/hi2";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
@@ -43,6 +45,16 @@ export default function TimetableBuilderPage({ params }) {
   const [selectedSectionId, setSelectedSectionId] = useState("");
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  // Auto-Generate Timetable State
+  const [isAutoGenModalOpen, setIsAutoGenModalOpen] = useState(false);
+  const [autoGenOptions, setAutoGenOptions] = useState({
+    clearExisting: true,
+    enforceAvailability: true,
+    matchRoomTypes: true,
+  });
+  const [autoGenLoading, setAutoGenLoading] = useState(false);
+  const [autoGenReport, setAutoGenReport] = useState(null);
 
   // Add / Edit Entry Modal
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
@@ -278,6 +290,23 @@ export default function TimetableBuilderPage({ params }) {
     }
   };
 
+  const handleExecuteAutoGen = async () => {
+    setAutoGenLoading(true);
+    setAutoGenReport(null);
+    try {
+      const result = await timetableService.autoGenerateTimetable(timetableId, autoGenOptions);
+      setAutoGenReport(result);
+      showToast(
+        `Auto-generation completed: ${result.totalLessonsPlaced}/${result.totalLessonsRequired} lessons scheduled (${result.coveragePercentage}% coverage)!`
+      );
+      await loadTimetableData();
+    } catch (err) {
+      showToast(err.message || "Failed to auto-generate timetable", "error");
+    } finally {
+      setAutoGenLoading(false);
+    }
+  };
+
   // Filter entries for currently selected section
   const sectionEntries = entries.filter((e) => e.section_id === selectedSectionId);
 
@@ -299,6 +328,13 @@ export default function TimetableBuilderPage({ params }) {
         </div>
 
         <div className={styles.actions}>
+          <button
+            className={styles.autoGenerateBtn}
+            onClick={() => setIsAutoGenModalOpen(true)}
+            title="Automatically generate conflict-free schedule using CSP Solver"
+          >
+            <HiSparkles /> Auto-Generate
+          </button>
           <button className={styles.validateBtn} onClick={handleRunValidation}>
             <HiShieldCheck /> Validate Schedule
           </button>
@@ -606,6 +642,184 @@ export default function TimetableBuilderPage({ params }) {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Auto-Generate Timetable Modal */}
+      <Modal
+        isOpen={isAutoGenModalOpen}
+        onClose={() => {
+          setIsAutoGenModalOpen(false);
+          setAutoGenReport(null);
+        }}
+        title="Auto-Generate Conflict-Free Schedule"
+      >
+        {!autoGenReport ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <div
+              style={{
+                padding: "0.85rem 1rem",
+                borderRadius: "0.5rem",
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                fontSize: "0.875rem",
+                color: "#166534",
+                lineHeight: 1.5,
+              }}
+            >
+              The intelligent Constraint-Satisfaction (CSP) solver distributes curriculum requirements across available teachers, class sections, and specialized classrooms while preventing double-bookings.
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  style={{ marginTop: "0.25rem", width: "16px", height: "16px", accentColor: "#4f46e5" }}
+                  checked={autoGenOptions.clearExisting}
+                  onChange={(e) =>
+                    setAutoGenOptions((prev) => ({ ...prev, clearExisting: e.target.checked }))
+                  }
+                />
+                <div>
+                  <strong style={{ fontSize: "0.9rem", color: "#1e293b" }}>Clear Existing Lessons</strong>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Wipes existing draft timetable entries and generates a fresh schedule from scratch.
+                  </div>
+                </div>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  style={{ marginTop: "0.25rem", width: "16px", height: "16px", accentColor: "#4f46e5" }}
+                  checked={autoGenOptions.enforceAvailability}
+                  onChange={(e) =>
+                    setAutoGenOptions((prev) => ({ ...prev, enforceAvailability: e.target.checked }))
+                  }
+                />
+                <div>
+                  <strong style={{ fontSize: "0.9rem", color: "#1e293b" }}>Respect Teacher Availability</strong>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Prevents placing lessons in time periods where a teacher is marked unavailable.
+                  </div>
+                </div>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  style={{ marginTop: "0.25rem", width: "16px", height: "16px", accentColor: "#4f46e5" }}
+                  checked={autoGenOptions.matchRoomTypes}
+                  onChange={(e) =>
+                    setAutoGenOptions((prev) => ({ ...prev, matchRoomTypes: e.target.checked }))
+                  }
+                />
+                <div>
+                  <strong style={{ fontSize: "0.9rem", color: "#1e293b" }}>Match Specialized Room Types</strong>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                    Allocates Science Labs, Computer Labs, or Art Rooms to subjects that require them.
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                className={styles.backBtn}
+                onClick={() => setIsAutoGenModalOpen(false)}
+                disabled={autoGenLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.autoGenerateBtn}
+                onClick={handleExecuteAutoGen}
+                disabled={autoGenLoading}
+              >
+                {autoGenLoading ? (
+                  <>
+                    <HiArrowPath className={styles.spinIcon} /> Solving Constraints...
+                  </>
+                ) : (
+                  <>
+                    <HiSparkles /> Run Auto-Generator
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <div
+              style={{
+                padding: "1rem",
+                borderRadius: "0.5rem",
+                background: autoGenReport.coveragePercentage === 100 ? "#ecfdf5" : "#fffbeb",
+                border: `1px solid ${autoGenReport.coveragePercentage === 100 ? "#6ee7b7" : "#fcd34d"}`,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+              }}
+            >
+              {autoGenReport.coveragePercentage === 100 ? (
+                <HiCheckCircle color="#059669" style={{ fontSize: "2rem", flexShrink: 0 }} />
+              ) : (
+                <HiExclamationTriangle color="#d97706" style={{ fontSize: "2rem", flexShrink: 0 }} />
+              )}
+              <div>
+                <strong style={{ color: autoGenReport.coveragePercentage === 100 ? "#065f46" : "#92400e", fontSize: "1rem" }}>
+                  {autoGenReport.coveragePercentage === 100
+                    ? "100% Curriculum Scheduled Successfully"
+                    : `Partial Schedule Generated (${autoGenReport.coveragePercentage}% Coverage)`}
+                </strong>
+                <div style={{ fontSize: "0.85rem", color: "#475569" }}>
+                  Successfully placed <strong>{autoGenReport.totalLessonsPlaced}</strong> of{" "}
+                  <strong>{autoGenReport.totalLessonsRequired}</strong> required curriculum lessons.
+                </div>
+              </div>
+            </div>
+
+            {/* Unscheduled details if any */}
+            {autoGenReport.unscheduledLessons && autoGenReport.unscheduledLessons.length > 0 && (
+              <div>
+                <h4 style={{ fontSize: "0.875rem", fontWeight: 700, marginBottom: "0.5rem", color: "#b91c1c" }}>
+                  Unscheduled Lessons ({autoGenReport.unscheduledLessons.length}):
+                </h4>
+                <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                  {autoGenReport.unscheduledLessons.map((u, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: "0.5rem 0.75rem",
+                        borderRadius: "0.375rem",
+                        background: "#fef2f2",
+                        borderLeft: "3px solid #ef4444",
+                        fontSize: "0.8rem",
+                        color: "#334155",
+                      }}
+                    >
+                      <strong>{u.section}</strong> — {u.subject}: {u.reason}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={() => {
+                  setIsAutoGenModalOpen(false);
+                  setAutoGenReport(null);
+                }}
+              >
+                Done & View Timetable
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Delete Entry Dialog */}
