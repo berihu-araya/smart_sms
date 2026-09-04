@@ -85,7 +85,7 @@ export default function PublicHeader() {
         {/* Right: Auth Action */}
         <div className={styles.rightGroup}>
           <Link href="/login" className={styles.loginBtn}>
-            Portal Sign In
+            Sign In
           </Link>
 
           <button

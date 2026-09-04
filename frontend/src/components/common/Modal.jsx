@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import styles from "./Modal.module.css";
 import { HiXMark } from "react-icons/hi2";
+import styles from "./Modal.module.css";
+
+const SIZE_MAP = {
+  sm: "480px",
+  md: "620px",
+  lg: "780px",
+  xl: "940px",
+  "2xl": "1100px",
+  full: "95vw",
+};
 
 export default function Modal({
   isOpen,
@@ -11,11 +20,14 @@ export default function Modal({
   subtitle,
   icon: Icon,
   children,
-  maxWidth = 600,
+  maxWidth,
+  size = "md",
+  className = "",
+  preventBackdropClose = false,
 }) {
   const modalRef = useRef(null);
 
-  // Trap body scroll & handle Escape key
+  // Lock body scroll and listen for Escape key
   useEffect(() => {
     if (!isOpen) return;
 
@@ -24,7 +36,7 @@ export default function Modal({
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        onClose();
+        onClose?.();
       }
     };
 
@@ -38,22 +50,35 @@ export default function Modal({
 
   if (!isOpen) return null;
 
+  const resolvedMaxWidth =
+    maxWidth !== undefined
+      ? typeof maxWidth === "number"
+        ? `${maxWidth}px`
+        : maxWidth
+      : SIZE_MAP[size] || SIZE_MAP.md;
+
+  const handleBackdropClick = (e) => {
+    if (preventBackdropClose) return;
+    if (e.target === e.currentTarget) {
+      onClose?.();
+    }
+  };
+
   return (
     <div
       className={styles.overlay}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      onClick={handleBackdropClick}
+      role="presentation"
     >
       <div
         ref={modalRef}
-        className={styles.modal}
-        style={{ maxWidth: `${maxWidth}px` }}
+        className={`${styles.modal} ${className}`}
+        style={{ maxWidth: resolvedMaxWidth }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? "modal-dialog-title" : undefined}
       >
+        {/* Header */}
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             {Icon && (
@@ -62,7 +87,7 @@ export default function Modal({
               </div>
             )}
             <div className={styles.titleArea}>
-              <h2>{title}</h2>
+              {title && <h2 id="modal-dialog-title">{title}</h2>}
               {subtitle && <p>{subtitle}</p>}
             </div>
           </div>
@@ -71,13 +96,16 @@ export default function Modal({
             className={styles.closeBtn}
             onClick={onClose}
             aria-label="Close dialog"
+            title="Close (Esc)"
           >
             <HiXMark size={20} />
           </button>
         </div>
 
+        {/* Body */}
         <div className={styles.body}>{children}</div>
       </div>
     </div>
   );
 }
+

@@ -5,6 +5,7 @@ import Link from "next/link";
 import studentService from "@/services/studentService";
 import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
+import StudentFormModal from "@/components/students/StudentFormModal";
 import {
   FaBan,
   FaCheckCircle,
@@ -50,7 +51,12 @@ export default function StudentListPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Modal dialog states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState(null);
 
   useEffect(() => {
     async function loadFilterOptions() {
@@ -158,11 +164,36 @@ export default function StudentListPage() {
 
     try {
       await studentService.deleteStudent(studentId);
+      setSuccessMsg(`Student "${studentName}" deleted successfully.`);
       setReloadTrigger((prev) => prev + 1);
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err) {
       alert("Failed to delete: " + (err.message || "Unknown error"));
     }
   }
+
+  const handleOpenCreate = () => {
+    setEditingStudentId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (studentId) => {
+    setEditingStudentId(studentId);
+    setIsModalOpen(true);
+  };
+
+  const handleStudentSaved = (savedStudent) => {
+    const sName = savedStudent?.first_name
+      ? `${savedStudent.first_name} ${savedStudent.last_name}`
+      : "Student";
+    setSuccessMsg(
+      editingStudentId
+        ? `Student "${sName}" record updated successfully!`
+        : `Student "${sName}" enrolled successfully!`
+    );
+    setReloadTrigger((prev) => prev + 1);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
 
   function renderStudentTable(groupStudents) {
     return (
@@ -186,7 +217,13 @@ export default function StudentListPage() {
               <td>
                 <div className={styles.actionButtons}>
                   <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>View</Link>
-                  <Link href={`/dashboard/students/${student.id}/edit`} className={styles.editLink}>Edit</Link>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(student.id)}
+                    className={styles.editLink}
+                  >
+                    Edit
+                  </button>
                   <button onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)} className={styles.deleteLink}>Delete</button>
                 </div>
               </td>
@@ -209,10 +246,16 @@ export default function StudentListPage() {
           <p>Manage admission, profile, status, and academic records.</p>
         </div>
 
-        <Link href="/dashboard/students/new" className={styles.primaryButton}>
+        <button
+          type="button"
+          onClick={handleOpenCreate}
+          className={styles.primaryButton}
+        >
           + Add Student
-        </Link>
+        </button>
       </div>
+
+      {successMsg ? <div className={styles.successBox}>{successMsg}</div> : null}
 
       <div className={styles.summaryCard}>
         <div>
@@ -316,9 +359,13 @@ export default function StudentListPage() {
                     <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>
                       View
                     </Link>
-                    <Link href={`/dashboard/students/${student.id}/edit`} className={styles.editLink}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(student.id)}
+                      className={styles.editLink}
+                    >
                       Edit
-                    </Link>
+                    </button>
                     <button
                       onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
                       className={styles.deleteLink}
@@ -332,6 +379,14 @@ export default function StudentListPage() {
           </tbody>
         </table>
       </div>}
+
+      {/* Reusable Student Form Modal (Create & Edit) */}
+      <StudentFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        studentId={editingStudentId}
+        onSuccess={handleStudentSaved}
+      />
     </div>
   );
 }

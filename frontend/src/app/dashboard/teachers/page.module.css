@@ -96,6 +96,63 @@
   font-weight: 700;
 }
 
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editLink {
+  padding: 8px 12px;
+  background: #f0fdf4;
+  color: #15803d;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.editLink:hover {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.deleteLink {
+  padding: 8px 12px;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.deleteLink:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.successBox {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: fadeIn 0.2s ease;
+}
+
 .errorBox,
 .loading {
   padding: 18px;

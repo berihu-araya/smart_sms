@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import teacherService from "@/services/teacherService";
+import TeacherFormModal from "@/components/teachers/TeacherFormModal";
 import styles from "./page.module.css";
 
 const STATUS_COLORS = {
@@ -18,6 +19,12 @@ export default function TeacherListPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTeacherId, setEditingTeacherId] = useState(null);
 
   useEffect(() => {
     async function loadTeachers() {
@@ -36,9 +43,32 @@ export default function TeacherListPage() {
     }
 
     loadTeachers();
-  }, [search]);
+  }, [search, reloadTrigger]);
 
   const teacherCount = useMemo(() => teachers.length, [teachers]);
+
+  const handleOpenCreate = () => {
+    setEditingTeacherId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (teacherId) => {
+    setEditingTeacherId(teacherId);
+    setIsModalOpen(true);
+  };
+
+  const handleTeacherSaved = (savedTeacher) => {
+    const tName = savedTeacher?.first_name
+      ? `${savedTeacher.first_name} ${savedTeacher.last_name}`
+      : "Teacher";
+    setSuccessMsg(
+      editingTeacherId
+        ? `Teacher "${tName}" profile updated successfully!`
+        : `Teacher "${tName}" registered successfully!`
+    );
+    setReloadTrigger((prev) => prev + 1);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
 
   if (loading && !hasLoaded) {
     return <div className={styles.loading}>Loading teachers...</div>;
@@ -52,10 +82,16 @@ export default function TeacherListPage() {
           <p>Manage teaching staff, profiles, and employment details.</p>
         </div>
 
-        <Link href="/dashboard/teachers/new" className={styles.primaryButton}>
+        <button
+          type="button"
+          onClick={handleOpenCreate}
+          className={styles.primaryButton}
+        >
           + Add Teacher
-        </Link>
+        </button>
       </div>
+
+      {successMsg ? <div className={styles.successBox}>{successMsg}</div> : null}
 
       <div className={styles.summaryCard}>
         <div>
@@ -112,15 +148,32 @@ export default function TeacherListPage() {
                   </span>
                 </td>
                 <td>
-                  <Link href={`/dashboard/teachers/${teacher.id}`} className={styles.linkButton}>
-                    View
-                  </Link>
+                  <div className={styles.actionButtons}>
+                    <Link href={`/dashboard/teachers/${teacher.id}`} className={styles.linkButton}>
+                      View
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(teacher.id)}
+                      className={styles.editLink}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Reusable Teacher Form Modal (Create & Edit) */}
+      <TeacherFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        teacherId={editingTeacherId}
+        onSuccess={handleTeacherSaved}
+      />
     </div>
   );
 }
