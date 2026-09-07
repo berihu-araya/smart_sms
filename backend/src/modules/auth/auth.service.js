@@ -104,7 +104,7 @@ class AuthService {
     }
 
     const token = jwt.sign(
-      { sub: user.id, role: user.role_name, email: user.email },
+      { sub: user.id, role: user.role_name, email: user.email, school_id: user.school_id },
       this.jwtSecret,
       { expiresIn: this.jwtExpiresIn }
     );

@@ -1,4 +1,22 @@
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_sms_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      PORT: 5200
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+    ports:
+      - "5200:5200"
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:17
     container_name: smart_sms_db
@@ -11,7 +29,7 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
