@@ -308,7 +308,7 @@ export default function StudentFormModal({
   const filteredParents = parentsList.filter((p) => {
     if (!parentSearch) return true;
     const q = parentSearch.toLowerCase();
-    const fullName = `${p.first_name || ""} ${p.last_name || ""} ${p.name || ""}`.toLowerCase();
+    const fullName = `${p.full_name || ""} ${p.first_name || ""} ${p.last_name || ""} ${p.name || ""}`.toLowerCase();
     const phone = (p.phone || "").toLowerCase();
     return fullName.includes(q) || phone.includes(q);
   });
@@ -648,12 +648,12 @@ export default function StudentFormModal({
                 <div className={styles.parentsListScroll}>
                   {filteredParents.length === 0 ? (
                     <div className={styles.emptyParentNotice}>
-                      No parents found. Switch to "Create New Parent".
+                      No parents found. Switch to &quot;Create New Parent&quot;.
                     </div>
                   ) : (
                     filteredParents.map((p) => {
                       const isSelected = form.parentId === p.id;
-                      const pName = `${p.first_name || ""} ${p.last_name || ""} ${p.name || ""}`.trim();
+                      const pName = p.full_name || `${p.first_name || ""} ${p.last_name || ""} ${p.name || ""}`.trim();
                       return (
                         <div
                           key={p.id}
