@@ -18,6 +18,7 @@ const classTeacherRoutes = require('./modules/teachers/class-teacher/class-teach
 const parentRoutes = require('./modules/parents/parent.routes');
 
 const attendanceRoutes = require('./modules/attendance/attendance.routes');
+const assignmentRoutes = require('./modules/assignments/assignment.routes');
 const examRoutes = require('./modules/exams/exam.routes');
 const markRoutes = require('./modules/marks/mark.routes');
 const resultRoutes = require('./modules/results/result.routes');
@@ -73,6 +74,7 @@ app.use('/api/v1/subjects/groups', groupRoutes);
 app.use('/api/v1/subjects', subjectRoutes);
 
 app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/exams', examRoutes);
 app.use('/api/v1/marks', markRoutes);
 app.use('/api/v1/results', resultRoutes);
