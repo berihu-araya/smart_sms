@@ -169,6 +169,45 @@
   align-items: center;
 }
 
+.viewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+  padding: 0.2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.viewBtn svg {
+  font-size: 1rem;
+}
+
+.viewBtn:hover {
+  color: #4338ca;
+}
+
+.viewBtnActive {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
 .filterGroup {
   display: flex;
   align-items: center;
@@ -204,6 +243,46 @@
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1.25rem;
   margin-bottom: 2rem;
+}
+
+.timetableList {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.timetableListRow {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.35fr) minmax(270px, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timetableListRow:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 5px 12px rgba(79, 70, 229, 0.08);
+}
+
+.timetableListRow .cardHeader {
+  margin-bottom: 0;
+}
+
+.timetableListRow .cardBody {
+  margin: 0;
+  padding: 0.65rem 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.timetableListRow .cardFooter {
+  padding-top: 0;
+  justify-content: flex-end;
 }
 
 .timetableCard {
@@ -433,4 +512,22 @@
 
 .toastError {
   background: #ef4444;
+}
+
+@media (max-width: 900px) {
+  .filterBar {
+    align-items: flex-start;
+  }
+
+  .viewToggle {
+    margin-left: 0;
+  }
+
+  .timetableListRow {
+    grid-template-columns: 1fr;
+  }
+
+  .timetableListRow .cardFooter {
+    justify-content: space-between;
+  }
 }

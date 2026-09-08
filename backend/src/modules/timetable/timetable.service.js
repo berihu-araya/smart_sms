@@ -320,6 +320,34 @@ class TimetableService {
 
   // --- Timetable Entries ---
 
+  async ensureTeacherSubjectAssignment({ timetableId, teacherId, subjectId }) {
+    const timetable = await this.repository.findTimetableById(timetableId);
+
+    if (!timetable) {
+      throw new TimetableNotFoundError();
+    }
+
+    const assignment = await db.query(
+      `
+      SELECT 1
+      FROM teacher_subjects
+      WHERE teacher_id = $1
+        AND subject_id = $2
+        AND academic_year_id = $3
+        AND deleted_at IS NULL
+        AND status = 'ACTIVE'
+      LIMIT 1
+      `,
+      [teacherId, subjectId, timetable.academic_year_id]
+    );
+
+    if (assignment.rowCount === 0) {
+      throw new TimetableConflictError(
+        'This teacher is not assigned to the selected subject and section for the timetable academic year'
+      );
+    }
+  }
+
   async listEntries({ timetableId, sectionId, teacherId, roomId, dayOfWeek, periodId } = {}) {
     const entries = await this.repository.findAllEntries({
       timetableId,
@@ -433,6 +461,12 @@ class TimetableService {
   }
 
   async createEntry(payload) {
+    await this.ensureTeacherSubjectAssignment({
+      timetableId: payload.timetable_id,
+      teacherId: payload.teacher_id,
+      subjectId: payload.subject_id,
+    });
+
     const conflictResult = await this.validateEntryConflicts(payload.timetable_id, {
       teacherId: payload.teacher_id,
       sectionId: payload.section_id,
@@ -457,10 +491,17 @@ class TimetableService {
 
     const timetableId = existing.timetable_id;
     const teacherId = payload.teacher_id || existing.teacher_id;
+    const subjectId = payload.subject_id || existing.subject_id;
     const sectionId = payload.section_id || existing.section_id;
     const roomId = payload.room_id !== undefined ? payload.room_id : existing.room_id;
     const periodId = payload.period_id || existing.period_id;
     const dayOfWeek = payload.day_of_week || existing.day_of_week;
+
+    await this.ensureTeacherSubjectAssignment({
+      timetableId,
+      teacherId,
+      subjectId,
+    });
 
     const conflictResult = await this.validateEntryConflicts(
       timetableId,

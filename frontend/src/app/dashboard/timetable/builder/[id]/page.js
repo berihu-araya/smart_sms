@@ -8,6 +8,7 @@ import periodService from "@/services/periodService";
 import sectionService from "@/services/sectionService";
 import subjectService from "@/services/subjectService";
 import teacherService from "@/services/teacherService";
+import teacherSubjectService from "@/services/teacherSubjectService";
 import roomService from "@/services/roomService";
 import Modal from "@/components/common/Modal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -39,6 +40,7 @@ export default function TimetableBuilderPage({ params }) {
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [teacherSubjectAssignments, setTeacherSubjectAssignments] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [entries, setEntries] = useState([]);
 
@@ -105,6 +107,12 @@ export default function TimetableBuilderPage({ params }) {
       setTeachers(tchData.items || []);
       setRooms(rmData.items || []);
 
+      const teacherSubjectsData = await teacherSubjectService.listTeacherSubjects({
+        academic_year_id: ttData.academic_year_id,
+        limit: 1000,
+      });
+      setTeacherSubjectAssignments(teacherSubjectsData.items || []);
+
       if (secData.items && secData.items.length > 0 && !selectedSectionId) {
         setSelectedSectionId(secData.items[0].id);
       }
@@ -127,8 +135,25 @@ export default function TimetableBuilderPage({ params }) {
   }, [timetableId, selectedSectionId]);
 
   useEffect(() => {
-    loadTimetableData();
+    const loadTimer = window.setTimeout(() => loadTimetableData(), 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, [loadTimetableData]);
+
+  const getEligibleSubjects = (teacherId, sectionId) => {
+    if (!teacherId) return [];
+
+    const sectionAssignments = teacherSubjectAssignments.filter(
+      (assignment) => assignment.teacher_id === teacherId && assignment.section_id === sectionId
+    );
+    const teacherAssignments = teacherSubjectAssignments.filter(
+      (assignment) => assignment.teacher_id === teacherId
+    );
+    const source = sectionAssignments.length > 0 ? sectionAssignments : teacherAssignments;
+    const assignedSubjectIds = new Set(source.map((assignment) => assignment.subject_id));
+
+    return subjects.filter((subject) => assignedSubjectIds.has(subject.id));
+  };
 
   // Pre-flight conflict check runner
   const runPreflightCheck = useCallback(
@@ -165,10 +190,13 @@ export default function TimetableBuilderPage({ params }) {
 
   const handleOpenAddModal = (day = "MONDAY", periodId = "") => {
     setEditingEntry(null);
+    const sectionId = selectedSectionId || (sections[0]?.id ?? "");
+    const teacherId = teachers[0]?.id ?? "";
+    const eligibleSubjects = getEligibleSubjects(teacherId, sectionId);
     const initialForm = {
-      section_id: selectedSectionId || (sections[0]?.id ?? ""),
-      subject_id: subjects[0]?.id ?? "",
-      teacher_id: teachers[0]?.id ?? "",
+      section_id: sectionId,
+      subject_id: eligibleSubjects[0]?.id ?? "",
+      teacher_id: teacherId,
       room_id: "",
       period_id: periodId || (periods[0]?.id ?? ""),
       day_of_week: day,
@@ -199,6 +227,17 @@ export default function TimetableBuilderPage({ params }) {
 
   const handleFormChange = (field, value) => {
     const updated = { ...entryForm, [field]: value };
+
+    if (field === "teacher_id" || field === "section_id") {
+      const teacherId = field === "teacher_id" ? value : entryForm.teacher_id;
+      const sectionId = field === "section_id" ? value : entryForm.section_id;
+      const eligibleSubjects = getEligibleSubjects(teacherId, sectionId);
+
+      if (!eligibleSubjects.some((subject) => subject.id === entryForm.subject_id)) {
+        updated.subject_id = eligibleSubjects[0]?.id || "";
+      }
+    }
+
     setEntryForm(updated);
     runPreflightCheck(updated, editingEntry?.id);
   };
@@ -550,14 +589,26 @@ export default function TimetableBuilderPage({ params }) {
               <select
                 value={entryForm.subject_id}
                 onChange={(e) => handleFormChange("subject_id", e.target.value)}
+                disabled={!entryForm.teacher_id || teacherSubjectAssignments.length === 0}
               >
-                <option value="">Select Subject</option>
-                {subjects.map((sub) => (
+                <option value="">
+                  {!entryForm.teacher_id
+                    ? "Select Teacher First"
+                    : teacherSubjectAssignments.length === 0
+                    ? "Loading teacher subjects..."
+                    : "Select Subject"}
+                </option>
+                {getEligibleSubjects(entryForm.teacher_id, entryForm.section_id).map((sub) => (
                   <option key={sub.id} value={sub.id}>
                     {sub.subject_name} ({sub.subject_code})
                   </option>
                 ))}
               </select>
+              {entryForm.teacher_id && teacherSubjectAssignments.length > 0 && getEligibleSubjects(entryForm.teacher_id, entryForm.section_id).length === 0 && (
+                <span style={{ color: "#b45309", fontSize: "0.75rem" }}>
+                  This teacher has no subject assignment for the selected section.
+                </span>
+              )}
               {formErrors.subject_id && <span style={{ color: "#ef4444", fontSize: "0.75rem" }}>{formErrors.subject_id}</span>}
             </div>
 

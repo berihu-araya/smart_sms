@@ -25,6 +25,8 @@ import {
   HiAcademicCap,
   HiArrowsRightLeft,
   HiDocumentChartBar,
+  HiSquares2X2,
+  HiListBullet,
 } from "react-icons/hi2";
 
 export default function TimetableDashboardPage() {
@@ -34,6 +36,7 @@ export default function TimetableDashboardPage() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [viewMode, setViewMode] = useState("grid");
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -100,14 +103,35 @@ export default function TimetableDashboardPage() {
   }, [selectedYearId, selectedStatus]);
 
   useEffect(() => {
-    loadAcademicYears();
+    const loadTimer = window.setTimeout(() => loadAcademicYears(), 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, [loadAcademicYears]);
 
   useEffect(() => {
-    if (selectedYearId) {
-      loadTimetables();
-    }
+    if (!selectedYearId) return undefined;
+
+    const loadTimer = window.setTimeout(() => loadTimetables(), 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, [selectedYearId, selectedStatus, loadTimetables]);
+
+  useEffect(() => {
+    const hydrateTimer = window.setTimeout(() => {
+      const savedView = window.localStorage.getItem("smart-sms-timetable-view");
+
+      if (savedView === "grid" || savedView === "list") {
+        setViewMode(savedView);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(hydrateTimer);
+  }, []);
+
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    window.localStorage.setItem("smart-sms-timetable-view", mode);
+  };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -298,6 +322,27 @@ export default function TimetableDashboardPage() {
             <option value="ARCHIVED">Archived</option>
           </select>
         </div>
+
+        <div className={styles.viewToggle} role="group" aria-label="Timetable display mode">
+          <button
+            type="button"
+            className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
+            onClick={() => handleViewModeChange("grid")}
+            title="Grid view"
+            aria-pressed={viewMode === "grid"}
+          >
+            <HiSquares2X2 /> Grid
+          </button>
+          <button
+            type="button"
+            className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
+            onClick={() => handleViewModeChange("list")}
+            title="List view"
+            aria-pressed={viewMode === "list"}
+          >
+            <HiListBullet /> List
+          </button>
+        </div>
       </div>
 
       {/* Timetables Grid */}
@@ -317,9 +362,9 @@ export default function TimetableDashboardPage() {
           </button>
         </div>
       ) : (
-        <div className={styles.timetableGrid}>
+        <div className={viewMode === "grid" ? styles.timetableGrid : styles.timetableList}>
           {timetables.map((tt) => (
-            <div key={tt.id} className={styles.timetableCard}>
+            <div key={tt.id} className={viewMode === "grid" ? styles.timetableCard : styles.timetableListRow}>
               <div>
                 <div className={styles.cardHeader}>
                   <div>

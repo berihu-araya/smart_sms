@@ -63,7 +63,17 @@ export default function LoginForm() {
           </div>
 
           <div className={styles.formPanel}>
-            <h1>Welcome Back</h1>
+            <h1 className={styles.welcomeHeading}>
+              <Image
+                src="/grad_hat_2.png"
+                alt=""
+                width={72}
+                height={72}
+                className={styles.gradHat}
+                aria-hidden="true"
+              />
+              <span>Welcome Back</span>
+            </h1>
 
             <p>
               Sign in to keep your school moving forward.

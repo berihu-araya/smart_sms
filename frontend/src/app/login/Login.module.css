@@ -100,11 +100,21 @@
 }
 
 .formPanel h1 {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
   color: #0f172a;
   margin: 0.5rem 0 0.65rem;
   font-size: 2rem;
   letter-spacing: -0.02em;
+}
+
+.gradHat {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .formPanel > p {
@@ -313,6 +323,12 @@
 
   .formPanel h1 {
     font-size: 1.7rem;
+  }
+
+  .gradHat {
+    width: 58px;
+    height: 58px;
+    border-radius: 11px;
   }
 
   .options {
