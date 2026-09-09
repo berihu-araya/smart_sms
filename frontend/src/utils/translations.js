@@ -187,7 +187,7 @@ export const translations = {
     "Subjects": "ትምህርትታት",
     "Subject Allocation": "ምደባ ትምህርቲ",
     "Timetable": "ናይ ግዜ ሰሌዳ",
-    "Attendance": "ቅጽዓት",
+    "Attendance": "ክትትል",
     "Assignments": "ዕዮ ገዛ",
     "Exams": "ፈተናታት",
     "Marks Entry": "ውጽኢት መእተዊ",

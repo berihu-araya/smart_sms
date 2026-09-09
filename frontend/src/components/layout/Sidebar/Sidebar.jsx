@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";// this is a client component because it uses useState and useEffect
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation"; 
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth"; 
 import { getTranslation } from "@/utils/translations";
 import styles from "./Sidebar.module.css";
 import menuData, { roleIsAllowed } from "./menuData";
@@ -13,10 +13,10 @@ import menuData, { roleIsAllowed } from "./menuData";
 /* -------------------------------------------------
    Role filter helper
 --------------------------------------------------*/
-function filterMenuByRole(items, role) {
+function filterMenuByRole(items, role) { // role is optional, if not provided, assume "School Admin"
   const currentRole = (role || "School Admin").trim();
 
-  return items
+  return items // this function filters the menu items based on the user's role. It returns a new array of menu items that the user has permission to access.
     .map((item) => {
       const itemRoles = item.roles || [];
       const hasRolePermission = roleIsAllowed(itemRoles, currentRole);
@@ -186,25 +186,19 @@ export default function Sidebar({
 
   const [lang, setLang] = useState("en");
 
-  useEffect(() => {
-    try {
-      const savedLang = localStorage.getItem("smart_sms_lang") || "en";
-      setLang(savedLang);
-    } catch {
-      // ignore
+useEffect(() => {
+  const handleLangChange = (event) => {
+    if (event.detail) {
+      setLang(event.detail);
     }
+  };
 
-    const handleLangChange = (event) => {
-      if (event.detail) {
-        setLang(event.detail);
-      }
-    };
+  window.addEventListener("smart-sms-lang-change", handleLangChange);
 
-    window.addEventListener("smart-sms-lang-change", handleLangChange);
-    return () => {
-      window.removeEventListener("smart-sms-lang-change", handleLangChange);
-    };
-  }, []);
+  return () => {
+    window.removeEventListener("smart-sms-lang-change", handleLangChange);
+  };
+}, []);
 
   const [openMenus, setOpenMenus] = useState(() => {
     return findActivePath(filteredMenuData, pathname) || {};
