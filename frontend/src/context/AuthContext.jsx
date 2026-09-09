@@ -26,7 +26,11 @@ export function AuthProvider({ children }) {
         }
 
         if (!token) {
-          if (!cancelled) setLoading(false);
+          localStorage.removeItem("user");
+          if (!cancelled) {
+            setUser(null);
+            setLoading(false);
+          }
           return;
         }
 

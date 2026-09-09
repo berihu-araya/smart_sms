@@ -39,6 +39,33 @@ function validateCreateUserInput(body = {}) {
   };
 }
 
+function validatePreRegistrationInput(body = {}) {
+  const errors = {};
+  const allowedRoles = ['Teacher', 'Student', 'Parent', 'Staff', 'School Admin'];
+  const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : '';
+  const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : '';
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const roleName = typeof body.roleName === 'string' ? body.roleName.trim() : '';
+
+  if (firstName.length < 2) errors.firstName = 'First name must be at least 2 characters.';
+  if (lastName.length < 2) errors.lastName = 'Last name must be at least 2 characters.';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'Valid email is required.';
+  }
+  if (!allowedRoles.some((role) => role.toLowerCase() === roleName.toLowerCase())) {
+    errors.roleName = 'A supported participant role is required.';
+  }
+
+  return {
+    firstName,
+    lastName,
+    email,
+    phone: typeof body.phone === 'string' ? body.phone.trim() : null,
+    roleName: allowedRoles.find((role) => role.toLowerCase() === roleName.toLowerCase()) || roleName,
+    errors,
+  };
+}
+
 function validateUpdateUserInput(body = {}) {
   const errors = {};
 
@@ -64,5 +91,6 @@ function validateUpdateUserInput(body = {}) {
 module.exports = {
   isValidUUID,
   validateCreateUserInput,
+  validatePreRegistrationInput,
   validateUpdateUserInput,
 };

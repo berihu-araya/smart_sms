@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar/Sidebar";
+import AccessRestricted from "@/components/auth/AccessRestricted";
+import { useAuth } from "@/hooks/useAuth";
+import menuData, {
+  findMenuItemForPath,
+  roleIsAllowed,
+} from "@/components/layout/Sidebar/menuData";
 import styles from "./layout.module.css";
 
 export default function DashboardLayout({ children }) {
+  const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const [isSidebarVisible, setIsSidebarVisible] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth > 768;
@@ -50,6 +59,10 @@ export default function DashboardLayout({ children }) {
 
   const desktopMargin = isSidebarVisible ? 280 : 72;
   const desktopWidth = isSidebarVisible ? "calc(100% - 280px)" : "calc(100% - 72px)";
+  const restrictedItem = user && !authLoading
+    ? findMenuItemForPath(menuData, pathname)
+    : null;
+  const isRestricted = restrictedItem && !roleIsAllowed(restrictedItem.roles, user.role);
 
   return (
     <>
@@ -66,7 +79,7 @@ export default function DashboardLayout({ children }) {
           minHeight: "calc(100vh - 68px)",
         }}
       >
-        {children}
+        {isRestricted ? <AccessRestricted /> : children}
       </main>
     </>
   );

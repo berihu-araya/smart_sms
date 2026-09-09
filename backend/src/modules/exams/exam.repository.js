@@ -3,10 +3,14 @@ class ExamRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', academicYearId = null, gradeId = null, teacherId = null, limit = 50, offset = 0 } = {}) {
+  async findAll({ search = '', academicYearId = null, gradeId = null, teacherId = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
     const params = [`%${search.trim()}%`];
     let whereClause = `WHERE e.deleted_at IS NULL AND (LOWER(e.title) LIKE LOWER($1) OR LOWER(e.term_or_semester) LIKE LOWER($1))`;
     let index = 2;
+
+    if (publishedOnly) {
+      whereClause += ' AND e.is_published = TRUE';
+    }
 
     if (academicYearId) {
       whereClause += ` AND e.academic_year_id = $${index}`;

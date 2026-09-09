@@ -51,6 +51,34 @@ const ADMIN_ONLY = ["School Admin", "Admin"];
 const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff"];
 const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff"];
 
+export function roleIsAllowed(allowedRoles = [], role) {
+  const currentRole = (role || "").trim().toLowerCase();
+
+  return allowedRoles.length === 0 || allowedRoles.some((allowedRole) => {
+    const normalizedRole = allowedRole.toLowerCase();
+    return normalizedRole === currentRole ||
+      (normalizedRole === "admin" && currentRole === "school admin") ||
+      (normalizedRole === "school admin" && currentRole === "admin");
+  });
+}
+
+export function findMenuItemForPath(items, pathname, match = null) {
+  for (const item of items) {
+    const matchesPath = item.link &&
+      (pathname === item.link || pathname.startsWith(`${item.link}/`));
+    const nextMatch = matchesPath ? item : match;
+
+    if (item.children?.length) {
+      const childMatch = findMenuItemForPath(item.children, pathname, nextMatch);
+      if (childMatch) return childMatch;
+    }
+
+    if (matchesPath) return item;
+  }
+
+  return match;
+}
+
 const menuData = [
   {
     title: "Dashboard",
@@ -73,13 +101,13 @@ const menuData = [
       {
         title: "Teachers",
         icon: FaChalkboardTeacher,
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
         children: [
           {
             title: "All Teachers",
             icon: FaChalkboardTeacher,
             link: "/dashboard/teachers",
-            roles: ["School Admin", "Admin", "Staff"],
+            roles: ["School Admin", "Admin", "Student", "Staff"],
           },
           {
             title: "Teacher Subjects",
@@ -99,7 +127,7 @@ const menuData = [
         title: "Staff",
         icon: FaUserTie,
         link: "/dashboard/staff",
-        roles: ["School Admin", "Admin", "Staff"],
+        roles: ["School Admin", "Admin", "Student", "Staff"],
       },
       {
         title: "Create User",
@@ -125,19 +153,19 @@ const menuData = [
         title: "Sections",
         icon: FaSchool,
         link: "/dashboard/sections",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
       },
       {
         title: "Subjects",
         icon: FaBook,
         link: "/dashboard/subjects",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
       },
       {
         title: "Subject Allocation",
         icon: FaClipboardList,
         link: "/dashboard/grades/subjects",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
       },
       {
         title: "Timetable",

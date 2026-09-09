@@ -11,6 +11,10 @@ const { db } = require('../../config/database');
 const attendanceService = new AttendanceService(new AttendanceRepository(db));
 
 async function getRosterSheet(req, res, next) {
+  if ((req.user?.role || '').toLowerCase() === 'student') {
+    return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
+  }
+
   const query = validateSheetQuery(req.query);
 
   if (Object.keys(query.errors).length > 0) {
@@ -97,6 +101,10 @@ async function getDailySummary(req, res, next) {
 }
 
 async function getMonthlyMatrix(req, res, next) {
+  if ((req.user?.role || '').toLowerCase() === 'student') {
+    return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
+  }
+
   const sectionId = req.query.sectionId;
   const now = new Date();
   const year = Number(req.query.year || now.getFullYear());
@@ -157,10 +165,38 @@ async function getStudentAttendance(req, res, next) {
   }
 }
 
+async function getOwnAttendance(req, res, next) {
+  if (!req.studentScope?.student_id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Student profile is not linked to this account',
+      data: null,
+    });
+  }
+
+  try {
+    const limit = Number(req.query.limit || 30);
+    const offset = Number(req.query.offset || 0);
+    const data = await attendanceService.getStudentAttendance(
+      req.studentScope.student_id,
+      { limit, offset }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your attendance history loaded',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getRosterSheet,
   recordBulkAttendance,
   getDailySummary,
   getMonthlyMatrix,
   getStudentAttendance,
+  getOwnAttendance,
 };

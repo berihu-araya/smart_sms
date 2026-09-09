@@ -366,7 +366,7 @@ const authorizeRoleAndSchool = (...allowedRoles) => async (req, res, next) => {
     if (!allowedRoles.includes(req.user.role)) {
       return next(
         new AppError(
-          `This action requires one of these roles: ${allowedRoles.join(', ')}`,
+          'You do not have permission to perform this action',
           403
         )
       );

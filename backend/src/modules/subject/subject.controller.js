@@ -16,6 +16,7 @@ async function listSubjects(req, res, next) {
       status: req.query.status || 'active',
       sortBy: req.query.sortBy || 'subject_name',
       sortOrder: req.query.sortOrder || 'ASC',
+      gradeId: req.studentScope?.grade_id || null,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });

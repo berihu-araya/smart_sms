@@ -13,6 +13,8 @@ async function listExams(req, res, next) {
   try {
     const role = (req.user?.role || '').toLowerCase();
     let teacherId = null;
+    let gradeId = req.studentScope?.grade_id || null;
+    const isStudent = role === 'student';
 
     if (role.includes('teacher') && !role.includes('admin')) {
       const teacherRes = await db.query(
@@ -33,7 +35,8 @@ async function listExams(req, res, next) {
     const data = await examService.listExams({
       search: req.query.search || '',
       academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
-      gradeId: req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null,
+      gradeId: isStudent ? gradeId : (req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null),
+      publishedOnly: isStudent,
       teacherId,
       limit: Number(req.query.limit || 50),
       offset: Number(req.query.offset || 0),

@@ -30,6 +30,7 @@ const roomRoutes = require('./modules/timetable/rooms/room.routes');
 const periodRoutes = require('./modules/timetable/periods/period.routes');
 const availabilityRoutes = require('./modules/timetable/availability/availability.routes');
 const substitutionRoutes = require('./modules/timetable/substitutions/substitution.routes');
+const notificationRoutes = require('./modules/notifications/notification.routes');
 
 const { db } = require('./config/database');
 const AuthorizationService = require('./services/authorization.service');
@@ -78,6 +79,7 @@ app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/exams', examRoutes);
 app.use('/api/v1/marks', markRoutes);
 app.use('/api/v1/results', resultRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/settings', settingRoutes);

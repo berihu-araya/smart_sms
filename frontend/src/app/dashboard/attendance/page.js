@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import {
   getAttendanceSheet,
   saveBulkAttendance,
   getMonthlyAttendanceMatrix,
+  getOwnAttendance,
 } from '@/services/attendanceService';
 import { listGrades } from '@/services/gradeService';
 import { listSections } from '@/services/sectionService';
@@ -33,6 +35,9 @@ const EXCUSED_REASONS = [
 ];
 
 export default function AttendancePage() {
+  const { user, loading: authLoading } = useAuth();
+  const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const [studentAttendance, setStudentAttendance] = useState(null);
   const [viewMode, setViewMode] = useState('DAILY'); // 'DAILY' | 'MONTHLY'
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -71,6 +76,26 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [alert, setAlert] = useState(null);
 
+  useEffect(() => {
+    if (authLoading || !user || !isStudent) return;
+
+    let mounted = true;
+    getOwnAttendance()
+      .then((data) => {
+        if (mounted) setStudentAttendance(data);
+      })
+      .catch((err) => {
+        if (mounted) setAlert({ type: 'error', message: err.message || 'Failed to load your attendance' });
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+    }, [authLoading, isStudent, user]);
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
@@ -81,10 +106,12 @@ export default function AttendancePage() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    }, []);
 
   // Initial Load: Grades
   useEffect(() => {
+    if (authLoading || !user || isStudent) return;
+
     async function loadGrades() {
       try {
         const res = await listGrades({ limit: 100 });
@@ -97,11 +124,13 @@ export default function AttendancePage() {
         console.error('Failed to load grades', err);
       }
     }
-    loadGrades();
-  }, []);
+      loadGrades();
+    }, [authLoading, isStudent, user]);
 
   // When Grade changes, load Sections
   useEffect(() => {
+    if (authLoading || !user || isStudent) return;
+
     if (!selectedGrade) {
       setSections([]);
       setSelectedSection('');
@@ -123,11 +152,12 @@ export default function AttendancePage() {
         console.error('Failed to load sections', err);
       }
     }
-    loadSections();
-  }, [selectedGrade]);
+      loadSections();
+    }, [authLoading, isStudent, selectedGrade, user]);
 
   // Load Daily Roster
   const fetchRoster = useCallback(async () => {
+    if (authLoading || !user || isStudent) return;
     if (!selectedSection || !selectedDate) return;
     setLoading(true);
     setAlert(null);
@@ -153,10 +183,11 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSection, selectedDate]);
+  }, [authLoading, isStudent, selectedSection, selectedDate, user]);
 
   // Load Monthly Matrix
   const fetchMonthlyMatrix = useCallback(async () => {
+    if (authLoading || !user || isStudent) return;
     if (!selectedSection) return;
     setLoading(true);
     setAlert(null);
@@ -172,10 +203,11 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSection, selectedYear, selectedMonth]);
+  }, [authLoading, isStudent, selectedSection, selectedYear, selectedMonth, user]);
 
   // Trigger load on filter change
   useEffect(() => {
+    if (authLoading || !user || isStudent) return;
     if (selectedSection) {
       if (viewMode === 'DAILY') {
         fetchRoster();
@@ -183,7 +215,7 @@ export default function AttendancePage() {
         fetchMonthlyMatrix();
       }
     }
-  }, [selectedSection, selectedDate, selectedYear, selectedMonth, viewMode, fetchRoster, fetchMonthlyMatrix]);
+  }, [authLoading, isStudent, selectedSection, selectedDate, selectedYear, selectedMonth, viewMode, fetchRoster, fetchMonthlyMatrix, user]);
 
   // Calculate Daily Stats (5 KPIs: Total, Present, Absent, Late, Excused + Reason Breakdown)
   const calculateSummary = (currentRoster) => {
@@ -355,6 +387,63 @@ export default function AttendancePage() {
 
   const attendanceRate =
     roster.length > 0 ? Math.round((summary.present / roster.length) * 100) : 0;
+
+  if (isStudent) {
+    const stats = studentAttendance?.stats || {};
+    const history = studentAttendance?.history || [];
+    const totalDays = Number(stats.total_days || 0);
+    const presentDays = Number(stats.present_days || 0);
+    const rate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>My Attendance</h1>
+            <p className={styles.subtitle}>Your personal attendance record.</p>
+          </div>
+        </div>
+
+        {alert && (
+          <div className={`${styles.alert} ${alert.type === 'success' ? styles.alertSuccess : styles.alertError}`}>
+            {alert.message}
+          </div>
+        )}
+
+        {loading ? (
+          <p>Loading your attendance...</p>
+        ) : (
+          <>
+            <div className={styles.statsGrid}>
+              <div className={styles.statCard}><div className={`${styles.statIcon} ${styles.statTotal}`}><HiCalendar /></div><div className={styles.statContent}><h4>Attendance Rate</h4><div className={styles.statValue}>{rate}%</div></div></div>
+              <div className={styles.statCard}><div className={`${styles.statIcon} ${styles.statPresent}`}><HiCheckCircle /></div><div className={styles.statContent}><h4>Present</h4><div className={styles.statValue}>{stats.present_days || 0}</div></div></div>
+              <div className={styles.statCard}><div className={`${styles.statIcon} ${styles.statAbsent}`}><HiXCircle /></div><div className={styles.statContent}><h4>Absent</h4><div className={styles.statValue}>{stats.absent_days || 0}</div></div></div>
+              <div className={styles.statCard}><div className={`${styles.statIcon} ${styles.statLate}`}><HiClock /></div><div className={styles.statContent}><h4>Late</h4><div className={styles.statValue}>{stats.late_days || 0}</div></div></div>
+              <div className={styles.statCard}><div className={`${styles.statIcon} ${styles.statExcused}`}><HiInformationCircle /></div><div className={styles.statContent}><h4>Excused</h4><div className={styles.statValue}>{stats.excused_days || 0}</div></div></div>
+            </div>
+
+            <div className={styles.rosterSection}>
+              <div className={styles.rosterHeader}>
+                <div className={styles.rosterTitle}>Attendance History</div>
+              </div>
+              {history.length === 0 ? (
+                <p style={{ padding: '1rem' }}>No attendance records are available.</p>
+              ) : (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead><tr><th>Date</th><th>Status</th><th>Remark</th></tr></thead>
+                    <tbody>{history.map((record) => (
+                      <tr key={record.id}><td>{record.date}</td><td>{record.status}</td><td>{record.remark || '-'}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container} ref={dropdownRef}>

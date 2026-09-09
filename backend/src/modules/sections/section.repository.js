@@ -6,6 +6,7 @@ class SectionRepository {
   async findAll({
     search = '',
     gradeId = '',
+    sectionId = null,
     status = 'active', // 'active' | 'inactive' | 'all'
     sortBy = 'name',
     sortOrder = 'ASC',
@@ -15,6 +16,12 @@ class SectionRepository {
     const conditions = [];
     const values = [];
     let index = 1;
+
+    if (sectionId) {
+      conditions.push(`sec.id = $${index}`);
+      values.push(sectionId);
+      index += 1;
+    }
 
     // Status filter
     if (status === 'active') {

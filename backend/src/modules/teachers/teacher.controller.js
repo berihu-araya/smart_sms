@@ -13,6 +13,7 @@ async function listTeachers(req, res, next) {
   try {
     const data = await teacherService.listTeachers({
       search: req.query.search || '',
+      sectionId: req.studentScope?.section_id || null,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });

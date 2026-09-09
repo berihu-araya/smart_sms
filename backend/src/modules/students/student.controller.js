@@ -18,6 +18,7 @@ async function listStudents(req, res, next) {
       gradeId: req.query.gradeId || req.query.grade_id || '',
       sectionId: req.query.sectionId || req.query.section_id || '',
       status: req.query.status || '',
+      studentId: req.studentScope?.student_id || null,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });

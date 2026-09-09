@@ -22,8 +22,8 @@ class TeacherService {
     this.repository = repository;
   }
 
-  async listTeachers({ search = '', limit = 20, offset = 0 } = {}) {
-    const teachers = await this.repository.findAll({ search, limit, offset });
+  async listTeachers({ search = '', sectionId = null, limit = 20, offset = 0 } = {}) {
+    const teachers = await this.repository.findAll({ search, sectionId, limit, offset });
 
     return {
       page: Math.floor(offset / limit) + 1,

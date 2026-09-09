@@ -14,6 +14,7 @@ async function listSections(req, res, next) {
     const data = await sectionService.listSections({
       search: req.query.search || '',
       gradeId: req.query.gradeId || req.query.grade_id || '',
+      sectionId: req.studentScope?.section_id || null,
       status: req.query.status || 'active',
       sortBy: req.query.sortBy || 'name',
       sortOrder: req.query.sortOrder || 'ASC',

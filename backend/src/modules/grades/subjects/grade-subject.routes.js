@@ -12,11 +12,13 @@ const {
 } = require('./grade-subject.controller');
 
 const authMiddleware = require('../../../middlewares/auth.middleware');
+const { attachStudentScope, requireStudentRelatedRecord } = require('../../../middlewares/student.scope');
 
 const router = express.Router();
 
 // Protect all grade-subject routes
 router.use(authMiddleware);
+router.use(attachStudentScope);
 
 // GET stats & metrics
 router.get('/stats', getCurriculumStats);
@@ -37,7 +39,7 @@ router.post('/clone', cloneGradeSubjects);
 router.post('/', createGradeSubject);
 
 // GET one grade subject
-router.get('/:id', getGradeSubjectById);
+router.get('/:id', requireStudentRelatedRecord('gradeSubject'), getGradeSubjectById);
 
 // UPDATE grade subject
 router.put('/:id', updateGradeSubject);

@@ -16,7 +16,7 @@ const gradeSubjectService = new GradeSubjectService(
 async function listGradeSubjects(req, res, next) {
   try {
     const data = await gradeSubjectService.listGradeSubjects({
-      grade_id: req.query.grade_id,
+      grade_id: req.studentScope?.grade_id || req.query.grade_id,
       academic_year_id: req.query.academic_year_id,
       status: req.query.status,
       is_compulsory: req.query.is_compulsory,

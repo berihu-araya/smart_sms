@@ -37,12 +37,19 @@ export async function getStudentAttendance(studentId, { limit = 30, offset = 0 }
   return response.data;
 }
 
+export async function getOwnAttendance({ limit = 30, offset = 0 } = {}) {
+  const query = new URLSearchParams({ limit, offset }).toString();
+  const response = await request(`/api/v1/attendance/student/me?${query}`);
+  return response.data;
+}
+
 const attendanceService = {
   getAttendanceSheet,
   saveBulkAttendance,
   getAttendanceSummary,
   getMonthlyAttendanceMatrix,
   getStudentAttendance,
+  getOwnAttendance,
 };
 
 export default attendanceService;

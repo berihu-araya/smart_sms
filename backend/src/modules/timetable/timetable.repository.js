@@ -3,10 +3,16 @@ class TimetableRepository {
     this.database = database;
   }
 
-  async findAllTimetables({ academicYearId, term, status, limit = 50, offset = 0 } = {}) {
+  async findAllTimetables({ academicYearId, term, status, sectionId = null, limit = 50, offset = 0 } = {}) {
     const conditions = ['t.deleted_at IS NULL'];
     const values = [];
     let index = 1;
+
+    if (sectionId) {
+      conditions.push(`EXISTS (SELECT 1 FROM timetable_entries te_scope WHERE te_scope.timetable_id = t.id AND te_scope.section_id = $${index} AND te_scope.deleted_at IS NULL)`);
+      values.push(sectionId);
+      index += 1;
+    }
 
     if (academicYearId) {
       conditions.push(`t.academic_year_id = $${index}`);

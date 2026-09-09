@@ -10,6 +10,21 @@ class UserService {
     return await this.repository.findAll({ search, roleId, limit, offset });
   }
 
+  async preRegister(payload, registeredBy, schoolId) {
+    const existingUser = await this.authRepository.findActiveUserByEmail(payload.email);
+    if (existingUser) {
+      const error = new Error('An account with this email address already exists');
+      error.status = 409;
+      throw error;
+    }
+
+    return this.authRepository.createAccountRegistration({
+      ...payload,
+      registeredBy,
+      schoolId,
+    });
+  }
+
   async getUserById(id) {
     const user = await this.repository.findById(id);
     if (!user) {
@@ -28,6 +43,25 @@ class UserService {
       throw error;
     }
 
+    const role = await this.authRepository.findRoleById(payload.roleId);
+    if (!role) {
+      const error = new Error('The selected role is not available');
+      error.status = 400;
+      throw error;
+    }
+
+    const registration = await this.authRepository.findEligibleRegistration(
+      payload.email,
+      role.name
+    );
+    if (!registration) {
+      const error = new Error(
+        'No pre-registered school participant matches this email and role'
+      );
+      error.status = 403;
+      throw error;
+    }
+
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(payload.password, salt);
 
@@ -40,6 +74,9 @@ class UserService {
       passwordHash,
       status: payload.status,
     });
+
+    await this.authRepository.claimRegistration(registration, user.id, role.name);
+    await this.authRepository.linkUserToRelatedEntities(user.id, payload.email, role.name);
 
     return user;
   }

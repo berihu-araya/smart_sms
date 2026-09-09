@@ -30,6 +30,7 @@ class GradeRepository {
     status = 'active', // 'active' | 'inactive' | 'all'
     sortBy = 'name',
     sortOrder = 'ASC',
+    gradeId = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -218,6 +219,12 @@ class GradeRepository {
     const fields = [];
     const values = [];
     let index = 1;
+
+    if (gradeId) {
+      conditions.push(`g.id = $${index}`);
+      values.push(gradeId);
+      index += 1;
+    }
 
     allowedColumns.forEach((col) => {
       if (payload[col] !== undefined) {

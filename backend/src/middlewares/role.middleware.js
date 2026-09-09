@@ -28,7 +28,7 @@ function authorizeRoles(...allowedRoles) {
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
-        message: `Access denied. Requires one of: ${allowedRoles.join(', ')}`,
+        message: 'You do not have permission to perform this action',
         data: null,
       });
     }

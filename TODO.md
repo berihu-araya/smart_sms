@@ -44,3 +44,11 @@
 - [x] `docker-compose.prod.yml` multi-container production topology (Postgres 17, Redis 7, Backend, Frontend, Nginx)
 - [x] Nginx reverse proxy configuration with SSL termination & security headers (`docker/nginx/conf.d/default.conf`)
 - [x] Automated database backup shell script with retention pruning (`docker/scripts/backup-db.sh`)
+
+### ✅ Phase 7: Assignments & Homework Management System
+- [x] Database Migration: `assignments` and `assignment_submissions` tables with tenant isolation & constraints
+- [x] Backend Module: Repository, Service, Controller, Routes & Validation (`/api/v1/assignments`)
+- [x] Backend Submissions & Inline Grading Engine with boundary validation and teacher feedback
+- [x] Frontend Assignments Suite: Role-aware interface for Teachers, Admins, Students, and Parents (`/dashboard/assignments`)
+- [x] Frontend Submissions Roster Drawer with live grading, status filtering, and CSV export
+- [x] Frontend Student Submission Workspace with due date countdowns, file attachments, and feedback review

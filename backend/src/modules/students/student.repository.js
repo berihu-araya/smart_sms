@@ -3,11 +3,17 @@ class StudentRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', limit = 20, offset = 0 } = {}, client = null) {
+  async findAll({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', studentId = null, limit = 20, offset = 0 } = {}, client = null) {
     const db = client || this.database;
     const conditions = ['s.deleted_at IS NULL'];
     const values = [];
     let index = 1;
+
+    if (studentId) {
+      conditions.push(`s.id = $${index}`);
+      values.push(studentId);
+      index += 1;
+    }
 
     const nameFilter = name.trim() || search.trim();
     if (nameFilter) {

@@ -43,12 +43,13 @@ class TimetableService {
 
   // --- Timetables ---
 
-  async listTimetables({ academicYearId, term, status, limit = 50, offset = 0 } = {}) {
+  async listTimetables({ academicYearId, term, status, sectionId = null, limit = 50, offset = 0 } = {}) {
     const page = Math.floor(offset / limit) + 1;
     const { items, total } = await this.repository.findAllTimetables({
       academicYearId,
       term,
       status,
+      sectionId,
       limit,
       offset,
     });

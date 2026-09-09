@@ -3,6 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  HiArrowLeft,
+  HiArrowRightOnRectangle,
+  HiArrowUpTray,
+  HiLockClosed,
+  HiPhoto,
+  HiShieldCheck,
+} from "react-icons/hi2";
 import { useAuth } from "@/hooks/useAuth";
 import styles from "./Profile.module.css";
 
@@ -76,21 +84,30 @@ export default function ProfilePage() {
     );
   }
 
-  const currentImage = selectedImage || user?.profileImage;
+  const displayName = user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Smart SMS user";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const currentImage = selectedImage || user.profileImage;
 
   return (
     <main className={styles.profileWrapper}>
       <section className={styles.profileCard}>
-        <div className={styles.profileAvatar}>
+        <div className={styles.identityPanel}>
+          <div className={styles.profileAvatar}>
           {currentImage ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={currentImage} alt="Profile preview" />
           ) : (
-            "👤"
+            initials
           )}
-        </div>
+          </div>
 
-        <div className={styles.imageActions}>
+          <div className={styles.imageActions}>
           <input
             ref={fileInputRef}
             type="file"
@@ -103,7 +120,8 @@ export default function ProfilePage() {
             className={styles.imageButton}
             onClick={() => fileInputRef.current?.click()}
           >
-            Choose Profile Picture
+            <HiPhoto aria-hidden="true" />
+            Choose photo
           </button>
           <button
             type="button"
@@ -111,13 +129,26 @@ export default function ProfilePage() {
             onClick={handleImageSave}
             disabled={savingImage || !selectedImage || selectedImage === user.profileImage}
           >
-            {savingImage ? "Saving..." : "Save Picture"}
+            <HiArrowUpTray aria-hidden="true" />
+            {savingImage ? "Saving..." : "Save photo"}
           </button>
           {imageError && <p className={styles.imageError}>{imageError}</p>}
           {imageMessage && <p className={styles.imageMessage}>{imageMessage}</p>}
+          </div>
+
+          <div className={styles.identityMeta}>
+            <span className={styles.roleBadge}>
+              <HiShieldCheck aria-hidden="true" />
+              {user.role || "Account member"}
+            </span>
+            <p>Personal account</p>
+          </div>
         </div>
 
-        <h1 className={styles.profileTitle}>My Profile</h1>
+        <div className={styles.profileHeading}>
+          <p className={styles.eyebrow}>Account overview</p>
+          <h1 className={styles.profileTitle}>My profile</h1>
+        </div>
 
         <p className={styles.profileSubtitle}>
           Manage your account information and security.
@@ -149,6 +180,7 @@ export default function ProfilePage() {
 
         <div className={styles.actionButtons}>
           <Link href="/login/change-password" className={styles.primaryButton}>
+            <HiLockClosed aria-hidden="true" />
             Change Password
           </Link>
 
@@ -157,12 +189,14 @@ export default function ProfilePage() {
             className={styles.secondaryButton}
             onClick={logout}
           >
+            <HiArrowRightOnRectangle aria-hidden="true" />
             Logout
           </button>
         </div>
 
         <Link href="/dashboard" className={styles.backButton}>
-          ← Back to Dashboard
+          <HiArrowLeft aria-hidden="true" />
+          Back to dashboard
         </Link>
       </section>
     </main>

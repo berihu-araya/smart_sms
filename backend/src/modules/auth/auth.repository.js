@@ -154,6 +154,99 @@ class AuthRepository {
     return result.rows[0] || null;
   }
 
+  async findRoleById(roleId) {
+    const result = await this.database.query(
+      `SELECT id, name, description FROM roles WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [roleId]
+    );
+    return result.rows[0] || null;
+  }
+
+  async createAccountRegistration({ firstName, lastName, email, phone, roleName, schoolId, registeredBy }) {
+    const result = await this.database.query(
+      `
+      INSERT INTO account_registrations
+        (first_name, last_name, email, phone, role_name, school_id, registered_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, first_name, last_name, email, phone, role_name, school_id, status, created_at
+      `,
+      [
+        firstName.trim(),
+        lastName.trim(),
+        email.trim().toLowerCase(),
+        phone?.trim() || null,
+        roleName,
+        schoolId || null,
+        registeredBy,
+      ]
+    );
+
+    return result.rows[0];
+  }
+
+  async findEligibleRegistration(email, roleName) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedRole = roleName.trim().toLowerCase();
+    const invitation = await this.database.query(
+      `
+      SELECT id, user_id, school_id, first_name, last_name, email, phone, role_name
+      FROM account_registrations
+      WHERE LOWER(email) = $1 AND LOWER(role_name) = $2
+        AND status = 'PRE_REGISTERED' AND user_id IS NULL AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [normalizedEmail, normalizedRole]
+    );
+
+    if (invitation.rows[0]) return invitation.rows[0];
+
+    const participantTables = { student: 'students', teacher: 'teachers', parent: 'parents' };
+    const table = participantTables[normalizedRole];
+    if (!table) return null;
+
+    const participant = await this.database.query(
+      `
+      SELECT id, user_id, school_id, email, phone,
+        ${table === 'parents' ? "split_part(full_name, ' ', 1)" : 'first_name'} AS first_name,
+        ${table === 'parents' ? "NULLIF(regexp_replace(full_name, '^\\S+\\s*', ''), '')" : 'last_name'} AS last_name
+      FROM ${table}
+      WHERE LOWER(email) = $1 AND user_id IS NULL
+        AND status = 'ACTIVE' AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [normalizedEmail]
+    );
+
+    return participant.rows[0]
+      ? { ...participant.rows[0], role_name: roleName, participant_type: normalizedRole }
+      : null;
+  }
+
+  async claimRegistration(registration, userId, roleName) {
+    if (registration.participant_type) {
+      const table = {
+        student: 'students',
+        teacher: 'teachers',
+        parent: 'parents',
+      }[roleName.trim().toLowerCase()];
+      if (!table) return;
+
+      await this.database.query(
+        `UPDATE ${table} SET user_id = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND user_id IS NULL AND deleted_at IS NULL`,
+        [userId, registration.id]
+      );
+      return;
+    }
+
+    await this.database.query(
+      `UPDATE account_registrations
+       SET status = 'CLAIMED', user_id = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND status = 'PRE_REGISTERED' AND user_id IS NULL`,
+      [userId, registration.id]
+    );
+  }
+
   async findAllRoles() {
     const result = await this.database.query(
       `
@@ -229,6 +322,11 @@ class AuthRepository {
       } else if (normalizedRole.includes('student')) {
         await this.database.query(
           `UPDATE students SET user_id = $1 WHERE LOWER(email) = $2 AND user_id IS NULL`,
+          [userId, cleanEmail]
+        );
+      } else if (normalizedRole.includes('parent')) {
+        await this.database.query(
+          `UPDATE parents SET user_id = $1 WHERE LOWER(email) = $2 AND user_id IS NULL`,
           [userId, cleanEmail]
         );
       }

@@ -23,10 +23,12 @@ const authorizeRoles = require('../../middlewares/role.middleware');
 const {
   authorizeSchoolAccess,
 } = require('../../middlewares/authorization.guard');
+const { attachStudentScope, requireStudentRelatedRecord } = require('../../middlewares/student.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(attachStudentScope);
 
 // --- Timetable Header & Role-Specific Routes ---
 // LIST: School Admin/Staff see all; Teachers/Students/Parents see filtered list
@@ -39,7 +41,7 @@ router.get('/active', getActiveTimetable);
 router.get('/my-schedule', authorizeRoles('Teacher', 'Student', 'Parent'), getMySchedule);
 
 // GET BY ID: Anyone can view a specific timetable's details
-router.get('/:id', getTimetableById);
+router.get('/:id', requireStudentRelatedRecord('timetable'), getTimetableById);
 
 // CREATE: Only School Admin and Staff
 router.post('/', authorizeRoles('School Admin', 'Admin', 'Staff'), createTimetable);

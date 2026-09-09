@@ -3,7 +3,7 @@ class TeacherRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', limit = 20, offset = 0 } = {}) {
+  async findAll({ search = '', sectionId = null, limit = 20, offset = 0 } = {}) {
     const searchPattern = `%${search.trim()}%`;
 
     const result = await this.database.query(
@@ -27,6 +27,13 @@ class TeacherRepository {
           t.updated_at
         FROM teachers t
         WHERE t.deleted_at IS NULL
+          AND ($4::uuid IS NULL OR EXISTS (
+            SELECT 1 FROM class_teachers ct
+            WHERE ct.teacher_id = t.id AND ct.section_id = $4 AND ct.deleted_at IS NULL
+            UNION
+            SELECT 1 FROM teacher_subjects ts
+            WHERE ts.teacher_id = t.id AND ts.section_id = $4 AND ts.deleted_at IS NULL
+          ))
           AND (
             LOWER(t.first_name) LIKE LOWER($1)
             OR LOWER(t.last_name) LIKE LOWER($1)
@@ -37,7 +44,7 @@ class TeacherRepository {
         ORDER BY t.first_name ASC, t.last_name ASC
         LIMIT $2 OFFSET $3
       `,
-      [searchPattern, limit, offset]
+      [searchPattern, limit, offset, sectionId]
     );
 
     return result.rows;

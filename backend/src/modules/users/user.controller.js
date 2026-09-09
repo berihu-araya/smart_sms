@@ -3,6 +3,7 @@ const UserService = require('./user.service');
 const AuthRepository = require('../auth/auth.repository');
 const {
   validateCreateUserInput,
+  validatePreRegistrationInput,
   validateUpdateUserInput,
   isValidUUID,
 } = require('./user.validation');
@@ -62,6 +63,33 @@ async function createUser(req, res, next) {
     return res.status(201).json({
       success: true,
       message: 'User created successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function preRegister(req, res, next) {
+  const input = validatePreRegistrationInput(req.body);
+
+  if (Object.keys(input.errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      data: input.errors,
+    });
+  }
+
+  try {
+    const data = await userService.preRegister(
+      input,
+      req.user.sub,
+      req.user.school_id
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Participant pre-registered successfully',
       data,
     });
   } catch (error) {
@@ -160,6 +188,7 @@ module.exports = {
   listUsers,
   getUserById,
   createUser,
+  preRegister,
   updateUser,
   toggleUserStatus,
   resetPassword,

@@ -49,6 +49,15 @@ class AuthService {
       throw error;
     }
 
+    const registration = await this.repository.findEligibleRegistration(email, roleRecord.name);
+    if (!registration) {
+      const error = new Error(
+        'No pre-registered school participant matches this email and role'
+      );
+      error.status = 403;
+      throw error;
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
 
     const newUser = await this.repository.createUser({
@@ -61,6 +70,7 @@ class AuthService {
       status: 'ACTIVE',
     });
 
+    await this.repository.claimRegistration(registration, newUser.id, roleRecord.name);
     await this.repository.linkUserToRelatedEntities(newUser.id, email, roleRecord.name);
 
     const token = jwt.sign(

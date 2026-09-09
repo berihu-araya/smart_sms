@@ -42,6 +42,7 @@ async function listTimetables(req, res, next) {
       limit: parsedLimit,
       offset: parsedOffset,
       schoolId: req.user?.school_id,
+      sectionId: req.studentScope?.section_id || null,
     });
 
     return res.status(200).json({
@@ -195,7 +196,7 @@ async function listEntries(req, res, next) {
 
     const entries = await service.listEntries({
       timetableId,
-      sectionId: section_id || sectionId,
+      sectionId: req.studentScope?.section_id || (section_id || sectionId),
       teacherId: teacher_id || teacherId,
       roomId: room_id || roomId,
       dayOfWeek: day_of_week || dayOfWeek,
@@ -369,6 +370,16 @@ async function validateTimetable(req, res, next) {
 async function getActiveTimetable(req, res, next) {
   try {
     const { academic_year_id, academicYearId } = req.query;
+    if ((req.user?.role || '').toLowerCase() === 'student') {
+      const schedule = await service.getMySchedule(req.user, {
+        academicYearId: academic_year_id || academicYearId,
+      });
+      return res.status(200).json({
+        success: true,
+        message: 'Student timetable retrieved',
+        data: schedule,
+      });
+    }
     const active = await service.getActiveTimetable(academic_year_id || academicYearId);
     return res.status(200).json({
       success: true,

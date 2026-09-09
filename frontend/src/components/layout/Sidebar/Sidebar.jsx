@@ -8,7 +8,7 @@ import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { useAuth } from "@/hooks/useAuth";
 import { getTranslation } from "@/utils/translations";
 import styles from "./Sidebar.module.css";
-import menuData from "./menuData";
+import menuData, { roleIsAllowed } from "./menuData";
 
 /* -------------------------------------------------
    Role filter helper
@@ -19,14 +19,7 @@ function filterMenuByRole(items, role) {
   return items
     .map((item) => {
       const itemRoles = item.roles || [];
-      const hasRolePermission =
-        itemRoles.length === 0 ||
-        itemRoles.some(
-          (r) =>
-            r.toLowerCase() === currentRole.toLowerCase() ||
-            (r.toLowerCase() === "admin" && currentRole.toLowerCase() === "school admin") ||
-            (r.toLowerCase() === "school admin" && currentRole.toLowerCase() === "admin")
-        );
+      const hasRolePermission = roleIsAllowed(itemRoles, currentRole);
 
       if (item.children?.length) {
         const filteredChildren = filterMenuByRole(item.children, currentRole);
@@ -188,7 +181,8 @@ export default function Sidebar({
   const pathname = usePathname();
   const { user } = useAuth();
   const filteredMenuData = filterMenuByRole(menuData, user?.role);
-  const isMini = !isVisible;
+  const [isHovered, setIsHovered] = useState(false);
+  const isMini = !isVisible && !isHovered;
 
   const [lang, setLang] = useState("en");
 
@@ -256,8 +250,10 @@ export default function Sidebar({
   return (
     <aside
       className={`${styles.sidebar} ${
-        isVisible ? styles.sidebarVisible : styles.sidebarMini
+        isMini ? styles.sidebarMini : styles.sidebarVisible
       }`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Sidebar Header / Logo */}
       <div className={styles.logo}>
