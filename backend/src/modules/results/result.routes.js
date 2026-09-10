@@ -13,6 +13,7 @@ router.use(authMiddleware);
 router.use(attachStudentScope);
 
 router.get('/section', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getSectionResults);
+router.get('/report-card/me', authorizeRoles('Student'), getStudentReportCard);
 router.get('/report-card/:studentId', requireStudentOwnParam('studentId'), getStudentReportCard);
 
 module.exports = router;

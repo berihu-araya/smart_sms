@@ -728,3 +728,233 @@
   .panelHeader { gap: 0.5rem; }
   .textLink { font-size: 0.66rem; }
 }
+
+/* --- Student Specific Dashboard Styles --- */
+.studentMetaTags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.65rem;
+}
+
+.studentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  background: #e6f4f2;
+  color: #12635e;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.studentBadgeGold {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.studentBadgeBlue {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.scheduleList,
+.assignmentList,
+.examList,
+.markList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.scheduleItem,
+.assignmentItem,
+.examItem,
+.markItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.8rem 1rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.scheduleItem:hover,
+.assignmentItem:hover,
+.examItem:hover,
+.markItem:hover {
+  border-color: #9bcac5;
+  box-shadow: 0 4px 12px rgba(21, 42, 43, 0.05);
+  transform: translateY(-1px);
+}
+
+.scheduleTime {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 0.35rem 0.55rem;
+  background: #f0f7f6;
+  border-radius: 7px;
+  color: #16827b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.scheduleTime strong {
+  font-size: 0.82rem;
+  color: #152a2b;
+}
+
+.itemMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemMain h4,
+.itemMain strong {
+  display: block;
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMain p,
+.itemMain span {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.subjectPill {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.statusTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.statusSubmitted {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.statusPending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.statusGraded {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.gradeScoreBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.gradeScoreBadge strong {
+  font-size: 1.05rem;
+  color: #16827b;
+}
+
+.gradeScoreBadge small {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.subjectsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.subjectCard {
+  padding: 0.85rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.subjectCard:hover {
+  border-color: #9bcac5;
+  transform: translateY(-1px);
+}
+
+.subjectCard strong {
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.subjectCard span {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.unassignedNotice {
+  max-width: 1440px;
+  margin: 0 auto 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.35rem;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  color: #115e59;
+  box-sizing: border-box;
+}
+
+.unassignedNoticeIcon {
+  font-size: 2.2rem;
+  color: #0d9488;
+  flex-shrink: 0;
+}
+
+.unassignedNotice h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.98rem;
+  font-weight: 750;
+  color: #0f766e;
+}
+
+.unassignedNotice p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #134e4a;
+  line-height: 1.45;
+}
+

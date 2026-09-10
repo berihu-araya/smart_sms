@@ -115,8 +115,10 @@ class AssignmentRepository {
       index++;
     }
 
+    let studentParamIndex = null;
     // Scoping for student: only assignments for student's grade & section
     if (studentId) {
+      studentParamIndex = index;
       whereClause += ` AND (
         a.grade_id = (SELECT s_g.grade_id FROM students s_stud LEFT JOIN sections s_g ON s_g.id = s_stud.section_id WHERE s_stud.id = $${index})
         AND (a.section_id IS NULL OR a.section_id = (SELECT s_stud.section_id FROM students s_stud WHERE s_stud.id = $${index}))
@@ -186,7 +188,7 @@ class AssignmentRepository {
             )
         ) AS total_enrolled_students
         ${
-          studentId
+          studentId && studentParamIndex
             ? `, (
                 SELECT json_build_object(
                   'id', my_sub.id,
@@ -198,7 +200,7 @@ class AssignmentRepository {
                 )
                 FROM assignment_submissions my_sub
                 WHERE my_sub.assignment_id = a.id 
-                  AND my_sub.student_id = '${studentId}'
+                  AND my_sub.student_id = $${studentParamIndex}
                   AND my_sub.deleted_at IS NULL
                 LIMIT 1
               ) AS my_submission`
@@ -236,6 +238,18 @@ class AssignmentRepository {
   }
 
   async findById(id, studentId = null) {
+    let studentCondition = '';
+    const params = [id];
+    if (studentId) {
+      params.push(studentId);
+      studentCondition = `
+        AND (
+          a.grade_id = (SELECT s_g.grade_id FROM students s_stud LEFT JOIN sections s_g ON s_g.id = s_stud.section_id WHERE s_stud.id = $2)
+          AND (a.section_id IS NULL OR a.section_id = (SELECT s_stud.section_id FROM students s_stud WHERE s_stud.id = $2))
+        )
+      `;
+    }
+
     const result = await this.database.query(
       `
       SELECT
@@ -301,9 +315,10 @@ class AssignmentRepository {
       LEFT JOIN teachers t ON t.id = a.teacher_id
       WHERE a.id = $1
         AND a.deleted_at IS NULL
+        ${studentCondition}
       LIMIT 1
       `,
-      studentId ? [id, studentId] : [id]
+      params
     );
 
     return result.rows[0] || null;

@@ -7,6 +7,7 @@ import subjectService from "@/services/subjectService";
 import teacherSubjectService from "@/services/teacherSubjectService";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./details.module.css";
 import {
   HiBookOpen,
@@ -18,6 +19,9 @@ import {
 } from "react-icons/hi2";
 
 export default function SubjectDetailsPage() {
+  const { user } = useAuth();
+  const isStudent = (user?.role || "").toLowerCase() === "student";
+
   const params = useParams();
   const router = useRouter();
   const [subject, setSubject] = useState(null);
@@ -119,24 +123,26 @@ export default function SubjectDetailsPage() {
               <p className={styles.subtitle}>{subject.subject_code}</p>
             </div>
           </div>
-          <div className={styles.headerActions}>
-            <Link
-              href={`/dashboard/grades/subjects?subject_id=${subject.id}`}
-              className={styles.btnSecondary}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-            >
-              <HiAcademicCap size={16} /> Curriculum Map
-            </Link>
-            <button
-              type="button"
-              onClick={handleInitiateDelete}
-              disabled={deleting}
-              className={styles.btnDanger}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-            >
-              <HiTrash size={16} /> Deactivate
-            </button>
-          </div>
+          {!isStudent && (
+            <div className={styles.headerActions}>
+              <Link
+                href={`/dashboard/grades/subjects?subject_id=${subject.id}`}
+                className={styles.btnSecondary}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <HiAcademicCap size={16} /> Curriculum Map
+              </Link>
+              <button
+                type="button"
+                onClick={handleInitiateDelete}
+                disabled={deleting}
+                className={styles.btnDanger}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <HiTrash size={16} /> Deactivate
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Content */}

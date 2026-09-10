@@ -46,6 +46,11 @@ class GradeRepository {
     }
     // if status === 'all', no deleted_at filter is added
 
+    if (gradeId) {
+      conditions.push(`g.id = $${values.length + 1}`);
+      values.push(gradeId);
+    }
+
     const statusClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
 
     const whereClause = `
@@ -219,12 +224,6 @@ class GradeRepository {
     const fields = [];
     const values = [];
     let index = 1;
-
-    if (gradeId) {
-      conditions.push(`g.id = $${index}`);
-      values.push(gradeId);
-      index += 1;
-    }
 
     allowedColumns.forEach((col) => {
       if (payload[col] !== undefined) {

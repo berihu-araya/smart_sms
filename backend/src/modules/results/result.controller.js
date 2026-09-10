@@ -67,33 +67,39 @@ async function getSectionResults(req, res, next) {
 }
 
 async function getStudentReportCard(req, res, next) {
-  const studentId = req.params.studentId;
-
-  if (!isValidUUID(studentId)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid student ID format',
-      data: null,
-    });
-  }
+  let studentId = req.params.studentId;
+  const role = (req.user?.role || '').toLowerCase();
 
   try {
-    const role = (req.user?.role || '').toLowerCase();
-    let teacherId = null;
-
-    if (role.includes('student') && !role.includes('admin')) {
+    if (studentId === 'me' || (role.includes('student') && !role.includes('admin'))) {
       const studentRes = await db.query(
         `SELECT id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
         [req.user.sub]
       );
 
-      if (!studentRes.rows.length || studentRes.rows[0].id !== studentId) {
+      if (!studentRes.rows.length) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student profile is not linked to this account',
+          data: null,
+        });
+      }
+
+      if (studentId !== 'me' && studentRes.rows[0].id !== studentId) {
         return res.status(403).json({
           success: false,
           message: 'Students can only access their own report card',
           data: null,
         });
       }
+
+      studentId = studentRes.rows[0].id;
+    } else if (!isValidUUID(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid student ID format',
+        data: null,
+      });
     }
 
     if (role.includes('teacher') && !role.includes('admin')) {

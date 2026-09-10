@@ -2,7 +2,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import { getSectionResults } from '@/services/resultService';
 import { listSections } from '@/services/sectionService';
@@ -20,6 +22,10 @@ import {
 } from 'react-icons/hi2';
 
 export default function ResultsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent = (user?.role || '').toLowerCase() === 'student';
+
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
@@ -34,6 +40,13 @@ export default function ResultsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (isStudent) {
+      router.replace('/dashboard/results/report-card');
+    }
+  }, [isStudent, router]);
+
+  useEffect(() => {
+    if (isStudent) return;
     async function loadMeta() {
       try {
         const [gRes, secRes, yRes] = await Promise.all([
@@ -143,6 +156,16 @@ export default function ResultsPage() {
     if (grade === 'D') return styles.gradeD;
     return styles.gradeF;
   };
+
+  if (isStudent) {
+    return (
+      <div className={styles.container}>
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+          Opening your personal report card...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

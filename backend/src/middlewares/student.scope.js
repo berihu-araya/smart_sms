@@ -4,24 +4,38 @@ async function attachStudentScope(req, res, next) {
   if ((req.user?.role || '').toLowerCase().trim() !== 'student') return next();
 
   try {
-    const result = await db.query(
-      `SELECT s.id AS student_id, s.section_id, sec.grade_id, s.school_id
+    const userSub = req.user?.sub;
+    const userEmail = (req.user?.email || '').trim().toLowerCase();
+
+    let result = await db.query(
+      `SELECT s.id AS student_id, s.user_id, s.section_id, sec.grade_id, s.school_id
        FROM students s
        LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
-       WHERE s.user_id = $1 AND s.deleted_at IS NULL
+       WHERE (s.user_id = $1 OR (s.email IS NOT NULL AND LOWER(s.email) = LOWER($2)))
+         AND s.deleted_at IS NULL
+       ORDER BY (CASE WHEN s.user_id = $1 THEN 0 ELSE 1 END) ASC
        LIMIT 1`,
-      [req.user.sub]
+      [userSub, userEmail]
     );
 
-    if (!result.rows[0]) {
-      return res.status(403).json({
-        success: false,
-        message: 'Student profile is not linked to this account',
-        data: null,
-      });
+    if (result.rows[0]) {
+      const student = result.rows[0];
+      if (!student.user_id && userSub) {
+        db.query(
+          `UPDATE students SET user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id IS NULL`,
+          [userSub, student.student_id]
+        ).catch(() => {});
+      }
+      req.studentScope = student;
+    } else {
+      req.studentScope = {
+        student_id: null,
+        section_id: null,
+        grade_id: null,
+        school_id: req.user?.school_id || null,
+      };
     }
 
-    req.studentScope = result.rows[0];
     next();
   } catch (error) {
     next(error);

@@ -4,6 +4,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './report-card.module.css';
 import { getStudentReportCard } from '@/services/resultService';
 import { listStudents } from '@/services/studentService';
@@ -13,18 +14,25 @@ import {
 } from 'react-icons/hi2';
 
 function ReportCardContent() {
+  const { user } = useAuth();
+  const isStudent = (user?.role || '').toLowerCase() === 'student';
+
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get('studentId');
   const termParam = searchParams.get('term') || 'Semester 1';
   const yearParam = searchParams.get('year') || '';
 
-  const [studentId, setStudentId] = useState(studentIdParam || '');
+  const [studentId, setStudentId] = useState(studentIdParam || (isStudent ? 'me' : ''));
   const [allStudents, setAllStudents] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (isStudent) {
+      setStudentId('me');
+      return;
+    }
     async function loadStudentList() {
       try {
         const res = await listStudents({ limit: 100 });
@@ -37,10 +45,10 @@ function ReportCardContent() {
         console.error('Failed to load student list:', err);
       }
     }
-    if (!studentIdParam) {
+    if (!studentIdParam && !isStudent) {
       loadStudentList();
     }
-  }, [studentIdParam, studentId]);
+  }, [studentIdParam, studentId, isStudent]);
 
   useEffect(() => {
     async function fetchCard() {
@@ -87,11 +95,11 @@ function ReportCardContent() {
     <div className={styles.container}>
       {/* Top Action Bar (hidden when printing) */}
       <div className={styles.topBar}>
-        <Link href="/dashboard/results" className={styles.backLink}>
-          <HiArrowLeft size={16} /> Back to Results
+        <Link href={isStudent ? "/dashboard" : "/dashboard/results"} className={styles.backLink}>
+          <HiArrowLeft size={16} /> {isStudent ? "Back to Dashboard" : "Back to Results"}
         </Link>
 
-        {!studentIdParam && allStudents.length > 0 && (
+        {!isStudent && !studentIdParam && allStudents.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
               Select Student:

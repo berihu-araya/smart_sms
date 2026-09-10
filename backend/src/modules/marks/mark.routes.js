@@ -13,6 +13,7 @@ router.use(authMiddleware);
 
 router.get('/sheet', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getMarksSheet);
 router.post('/batch', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), saveBatchMarks);
+router.get('/student/me', getStudentMarks);
 router.get('/student/:studentId', getStudentMarks);
 
 module.exports = router;

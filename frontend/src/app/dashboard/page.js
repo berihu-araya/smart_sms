@@ -13,6 +13,7 @@ import {
   HiClipboardDocumentList,
   HiClock,
   HiExclamationTriangle,
+  HiIdentification,
   HiOutlineArrowUpRight,
   HiOutlineUserGroup,
   HiPresentationChartLine,
@@ -202,6 +203,216 @@ function ActivityPanel({ activities }) {
   );
 }
 
+function StudentDashboardView({ data, refreshing, onRefresh, currentTime }) {
+  const student = data?.student || {};
+  const stats = data?.stats || {};
+  const attendance = data?.attendance || {};
+  const subjects = data?.subjects || [];
+  const todaySchedule = data?.todaySchedule || [];
+  const assignments = data?.assignments || [];
+  const upcomingExams = data?.upcomingExams || [];
+  const recentMarks = data?.recentMarks || [];
+
+  const currentHour = currentTime.getHours();
+  const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
+  const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(currentTime);
+
+  return (
+    <div className={styles.dashboard}>
+      <header className={styles.hero}>
+        <div>
+          <span className={styles.kicker}><span className={styles.liveDot} />Student Portal / {dateLabel}</span>
+          <h1>{greeting}, {student.firstName || student.name || "Student"}.</h1>
+          <p>Here is your personalized academic overview, today&apos;s classes, upcoming homework, and exam schedules.</p>
+          <div className={styles.studentMetaTags}>
+            <span className={styles.studentBadge}><HiBookOpen /> Grade: <b>{student.gradeName || "—"}</b></span>
+            <span className={styles.studentBadge}><HiAcademicCap /> Section: <b>{student.sectionName || "—"}</b> {student.roomNumber ? `(${student.roomNumber})` : ""}</span>
+            {student.admissionNumber && <span className={`${styles.studentBadge} ${styles.studentBadgeGold}`}><HiIdentification /> ID: <b>{student.admissionNumber}</b></span>}
+            {student.rollNumber && <span className={`${styles.studentBadge} ${styles.studentBadgeBlue}`}>Roll #{student.rollNumber}</span>}
+          </div>
+        </div>
+        <div className={styles.heroActions}>
+          <span className={styles.termBadge}><HiCalendarDays />{student.schoolName || "Academic Year"}</span>
+          <button className={styles.refreshButton} onClick={onRefresh} disabled={refreshing} title="Refresh dashboard">
+            <HiArrowPath className={refreshing ? styles.spinning : ""} /> <span>{refreshing ? "Refreshing" : "Refresh"}</span>
+          </button>
+        </div>
+      </header>
+
+      {!student.gradeName && !student.sectionName && (
+        <section className={styles.unassignedNotice} aria-label="Student pending class section assignment">
+          <HiIdentification className={styles.unassignedNoticeIcon} />
+          <div>
+            <h3>Student Account Active</h3>
+            <p>Welcome! Your student account is active. Your class grade, section, timetable, homework, and exam schedules will appear here automatically once your school administrator assigns you to a class section.</p>
+          </div>
+        </section>
+      )}
+
+      <section className={styles.metricsGrid} aria-label="Student key academic indicators">
+        <Metric icon={HiBookOpen} label="Enrolled Subjects" value={number(stats.enrolledSubjectsCount)} detail="active curriculum" tone="Blue" />
+        <Metric icon={HiCheckCircle} label="Attendance" value={percent(stats.attendanceRate)} detail="last 30 days" tone="Teal" />
+        <Metric icon={HiChartBarSquare} label="Average Score" value={percent(stats.averageScore)} detail="overall mark" tone="Amber" />
+        <Metric icon={HiClipboardDocumentList} label="Pending Homework" value={number(stats.pendingAssignmentsCount)} detail={`${stats.submittedAssignmentsCount || 0} submitted`} tone="Rose" />
+      </section>
+
+      <section className={styles.quickStats} aria-label="Quick student status summary">
+        <span><HiAcademicCap /><b>{number(stats.enrolledSubjectsCount)}</b> enrolled subjects</span>
+        <span><HiClock /><b>{number(stats.todayClassesCount)}</b> classes today</span>
+        <span><HiPresentationChartLine /><b>{number(stats.upcomingExamsCount)}</b> upcoming assessments</span>
+        <span><HiCheckCircle /><b>{number(attendance.present)}</b> days present</span>
+      </section>
+
+      <main className={styles.dashboardGrid}>
+        {/* Today's Schedule */}
+        <section className={styles.panel}>
+          <PanelHeader
+            eyebrow="Daily Routine"
+            title="Today's Class Schedule"
+            action={<Link href="/dashboard/timetable/class" className={styles.textLink}>Full timetable <HiOutlineArrowUpRight /></Link>}
+          />
+          <div className={styles.scheduleList}>
+            {todaySchedule.map((item) => (
+              <div className={styles.scheduleItem} key={item.id || item.period_number}>
+                <div className={styles.scheduleTime}>
+                  <strong>{item.start_time || "—"}</strong>
+                  <small>{item.end_time || ""}</small>
+                </div>
+                <div className={styles.itemMain}>
+                  <h4>{item.subject_name || item.period_name}</h4>
+                  <p>
+                    {item.subject_code && <span className={styles.subjectPill}>{item.subject_code}</span>}
+                    {item.teacher_first_name && <span>👨‍🏫 {item.teacher_first_name} {item.teacher_last_name || ""}</span>}
+                    {item.room_number && <span>🏫 Room {item.room_number}</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {!todaySchedule.length && (
+              <p className={styles.emptyState}>No scheduled classes today. Enjoy your day or review upcoming assignments!</p>
+            )}
+          </div>
+        </section>
+
+        {/* Attendance Pulse */}
+        <AttendancePanel attendance={attendance} />
+
+        {/* Upcoming Assignments */}
+        <section className={styles.panel}>
+          <PanelHeader
+            eyebrow="Homework & Tasks"
+            title="Assignments & Deadlines"
+            action={<Link href="/dashboard/assignments" className={styles.textLink}>All assignments <HiOutlineArrowUpRight /></Link>}
+          />
+          <div className={styles.assignmentList}>
+            {assignments.map((assignment) => {
+              const isSubmitted = assignment.submission_status === "SUBMITTED" || assignment.submission_status === "GRADED";
+              const isGraded = assignment.submission_status === "GRADED";
+              return (
+                <div className={styles.assignmentItem} key={assignment.id}>
+                  <div className={styles.itemMain}>
+                    <h4>{assignment.title}</h4>
+                    <p>
+                      <span className={styles.subjectPill}>{assignment.subject_name || assignment.subject_code}</span>
+                      <span>📅 Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : "No deadline"}</span>
+                      <span>Max: {assignment.max_marks || 100} pts</span>
+                    </p>
+                  </div>
+                  <div>
+                    {isGraded ? (
+                      <span className={`${styles.statusTag} ${styles.statusGraded}`}>Graded: {assignment.obtained_marks} pts</span>
+                    ) : isSubmitted ? (
+                      <span className={`${styles.statusTag} ${styles.statusSubmitted}`}><HiCheckCircle /> Submitted</span>
+                    ) : (
+                      <span className={`${styles.statusTag} ${styles.statusPending}`}><HiClock /> Pending</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!assignments.length && (
+              <p className={styles.emptyState}>No assignments assigned right now. You are all caught up!</p>
+            )}
+          </div>
+        </section>
+
+        {/* Upcoming Exams */}
+        <section className={styles.panel}>
+          <PanelHeader
+            eyebrow="Examinations"
+            title="Upcoming Assessments"
+            action={<Link href="/dashboard/exams" className={styles.textLink}>Exam schedule <HiOutlineArrowUpRight /></Link>}
+          />
+          <div className={styles.examList}>
+            {upcomingExams.map((exam) => (
+              <div className={styles.examItem} key={exam.id}>
+                <div className={styles.itemMain}>
+                  <h4>{exam.title}</h4>
+                  <p>
+                    <span className={styles.subjectPill}>{exam.subject_name || exam.subject_code}</span>
+                    <span>📝 {exam.exam_type || "EXAM"}</span>
+                    <span>⚖️ Weight: {exam.weight_percentage || 0}%</span>
+                    <span>🎯 {exam.max_marks} pts</span>
+                  </p>
+                </div>
+                <div className={styles.scheduleTime}>
+                  <strong>{exam.exam_date ? new Date(exam.exam_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "TBD"}</strong>
+                  <small>{exam.term_or_semester || "Term"}</small>
+                </div>
+              </div>
+            ))}
+            {!upcomingExams.length && (
+              <p className={styles.emptyState}>No published examinations scheduled at this time.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Recent Marks / Scores */}
+        <section className={styles.panel}>
+          <PanelHeader
+            eyebrow="Academic Records"
+            title="Recent Assessment Marks"
+            action={<Link href="/dashboard/results/report-card" className={styles.textLink}>Official report card <HiOutlineArrowUpRight /></Link>}
+          />
+          <div className={styles.markList}>
+            {recentMarks.map((mark) => (
+              <div className={styles.markItem} key={mark.id}>
+                <div className={styles.itemMain}>
+                  <h4>{mark.exam_title || mark.subject_name}</h4>
+                  <p>
+                    <span className={styles.subjectPill}>{mark.subject_name || mark.subject_code}</span>
+                    <span>{mark.exam_type || "Assessment"}</span>
+                  </p>
+                </div>
+                <div className={styles.gradeScoreBadge}>
+                  <strong>{mark.score !== null ? `${mark.score} / ${mark.max_marks || 100}` : "—"}</strong>
+                  {mark.grade_letter && <small>Grade: {mark.grade_letter}</small>}
+                </div>
+              </div>
+            ))}
+            {!recentMarks.length && (
+              <p className={styles.emptyState}>No published marks yet. Check back once assessments are graded.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Quick Student Navigation Actions */}
+        <section className={`${styles.panel} ${styles.actionPanel}`}>
+          <PanelHeader eyebrow="Student Access" title="Quick Links" action={<HiBookOpen className={styles.panelIcon} />} />
+          <div className={styles.actionList}>
+            <Link href="/dashboard/timetable/class"><HiCalendarDays /><span>My Class Timetable</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/subjects"><HiBookOpen /><span>My Enrolled Subjects</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/assignments"><HiClipboardDocumentList /><span>Homework & Submissions</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/exams"><HiPresentationChartLine /><span>Exam Schedules</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/results/report-card"><HiChartBarSquare /><span>My Report Card</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/attendance"><HiCheckCircle /><span>Attendance History</span><HiOutlineArrowUpRight /></Link>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -258,10 +469,29 @@ export default function Dashboard() {
     return () => window.clearInterval(clock);
   }, []);
 
-  if (loading) return <div className={styles.loading}><HiPresentationChartLine /><span>Preparing your school overview...</span></div>;
-  if (error) return <div className={styles.loading}><HiExclamationTriangle /><span>Unable to load dashboard data.</span><button onClick={() => fetchDashboardData(true)}>Try again</button></div>;
+  if (loading) return <div className={styles.loading}><HiPresentationChartLine /><span>Preparing your overview...</span></div>;
+  if (error) {
+    return (
+      <div className={styles.loading}>
+        <HiExclamationTriangle />
+        <span>{error || "Unable to load dashboard data."}</span>
+        <button onClick={() => fetchDashboardData(true)}>Try again</button>
+      </div>
+    );
+  }
 
   const dashboard = data || emptyData;
+  if (dashboard.isStudent || (user?.role || "").toLowerCase() === "student") {
+    return (
+      <StudentDashboardView
+        data={dashboard}
+        refreshing={refreshing}
+        onRefresh={() => fetchDashboardData(true)}
+        currentTime={currentTime}
+      />
+    );
+  }
+
   const stats = dashboard.stats || {};
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
   const currentHour = currentTime.getHours();
@@ -317,3 +547,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

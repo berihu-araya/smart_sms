@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import styles from "./page.module.css";
 import timetableService from "@/services/timetableService";
 import academicYearService from "@/services/academicYearService";
+import { useAuth } from "@/hooks/useAuth";
 import Modal from "@/components/common/Modal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
@@ -30,6 +32,10 @@ import {
 } from "react-icons/hi2";
 
 export default function TimetableDashboardPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent = (user?.role || "").toLowerCase() === "student";
+
   const [timetables, setTimetables] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [selectedYearId, setSelectedYearId] = useState("");
@@ -37,6 +43,12 @@ export default function TimetableDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
+
+  useEffect(() => {
+    if (isStudent) {
+      router.replace("/dashboard/timetable/class");
+    }
+  }, [isStudent, router]);
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -212,6 +224,16 @@ export default function TimetableDashboardPage() {
   const totalTimetables = timetables.length;
   const publishedCount = timetables.filter((t) => t.status === "PUBLISHED").length;
   const draftCount = timetables.filter((t) => t.status === "DRAFT").length;
+
+  if (isStudent) {
+    return (
+      <div className={styles.container}>
+        <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+          Loading your class timetable...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

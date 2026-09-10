@@ -128,28 +128,38 @@ async function saveBatchMarks(req, res, next) {
 }
 
 async function getStudentMarks(req, res, next) {
-  if (!isValidUUID(req.params.studentId)) {
-    return res.status(400).json({ success: false, message: 'Invalid student ID', data: null });
-  }
+  let studentId = req.params.studentId;
+  const role = (req.user?.role || '').toLowerCase();
 
   try {
-    const role = (req.user?.role || '').toLowerCase();
-    let teacherId = null;
-
-    if (role.includes('student') && !role.includes('admin')) {
+    if (studentId === 'me' || (role.includes('student') && !role.includes('admin'))) {
       const studentRes = await db.query(
         `SELECT id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
         [req.user.sub]
       );
 
-      if (!studentRes.rows.length || studentRes.rows[0].id !== req.params.studentId) {
+      if (!studentRes.rows.length) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student profile is not linked to this account',
+          data: null,
+        });
+      }
+
+      if (studentId !== 'me' && studentRes.rows[0].id !== studentId) {
         return res.status(403).json({
           success: false,
           message: 'Students can only access their own marks',
           data: null,
         });
       }
+
+      studentId = studentRes.rows[0].id;
+    } else if (!isValidUUID(studentId)) {
+      return res.status(400).json({ success: false, message: 'Invalid student ID', data: null });
     }
+
+    let teacherId = null;
 
     if (role.includes('teacher') && !role.includes('admin')) {
       const teacherRes = await db.query(
@@ -172,7 +182,7 @@ async function getStudentMarks(req, res, next) {
          JOIN students s ON s.section_id = ts.section_id
          WHERE ts.teacher_id = $1 AND s.id = $2 AND ts.deleted_at IS NULL
          LIMIT 1`,
-        [teacherId, req.params.studentId]
+        [teacherId, studentId]
       );
 
       if (!assignmentCheck.rows.length) {
@@ -184,7 +194,7 @@ async function getStudentMarks(req, res, next) {
       }
     }
 
-    const data = await markService.getStudentMarks(req.params.studentId, {
+    const data = await markService.getStudentMarks(studentId, {
       academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
       teacherId,
     });

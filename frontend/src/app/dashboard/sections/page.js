@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import sectionService from "@/services/sectionService";
 import gradeService from "@/services/gradeService";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./page.module.css";
 import {
   HiBuildingOffice2,
@@ -25,6 +26,9 @@ import {
 } from "react-icons/hi2";
 
 export default function SectionListPage() {
+  const { user } = useAuth();
+  const isStudent = (user?.role || "").toLowerCase() === "student";
+
   const [sections, setSections] = useState([]);
   const [grades, setGrades] = useState([]);
   const [total, setTotal] = useState(0);
@@ -276,8 +280,12 @@ export default function SectionListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>Section Management</h1>
-          <p>Organize classes into sections, assign rooms, and manage student capacity.</p>
+          <h1>{isStudent ? "My Grade & Section" : "Section Management"}</h1>
+          <p>
+            {isStudent
+              ? "Your current enrolled grade level, class section, and room assignment."
+              : "Organize classes into sections, assign rooms, and manage student capacity."}
+          </p>
         </div>
       </div>
 
@@ -317,36 +325,40 @@ export default function SectionListPage() {
             )}
           </div>
 
-          <div className={styles.statusTabs}>
-            {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-              { label: "All", value: "all" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {!isStudent && (
+            <>
+              <div className={styles.statusTabs}>
+                {[
+                  { label: "Active", value: "active" },
+                  { label: "Inactive", value: "inactive" },
+                  { label: "All", value: "all" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
+                    onClick={() => handleStatusChange(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
 
-          <select
-            value={gradeFilter}
-            onChange={(e) => handleGradeFilterChange(e.target.value)}
-            className={styles.gradeSelectFilter}
-            title="Filter by Grade Level"
-          >
-            <option value="">All Grades</option>
-            {grades.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+              <select
+                value={gradeFilter}
+                onChange={(e) => handleGradeFilterChange(e.target.value)}
+                className={styles.gradeSelectFilter}
+                title="Filter by Grade Level"
+              >
+                <option value="">All Grades</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
 
         <div className={styles.toolbarRight}>
@@ -359,14 +371,16 @@ export default function SectionListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleOpenAdd}
-          >
-            <HiPlus size={18} />
-            <span>+ Add Section</span>
-          </button>
+          {!isStudent && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleOpenAdd}
+            >
+              <HiPlus size={18} />
+              <span>+ Add Section</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -522,32 +536,36 @@ export default function SectionListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() => handleOpenEdit(sec)}
-                          title="Edit Section"
-                        >
-                          <HiPencilSquare size={15} />
-                        </button>
-                        {sec.status === "INACTIVE" || sec.deleted_at ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
-                            onClick={() => handleRestore(sec)}
-                            title="Restore / Reactivate Section"
-                          >
-                            <HiArrowPath size={15} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                            onClick={() => handleInitiateDelete(sec)}
-                            title="Deactivate Section"
-                          >
-                            <HiTrash size={15} />
-                          </button>
+                        {!isStudent && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(sec)}
+                              title="Edit Section"
+                            >
+                              <HiPencilSquare size={15} />
+                            </button>
+                            {sec.status === "INACTIVE" || sec.deleted_at ? (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                                onClick={() => handleRestore(sec)}
+                                title="Restore / Reactivate Section"
+                              >
+                                <HiArrowPath size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                onClick={() => handleInitiateDelete(sec)}
+                                title="Deactivate Section"
+                              >
+                                <HiTrash size={15} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import subjectService from "@/services/subjectService";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./page.module.css";
 import {
   HiBookOpen,
@@ -25,6 +26,9 @@ import {
 } from "react-icons/hi2";
 
 export default function SubjectListPage() {
+  const { user } = useAuth();
+  const isStudent = (user?.role || "").toLowerCase() === "student";
+
   const [subjects, setSubjects] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -288,8 +292,12 @@ export default function SubjectListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>Subject Management</h1>
-          <p>Define academic subjects, credit weighting, passing benchmarks, and classification.</p>
+          <h1>{isStudent ? "My Enrolled Subjects" : "Subject Management"}</h1>
+          <p>
+            {isStudent
+              ? "Your enrolled academic subjects, credit weighting, pass criteria, and course syllabus."
+              : "Define academic subjects, credit weighting, passing benchmarks, and classification."}
+          </p>
         </div>
       </div>
 
@@ -329,22 +337,24 @@ export default function SubjectListPage() {
             )}
           </div>
 
-          <div className={styles.statusTabs}>
-            {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-              { label: "All", value: "all" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {!isStudent && (
+            <div className={styles.statusTabs}>
+              {[
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+                { label: "All", value: "all" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
+                  onClick={() => handleStatusChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.toolbarRight}>
@@ -357,14 +367,16 @@ export default function SubjectListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleOpenAdd}
-          >
-            <HiPlus size={18} />
-            <span>+ Add Subject</span>
-          </button>
+          {!isStudent && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleOpenAdd}
+            >
+              <HiPlus size={18} />
+              <span>+ Add Subject</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -540,32 +552,36 @@ export default function SubjectListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() => handleOpenEdit(sub)}
-                          title="Edit Subject"
-                        >
-                          <HiPencilSquare size={15} />
-                        </button>
-                        {sub.status === "INACTIVE" || sub.deleted_at ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
-                            onClick={() => handleRestore(sub)}
-                            title="Restore / Reactivate Subject"
-                          >
-                            <HiArrowPath size={15} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                            onClick={() => handleInitiateDelete(sub)}
-                            title="Deactivate Subject"
-                          >
-                            <HiTrash size={15} />
-                          </button>
+                        {!isStudent && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(sub)}
+                              title="Edit Subject"
+                            >
+                              <HiPencilSquare size={15} />
+                            </button>
+                            {sub.status === "INACTIVE" || sub.deleted_at ? (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                                onClick={() => handleRestore(sub)}
+                                title="Restore / Reactivate Subject"
+                              >
+                                <HiArrowPath size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                onClick={() => handleInitiateDelete(sub)}
+                                title="Deactivate Subject"
+                              >
+                                <HiTrash size={15} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import {
   listExams,
@@ -82,6 +83,9 @@ const EXAM_TYPE_PRESETS = [
 ];
 
 export default function ExamsPage() {
+  const { user } = useAuth();
+  const isStudent = (user?.role || '').toLowerCase() === 'student';
+
   const [exams, setExams] = useState([]);
   const [grades, setGrades] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -264,21 +268,25 @@ export default function ExamsPage() {
       {/* Top Header */}
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Examinations & Assessments</h1>
+          <h1 className={styles.title}>{isStudent ? 'My Examination Schedule' : 'Examinations & Assessments'}</h1>
           <p className={styles.subtitle}>
-            Plan assessment cycles, configure grading weights, and streamline marks entry.
+            {isStudent
+              ? 'Upcoming tests, midterms, quizzes, and final examinations for your class.'
+              : 'Plan assessment cycles, configure grading weights, and streamline marks entry.'}
           </p>
         </div>
-        <div className={styles.headerActions}>
-          <Link href="/dashboard/marks" className={styles.btnSecondary}>
-            <HiClipboardDocumentList size={18} />
-            Enter Student Marks
-          </Link>
-          <button className={styles.btnPrimary} onClick={() => setIsModalOpen(true)}>
-            <HiPlus size={18} />
-            Create New Exam
-          </button>
-        </div>
+        {!isStudent && (
+          <div className={styles.headerActions}>
+            <Link href="/dashboard/marks" className={styles.btnSecondary}>
+              <HiClipboardDocumentList size={18} />
+              Enter Student Marks
+            </Link>
+            <button className={styles.btnPrimary} onClick={() => setIsModalOpen(true)}>
+              <HiPlus size={18} />
+              Create New Exam
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Analytics KPI Bar */}
@@ -379,9 +387,9 @@ export default function ExamsPage() {
                 <th>Grade & Subject</th>
                 <th>Max / Weight</th>
                 <th>Exam Date</th>
-                <th>Marks Progress</th>
-                <th>Status</th>
-                <th>Actions</th>
+                {!isStudent && <th>Marks Progress</th>}
+                {!isStudent && <th>Status</th>}
+                {!isStudent && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -417,51 +425,55 @@ export default function ExamsPage() {
                       {ex.exam_date || 'TBD'}
                     </div>
                   </td>
-                  <td>
-                    <Link
-                      href={`/dashboard/marks?examId=${ex.id}`}
-                      className={styles.marksProgressPill}
-                    >
-                      <HiClipboardDocumentList />
-                      <span>{ex.marks_entered_count || 0} entered</span>
-                    </Link>
-                  </td>
-                  <td>
-                    {ex.is_published ? (
-                      <span className={styles.statusPublished}>
-                        <HiCheckBadge /> Published
-                      </span>
-                    ) : (
-                      <span className={styles.statusDraft}>
-                        <HiClock /> Draft
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <Link
-                        href={`/dashboard/marks?examId=${ex.id}`}
-                        className={styles.btnEnterMarks}
-                        title="Enter Marks"
-                      >
-                        Enter Marks ➔
-                      </Link>
-                      <button
-                        className={styles.btnAction}
-                        onClick={() => handleTogglePublish(ex.id, ex.is_published)}
-                        title={ex.is_published ? 'Unpublish' : 'Publish'}
-                      >
-                        {ex.is_published ? 'Unpublish' : 'Publish'}
-                      </button>
-                      <button
-                        className={`${styles.btnAction} ${styles.btnDelete}`}
-                        onClick={() => handleDeleteExam(ex.id)}
-                        title="Delete Exam"
-                      >
-                        <HiTrash />
-                      </button>
-                    </div>
-                  </td>
+                  {!isStudent && (
+                    <>
+                      <td>
+                        <Link
+                          href={`/dashboard/marks?examId=${ex.id}`}
+                          className={styles.marksProgressPill}
+                        >
+                          <HiClipboardDocumentList />
+                          <span>{ex.marks_entered_count || 0} entered</span>
+                        </Link>
+                      </td>
+                      <td>
+                        {ex.is_published ? (
+                          <span className={styles.statusPublished}>
+                            <HiCheckBadge /> Published
+                          </span>
+                        ) : (
+                          <span className={styles.statusDraft}>
+                            <HiClock /> Draft
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div className={styles.actions}>
+                          <Link
+                            href={`/dashboard/marks?examId=${ex.id}`}
+                            className={styles.btnEnterMarks}
+                            title="Enter Marks"
+                          >
+                            Enter Marks ➔
+                          </Link>
+                          <button
+                            className={styles.btnAction}
+                            onClick={() => handleTogglePublish(ex.id, ex.is_published)}
+                            title={ex.is_published ? 'Unpublish' : 'Publish'}
+                          >
+                            {ex.is_published ? 'Unpublish' : 'Publish'}
+                          </button>
+                          <button
+                            className={`${styles.btnAction} ${styles.btnDelete}`}
+                            onClick={() => handleDeleteExam(ex.id)}
+                            title="Delete Exam"
+                          >
+                            <HiTrash />
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

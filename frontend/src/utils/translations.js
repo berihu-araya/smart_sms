@@ -80,7 +80,7 @@ export const translations = {
   am: {
     // Header
     school_name: "ዮዮ አካዳሚ",
-    platform_name: "ስማርት ኤስኤምኤስ",
+    platform_name: "Smart School Management System",
     school_sub: "የትምህርት ቤት አስተዳደር መድረክ",
     academic_year: "የትምህርት ዘመን",
     active_academic_year: "ንቁ የትምህርት ዘመን",
@@ -182,7 +182,7 @@ export const translations = {
     "Staff": "ሰራሕተኛታት",
     "Create User": "ተጠቃሚ ፍጠር",
     "Academics": "ኣካዳሚክስ",
-    "Grades": "ክፍልታት / ብርክታት",
+    "Grades": "ክፍልታት / ደረጃታት",
     "Sections": "ክፍለ ክፍልታት",
     "Subjects": "ትምህርትታት",
     "Subject Allocation": "ምደባ ትምህርቲ",

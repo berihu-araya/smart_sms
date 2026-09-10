@@ -207,9 +207,33 @@ async function getStudentGuardian(req, res, next) {
   }
 }
 
+async function getOwnStudentProfile(req, res, next) {
+  try {
+    const studentId = req.studentScope?.student_id;
+    if (!studentId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student profile is not linked to this account',
+        data: null,
+      });
+    }
+
+    const data = await studentService.getStudentProfile(studentId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Student profile loaded successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listStudents,
   getStudentById,
+  getOwnStudentProfile,
   createStudent,
   updateStudent,
   deleteStudent,

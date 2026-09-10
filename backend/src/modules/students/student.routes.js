@@ -2,6 +2,7 @@ const express = require('express');
 const {
   listStudents,
   getStudentById,
+  getOwnStudentProfile,
   createStudent,
   updateStudent,
   deleteStudent,
@@ -21,6 +22,8 @@ router.use(attachStudentScope);
 
 router.get('/', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Parent'), listStudents);
 router.post('/', authorizeRoles('School Admin', 'Admin', 'Staff'), createStudent);
+router.get('/me', authorizeRoles('Student'), getOwnStudentProfile);
+router.get('/me/profile', authorizeRoles('Student'), getOwnStudentProfile);
 router.get('/:id/profile', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), getStudentProfile);
 router.get('/:id/guardian', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Parent'), getStudentGuardian);
 router.get('/:id', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), getStudentById);
