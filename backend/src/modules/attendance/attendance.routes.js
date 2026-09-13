@@ -22,7 +22,7 @@ router.use(attachParentScope);
 router.get('/sheet', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getRosterSheet);
 router.post('/bulk', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), recordBulkAttendance);
 router.get('/summary', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getDailySummary);
-router.get('/matrix', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getMonthlyMatrix);
+router.get('/matrix', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff', 'Parent'), getMonthlyMatrix);
 router.get('/parent/my-children', authorizeRoles('Parent'), getMyChildrenAttendance);
 router.get('/student/me', getOwnAttendance);
 router.get('/student/:studentId', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff', 'Student', 'Parent'), requireStudentOwnParam('studentId'), requireParentOwnChild('studentId'), getStudentAttendance);

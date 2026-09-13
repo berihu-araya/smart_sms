@@ -244,14 +244,15 @@ async function getStudentDashboard(req, res) {
               te.id,
               te.day_of_week,
               p.name AS period_name,
-              p.period_number,
+              p.period_order AS period_number,
               p.start_time,
               p.end_time,
-              p.type AS period_type,
+              p.period_type,
               sub.subject_name,
               sub.subject_code,
               r.name AS room_name,
-              r.room_number,
+              r.building AS room_building,
+              r.name AS room_number,
               t.first_name AS teacher_first_name,
               t.last_name AS teacher_last_name
             FROM timetable_entries te
@@ -263,7 +264,7 @@ async function getStudentDashboard(req, res) {
             WHERE te.section_id = $1
               AND te.day_of_week = $2
               AND te.deleted_at IS NULL
-            ORDER BY p.start_time ASC, p.period_number ASC`,
+            ORDER BY p.start_time ASC, p.period_order ASC`,
           [student.section_id, todayDayName],
           'student today schedule'
         )
@@ -533,14 +534,15 @@ async function getStudentDashboard(req, res) {
                   te.id,
                   te.day_of_week,
                   p.name AS period_name,
-                  p.period_number,
+                  p.period_order AS period_number,
                   p.start_time,
                   p.end_time,
-                  p.type AS period_type,
+                  p.period_type,
                   sub.subject_name,
                   sub.subject_code,
                   r.name AS room_name,
-                  r.room_number,
+                  r.building AS room_building,
+                  r.name AS room_number,
                   t.first_name AS teacher_first_name,
                   t.last_name AS teacher_last_name
                 FROM timetable_entries te
@@ -552,7 +554,7 @@ async function getStudentDashboard(req, res) {
                 WHERE te.section_id = $1
                   AND te.day_of_week = $2
                   AND te.deleted_at IS NULL
-                ORDER BY p.start_time ASC, p.period_number ASC`,
+                ORDER BY p.start_time ASC, p.period_order ASC`,
                   [student.section_id, todayDayName],
                   'child today schedule'
                 )

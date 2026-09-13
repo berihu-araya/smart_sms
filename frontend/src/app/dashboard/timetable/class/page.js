@@ -227,26 +227,28 @@ export default function StudentClassTimetableViewPage() {
       </div>
 
       {/* Sub-Tabs */}
-      <div className={styles.navTabs}>
-        <Link href="/dashboard/timetable" className={styles.navTab}>
-          <HiCalendarDays /> Master Timetables
-        </Link>
-        <Link href="/dashboard/timetable/teacher" className={styles.navTab}>
-          <HiAcademicCap /> Teacher View
-        </Link>
-        <Link href="/dashboard/timetable/class" className={`${styles.navTab} ${styles.navTabActive}`}>
-          <HiUserGroup /> Student / Class View
-        </Link>
-        <Link href="/dashboard/timetable/rooms/occupancy" className={styles.navTab}>
-          <HiBuildingOffice /> Room Occupancy
-        </Link>
-        <Link href="/dashboard/timetable/substitutions" className={styles.navTab}>
-          <HiArrowsRightLeft /> Substitutions
-        </Link>
-        <Link href="/dashboard/timetable/reports" className={styles.navTab}>
-          <HiDocumentChartBar /> Reports
-        </Link>
-      </div>
+      {!isStudent && !isParent && (
+        <div className={styles.navTabs}>
+          <Link href="/dashboard/timetable" className={styles.navTab}>
+            <HiCalendarDays /> Master Timetables
+          </Link>
+          <Link href="/dashboard/timetable/teacher" className={styles.navTab}>
+            <HiAcademicCap /> Teacher View
+          </Link>
+          <Link href="/dashboard/timetable/class" className={`${styles.navTab} ${styles.navTabActive}`}>
+            <HiUserGroup /> Student / Class View
+          </Link>
+          <Link href="/dashboard/timetable/rooms/occupancy" className={styles.navTab}>
+            <HiBuildingOffice /> Room Occupancy
+          </Link>
+          <Link href="/dashboard/timetable/substitutions" className={styles.navTab}>
+            <HiArrowsRightLeft /> Substitutions
+          </Link>
+          <Link href="/dashboard/timetable/reports" className={styles.navTab}>
+            <HiDocumentChartBar /> Reports
+          </Link>
+        </div>
+      )}
 
       {/* Filter / Selector Bar */}
       {isParent ? (

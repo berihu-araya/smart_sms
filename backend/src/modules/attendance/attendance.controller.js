@@ -101,7 +101,8 @@ async function getDailySummary(req, res, next) {
 }
 
 async function getMonthlyMatrix(req, res, next) {
-  if ((req.user?.role || '').toLowerCase() === 'student') {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  if (role === 'student') {
     return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
   }
 
@@ -116,6 +117,18 @@ async function getMonthlyMatrix(req, res, next) {
       message: 'Valid sectionId is required',
       data: null,
     });
+  }
+
+  // Parent RBAC: Parent can only view matrix for sections their children are enrolled in
+  if (role === 'parent') {
+    const allowedSections = req.parentScope?.child_section_ids || [];
+    if (!allowedSections.includes(sectionId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You are only authorized to view attendance matrix for your children's class sections",
+        data: null,
+      });
+    }
   }
 
   if (isNaN(year) || year < 2000 || year > 2100 || isNaN(month) || month < 1 || month > 12) {
@@ -149,7 +162,7 @@ async function getStudentAttendance(req, res, next) {
         return res.status(200).json({
           success: true,
           message: 'No children linked to parent',
-          data: { student: null, attendance: [], stats: {} },
+          data: { student: null, attendance: [], history: [], stats: {} },
         });
       }
     } else if (!req.parentScope?.child_student_ids.includes(studentId)) {
@@ -170,7 +183,7 @@ async function getStudentAttendance(req, res, next) {
   }
 
   try {
-    const limit = Number(req.query.limit || 30);
+    const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
 
     const data = await attendanceService.getStudentAttendance(studentId, { limit, offset });
@@ -178,7 +191,11 @@ async function getStudentAttendance(req, res, next) {
     return res.status(200).json({
       success: true,
       message: 'Student attendance history loaded',
-      data,
+      data: {
+        history: data.history || [],
+        attendance: data.history || [],
+        stats: data.stats || {},
+      },
     });
   } catch (error) {
     return next(error);
@@ -196,16 +213,18 @@ async function getMyChildrenAttendance(req, res, next) {
       });
     }
 
-    const limit = Number(req.query.limit || 30);
+    const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
 
     const results = await Promise.all(
       children.map(async (child) => {
-        const history = await attendanceService.getStudentAttendance(child.id, { limit, offset });
+        const historyData = await attendanceService.getStudentAttendance(child.id, { limit, offset });
+        const list = historyData.history || [];
         return {
           student: child,
-          attendance: history.attendance || [],
-          stats: history.stats || {},
+          history: list,
+          attendance: list,
+          stats: historyData.stats || {},
         };
       })
     );

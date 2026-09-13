@@ -687,3 +687,268 @@
   color: #991b1b;
   border: 1px solid #fecaca;
 }
+
+/* =========================================================
+   Parent-Specific Rich Views & Monthly Attendance Elements
+   ========================================================= */
+.parentHeaderBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.childTabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.childTabBtn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.childTabBtn:hover {
+  background: #f8fafc;
+  border-color: #0d9488;
+}
+
+.childTabBtn.activeChildTab {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #0d9488;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.15);
+}
+
+.monthControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.monthNavBtn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.monthNavBtn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.monthSelect {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.legendBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legendPresent { background: #22c55e; }
+.legendLate { background: #f59e0b; }
+.legendAbsent { background: #ef4444; }
+.legendExcused { background: #0ea5e9; }
+.legendWeekend { background: #cbd5e1; }
+
+.parentCalendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .parentCalendarGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 550px) {
+  .parentCalendarGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.parentDayCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+  min-height: 105px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.parentDayCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.parentDayPresent {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.parentDayLate {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.parentDayAbsent {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.parentDayExcused {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+}
+
+.parentDayWeekend {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  opacity: 0.65;
+}
+
+.parentDayUnrecorded {
+  background: #ffffff;
+  border-style: dashed;
+}
+
+.dayCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.dayCardNumber {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.dayCardWeekday {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.dayCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dayStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.pillPresent { background: #dcfce7; color: #15803d; }
+.pillLate { background: #fef3c7; color: #b45309; }
+.pillAbsent { background: #fee2e2; color: #b91c1c; }
+.pillExcused { background: #e0f2fe; color: #0369a1; }
+.pillWeekend { background: #f1f5f9; color: #64748b; }
+.pillUnrecorded { background: #f1f5f9; color: #94a3b8; font-weight: normal; }
+
+.dayRemarkNote {
+  font-size: 0.72rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.parentHighlightRow {
+  background: #f0fdf4 !important;
+  border-left: 4px solid #10b981 !important;
+}
+
+.parentHighlightRow td {
+  background: #f0fdf4 !important;
+  font-weight: 600;
+}
+
+.parentBadge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  background: #10b981;
+  color: #ffffff;
+  margin-left: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+

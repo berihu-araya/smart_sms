@@ -394,9 +394,9 @@ export default function ExamsPage() {
                 <th>Grade & Subject</th>
                 <th>Max / Weight</th>
                 <th>Exam Date</th>
-                {!isStudent && <th>Marks Progress</th>}
-                {!isStudent && <th>Status</th>}
-                {!isStudent && <th>Actions</th>}
+                {!isStudentOrParent && <th>Marks Progress</th>}
+                {!isStudentOrParent && <th>Status</th>}
+                {!isStudentOrParent && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -432,7 +432,7 @@ export default function ExamsPage() {
                       {ex.exam_date || 'TBD'}
                     </div>
                   </td>
-                  {!isStudent && (
+                  {!isStudentOrParent && (
                     <>
                       <td>
                         <Link

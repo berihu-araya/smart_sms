@@ -24,7 +24,9 @@ import {
 export default function ResultsPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const role = (user?.role || '').toLowerCase();
+  const isStudent = role === 'student';
+  const isParent = role === 'parent';
 
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -40,13 +42,13 @@ export default function ResultsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isStudent) {
+    if (isStudent || isParent) {
       router.replace('/dashboard/results/report-card');
     }
-  }, [isStudent, router]);
+  }, [isStudent, isParent, router]);
 
   useEffect(() => {
-    if (isStudent) return;
+    if (isStudent || isParent) return;
     async function loadMeta() {
       try {
         const [gRes, secRes, yRes] = await Promise.all([

@@ -17,6 +17,8 @@ function ReportCardContent() {
   const { user, loading: authLoading } = useAuth();
   const role = (user?.role || user?.role_name || '').toLowerCase().trim();
   const isStudent = role === 'student';
+  const isParent = role === 'parent';
+  const isStudentOrParent = isStudent || isParent;
 
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get('studentId');
@@ -100,8 +102,8 @@ function ReportCardContent() {
     <div className={styles.container}>
       {/* Top Action Bar (hidden when printing) */}
       <div className={styles.topBar}>
-        <Link href={isStudent ? "/dashboard" : "/dashboard/results"} className={styles.backLink}>
-          <HiArrowLeft size={16} /> {isStudent ? "Back to Dashboard" : "Back to Results"}
+        <Link href={isStudentOrParent ? "/dashboard" : "/dashboard/results"} className={styles.backLink}>
+          <HiArrowLeft size={16} /> {isStudentOrParent ? "Back to Dashboard" : "Back to Results"}
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
@@ -132,7 +134,7 @@ function ReportCardContent() {
           {!isStudent && !studentIdParam && allStudents.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
-                Student:
+                {isParent ? "Select Child:" : "Student:"}
               </span>
               <select
                 style={{

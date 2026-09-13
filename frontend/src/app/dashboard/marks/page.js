@@ -27,16 +27,18 @@ import {
 function MarksEntryContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const role = (user?.role || '').toLowerCase();
+  const isStudent = role === 'student';
+  const isParent = role === 'parent';
 
   const searchParams = useSearchParams();
   const urlExamId = searchParams.get('examId') || '';
 
   useEffect(() => {
-    if (isStudent) {
+    if (isStudent || isParent) {
       router.replace('/dashboard/results/report-card');
     }
-  }, [isStudent, router]);
+  }, [isStudent, isParent, router]);
 
   // Cascading Selection Hierarchy: Grade -> Section -> Subject -> Exam
   const [grades, setGrades] = useState([]);
