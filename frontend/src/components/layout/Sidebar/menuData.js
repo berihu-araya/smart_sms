@@ -183,13 +183,13 @@ const menuData = [
         title: "Assignments",
         icon: FaTasks,
         link: "/dashboard/assignments",
-        roles: ["School Admin", "Admin", "Teacher", "Student"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Parent"],
       },
       {
         title: "Exams",
         icon: FaFileAlt,
         link: "/dashboard/exams",
-        roles: ["School Admin", "Admin", "Teacher", "Student"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Parent"],
       },
       {
         title: "Marks Entry",

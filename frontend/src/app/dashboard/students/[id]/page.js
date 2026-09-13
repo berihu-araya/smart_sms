@@ -3,10 +3,16 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import studentService from "@/services/studentService";
 import styles from "./details.module.css";
 
 export default function StudentDetailsPage() {
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const canEdit = ["school admin", "admin", "staff"].includes(role);
+  const canDelete = ["school admin", "admin"].includes(role);
+
   const params = useParams();
   const router = useRouter();
   const [profile, setProfile] = useState(null);
@@ -82,12 +88,16 @@ export default function StudentDetailsPage() {
             <span className={`${styles.statusPill} ${styles[`status${student.status}`] || styles.statusDefault}`}>
               {student.status}
             </span>
-            <Link href={`/dashboard/students/${params.id}/edit`} className={styles.editButton}>
-              ✏️ Edit
-            </Link>
-            <button onClick={handleDelete} className={styles.deleteButton}>
-              🗑️ Delete
-            </button>
+            {canEdit && (
+              <>
+                <Link href={`/dashboard/students/${params.id}/edit`} className={styles.editButton}>
+                  ✏️ Edit
+                </Link>
+                {canDelete && <button onClick={handleDelete} className={styles.deleteButton}>
+                  🗑️ Delete
+                </button>}
+              </>
+            )}
           </div>
         </div>
 

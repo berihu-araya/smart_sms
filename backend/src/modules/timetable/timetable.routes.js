@@ -24,11 +24,13 @@ const {
   authorizeSchoolAccess,
 } = require('../../middlewares/authorization.guard');
 const { attachStudentScope, requireStudentRelatedRecord } = require('../../middlewares/student.scope');
+const { attachParentScope } = require('../../middlewares/parent.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(attachStudentScope);
+router.use(attachParentScope);
 
 // --- Timetable Header & Role-Specific Routes ---
 // LIST: School Admin/Staff see all; Teachers/Students/Parents see filtered list

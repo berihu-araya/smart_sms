@@ -43,6 +43,11 @@ export async function getOwnAttendance({ limit = 30, offset = 0 } = {}) {
   return response.data;
 }
 
+export async function getMyChildrenAttendance() {
+  const response = await request('/api/v1/attendance/parent/my-children');
+  return response.data;
+}
+
 const attendanceService = {
   getAttendanceSheet,
   saveBulkAttendance,
@@ -50,6 +55,7 @@ const attendanceService = {
   getMonthlyAttendanceMatrix,
   getStudentAttendance,
   getOwnAttendance,
+  getMyChildrenAttendance,
 };
 
 export default attendanceService;

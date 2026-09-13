@@ -89,8 +89,8 @@ class ResultRepository {
       index++;
     }
 
-    if (term) {
-      whereClause += ` AND LOWER(e.term_or_semester) = LOWER($${index})`;
+    if (term && term !== 'all' && term !== 'All' && term !== 'ALL') {
+      whereClause += ` AND (LOWER(e.term_or_semester) = LOWER($${index}) OR e.term_or_semester IS NULL)`;
       params.push(term);
       index++;
     }
@@ -145,6 +145,7 @@ class ResultRepository {
         s.date_of_birth,
         sec.id AS section_id,
         sec.name AS section_name,
+        g.id AS grade_id,
         g.name AS grade_name,
         p.full_name AS parent_name,
         p.phone AS parent_phone
@@ -193,8 +194,8 @@ class ResultRepository {
       index++;
     }
 
-    if (term) {
-      whereClause += ` AND LOWER(e.term_or_semester) = LOWER($${index})`;
+    if (term && term !== 'all' && term !== 'All' && term !== 'ALL') {
+      whereClause += ` AND (LOWER(e.term_or_semester) = LOWER($${index}) OR e.term_or_semester IS NULL)`;
       params.push(term);
       index++;
     }

@@ -26,13 +26,12 @@ class AssignmentRepository {
       `
       SELECT s.id, s.first_name, s.last_name, s.admission_number, s.section_id, sec.grade_id
       FROM students s
-      JOIN student_parents sp ON sp.student_id = s.id
-      JOIN parents p ON p.id = sp.parent_id
-      LEFT JOIN sections sec ON sec.id = s.section_id
-      WHERE p.user_id = $1
+      JOIN parents p ON p.id = s.parent_id
+      LEFT JOIN users u ON u.id = $1
+      LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+      WHERE (p.user_id = $1 OR (u.email IS NOT NULL AND LOWER(p.email) = LOWER(u.email)) OR (u.phone IS NOT NULL AND p.phone = u.phone))
         AND s.deleted_at IS NULL
         AND p.deleted_at IS NULL
-        AND sp.deleted_at IS NULL
       `,
       [parentUserId]
     );

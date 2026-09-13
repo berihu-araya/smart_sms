@@ -130,23 +130,54 @@ async function saveBatchMarks(req, res, next) {
 async function getStudentMarks(req, res, next) {
   let studentId = req.params.studentId;
   const role = (req.user?.role || '').toLowerCase();
+  const userSub = req.user?.sub;
+  const userEmail = (req.user?.email || '').trim().toLowerCase();
 
   try {
-    if (studentId === 'me' || (role.includes('student') && !role.includes('admin'))) {
-      const studentRes = await db.query(
-        `SELECT id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
-        [req.user.sub]
-      );
-
-      if (!studentRes.rows.length) {
+    if (role.includes('parent')) {
+      if (studentId === 'me') {
+        studentId = req.parentScope?.child_student_ids[0];
+        if (!studentId) {
+          return res.status(200).json({
+            success: true,
+            message: 'No children linked to parent',
+            data: [],
+          });
+        }
+      } else if (!req.parentScope?.child_student_ids.includes(studentId)) {
         return res.status(403).json({
           success: false,
-          message: 'Student profile is not linked to this account',
+          message: 'Parents can only access marks of their own linked children',
           data: null,
         });
       }
+    } else if (studentId === 'me' || (role.includes('student') && !role.includes('admin'))) {
+      let studentRes = await db.query(
+        `SELECT id, user_id FROM students
+         WHERE (user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)))
+           AND deleted_at IS NULL
+         ORDER BY (CASE WHEN user_id = $1 THEN 0 ELSE 1 END) ASC
+         LIMIT 1`,
+        [userSub, userEmail]
+      );
 
-      if (studentId !== 'me' && studentRes.rows[0].id !== studentId) {
+      if (!studentRes.rows.length) {
+        return res.status(200).json({
+          success: true,
+          message: 'Student marks loaded',
+          data: [],
+        });
+      }
+
+      const matchedStudent = studentRes.rows[0];
+      if (!matchedStudent.user_id && userSub) {
+        db.query(
+          `UPDATE students SET user_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id IS NULL`,
+          [userSub, matchedStudent.id]
+        ).catch(() => {});
+      }
+
+      if (studentId !== 'me' && matchedStudent.id !== studentId) {
         return res.status(403).json({
           success: false,
           message: 'Students can only access their own marks',
@@ -154,7 +185,7 @@ async function getStudentMarks(req, res, next) {
         });
       }
 
-      studentId = studentRes.rows[0].id;
+      studentId = matchedStudent.id;
     } else if (!isValidUUID(studentId)) {
       return res.status(400).json({ success: false, message: 'Invalid student ID', data: null });
     }

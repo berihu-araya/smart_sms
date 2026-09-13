@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import { getMarksSheet, saveBatchMarks } from '@/services/markService';
 import { listGrades } from '@/services/gradeService';
@@ -24,8 +25,18 @@ import {
 } from 'react-icons/hi2';
 
 function MarksEntryContent() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isStudent = (user?.role || '').toLowerCase() === 'student';
+
   const searchParams = useSearchParams();
   const urlExamId = searchParams.get('examId') || '';
+
+  useEffect(() => {
+    if (isStudent) {
+      router.replace('/dashboard/results/report-card');
+    }
+  }, [isStudent, router]);
 
   // Cascading Selection Hierarchy: Grade -> Section -> Subject -> Exam
   const [grades, setGrades] = useState([]);

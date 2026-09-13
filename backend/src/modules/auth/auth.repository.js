@@ -211,7 +211,7 @@ class AuthRepository {
         ${table === 'parents' ? "NULLIF(regexp_replace(full_name, '^\\S+\\s*', ''), '')" : 'last_name'} AS last_name
       FROM ${table}
       WHERE LOWER(email) = $1 AND user_id IS NULL
-        AND status = 'ACTIVE' AND deleted_at IS NULL
+        AND deleted_at IS NULL
       LIMIT 1
       `,
       [normalizedEmail]

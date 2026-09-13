@@ -46,7 +46,8 @@ function requireStudentOwnParam(paramName) {
   return (req, res, next) => {
     if ((req.user?.role || '').toLowerCase().trim() !== 'student') return next();
 
-    if (req.params[paramName] !== req.studentScope?.student_id) {
+    const targetParam = req.params[paramName];
+    if (targetParam !== 'me' && targetParam !== req.studentScope?.student_id) {
       return res.status(403).json({
         success: false,
         message: 'Students can only access their own records',

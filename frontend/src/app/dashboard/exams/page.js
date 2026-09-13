@@ -84,7 +84,10 @@ const EXAM_TYPE_PRESETS = [
 
 export default function ExamsPage() {
   const { user } = useAuth();
-  const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const role = (user?.role || '').toLowerCase();
+  const isStudent = role === 'student';
+  const isParent = role === 'parent';
+  const isStudentOrParent = isStudent || isParent;
 
   const [exams, setExams] = useState([]);
   const [grades, setGrades] = useState([]);
@@ -268,14 +271,18 @@ export default function ExamsPage() {
       {/* Top Header */}
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>{isStudent ? 'My Examination Schedule' : 'Examinations & Assessments'}</h1>
+          <h1 className={styles.title}>
+            {isStudent ? 'My Examination Schedule' : isParent ? 'Children Examination Schedules' : 'Examinations & Assessments'}
+          </h1>
           <p className={styles.subtitle}>
             {isStudent
               ? 'Upcoming tests, midterms, quizzes, and final examinations for your class.'
+              : isParent
+              ? 'Upcoming assessment schedules, midterms, and final exam timetables for your children.'
               : 'Plan assessment cycles, configure grading weights, and streamline marks entry.'}
           </p>
         </div>
-        {!isStudent && (
+        {!isStudentOrParent && (
           <div className={styles.headerActions}>
             <Link href="/dashboard/marks" className={styles.btnSecondary}>
               <HiClipboardDocumentList size={18} />

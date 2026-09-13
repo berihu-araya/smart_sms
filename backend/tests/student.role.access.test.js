@@ -172,6 +172,16 @@ describe('Student Role Access & Dashboard Payloads', () => {
     assert.equal(intruderNextCalled, false);
     assert.equal(intruderRes.statusCode, 403);
     assert.match(intruderRes.body.message, /Students can only access their own records/);
+
+    // Student requesting 'me'
+    const meReq = {
+      user: { role: 'Student' },
+      studentScope: { student_id: 'stu-1' },
+      params: { studentId: 'me' },
+    };
+    let meNextCalled = false;
+    guard(meReq, res, () => { meNextCalled = true; });
+    assert.equal(meNextCalled, true);
   });
 
   test('requireStudentScopeMatch validates section/grade scope match', () => {
@@ -207,5 +217,141 @@ describe('Student Role Access & Dashboard Payloads', () => {
     sectionGuard(foreignSectionReq, foreignRes, () => { foreignNextCalled = true; });
     assert.equal(foreignNextCalled, false);
     assert.equal(foreignRes.statusCode, 403);
+  });
+
+  test('ResultService progressive grade calculation immediately evaluates partial assessments', async () => {
+    const ResultService = require('../src/modules/results/result.service');
+
+    const mockRepo = {
+      getGradingScales: async () => [
+        { grade_letter: 'A', min_score: 80, max_score: 100, grade_point: 4.0, description: 'Excellent' },
+        { grade_letter: 'B', min_score: 70, max_score: 79.99, grade_point: 3.0, description: 'Very Good' },
+        { grade_letter: 'C', min_score: 60, max_score: 69.99, grade_point: 2.0, description: 'Satisfactory' },
+        { grade_letter: 'D', min_score: 50, max_score: 59.99, grade_point: 1.0, description: 'Pass' },
+        { grade_letter: 'F', min_score: 0, max_score: 49.99, grade_point: 0.0, description: 'Fail' },
+      ],
+      getSectionStudents: async () => [
+        { id: 's-1', admission_number: 'ADM-01', first_name: 'John', last_name: 'Doe', gender: 'MALE', section_name: '10A', grade_name: 'Grade 10' },
+      ],
+      getSectionSubjects: async () => [
+        { id: 'sub-math', name: 'Mathematics', code: 'MATH101' },
+      ],
+      getSectionMarks: async () => [
+        // Only 1 quiz of 20% weight entered so far, student scored 18/20 (90%)
+        {
+          student_id: 's-1',
+          subject_id: 'sub-math',
+          exam_id: 'e-q1',
+          score: 18,
+          is_absent: false,
+          exam_title: 'Quiz 1',
+          exam_type: 'QUIZ',
+          weight_percentage: 20,
+          max_marks: 20,
+          term_or_semester: 'Semester 1',
+          subject_name: 'Mathematics',
+          subject_code: 'MATH101',
+        },
+      ],
+    };
+
+    const service = new ResultService(mockRepo);
+    const result = await service.calculateSectionResults({ sectionId: 'sec-10a', term: 'Semester 1' });
+
+    assert.equal(result.totalStudents, 1);
+    assert.equal(result.completedStudentsCount, 1);
+    const student = result.rankings[0];
+    assert.equal(student.completedSubjectsCount, 1);
+    // Student scored 18/20 in 20% weight assessment -> normalized score is 90%
+    assert.equal(student.averageScore, 90);
+    assert.equal(student.overallGrade, 'A');
+    assert.match(student.status, /IN PROGRESS \(Passing/);
+
+    const math = student.subjects['sub-math'];
+    assert.equal(math.score, 90);
+    assert.equal(math.grade, 'A');
+    assert.equal(math.gradePoint, 4.0);
+    assert.equal(math.assessedWeight, 20);
+    assert.equal(math.isFullyAssessed, false);
+    assert.match(math.remark, /20% assessed/);
+  });
+
+  test('ResultService getReportCard produces immediate progressive evaluations for student', async () => {
+    const ResultService = require('../src/modules/results/result.service');
+
+    const mockRepo = {
+      getGradingScales: async () => [],
+      getSectionSubjects: async () => [
+        { id: 'sub-math', name: 'Mathematics', code: 'MATH101' },
+        { id: 'sub-eng', name: 'English', code: 'ENG101' },
+      ],
+      getStudentReportCardData: async (studentId) => ({
+        student: {
+          id: studentId,
+          first_name: 'Sarah',
+          last_name: 'Connor',
+          section_id: 'sec-10a',
+          admission_number: 'ADM-99',
+          grade_name: 'Grade 10',
+          section_name: '10A',
+        },
+        school: { school_name: 'Smart Academy' },
+        attendance: { total_days: 30, present_days: 29 },
+        marks: [
+          {
+            subject_id: 'sub-math',
+            subject_name: 'Mathematics',
+            subject_code: 'MATH101',
+            exam_id: 'e-1',
+            exam_title: 'Midterm',
+            exam_type: 'MIDTERM',
+            score: 45,
+            max_marks: 50,
+            weight_percentage: 50,
+            is_absent: false,
+          },
+        ],
+      }),
+      getSectionStudents: async () => [
+        { id: 'stu-sarah', admission_number: 'ADM-99', first_name: 'Sarah', last_name: 'Connor', gender: 'FEMALE', section_name: '10A', grade_name: 'Grade 10' },
+      ],
+      getSectionMarks: async () => [
+        {
+          student_id: 'stu-sarah',
+          subject_id: 'sub-math',
+          score: 45,
+          max_marks: 50,
+          weight_percentage: 50,
+          is_absent: false,
+        },
+      ],
+    };
+
+    const service = new ResultService(mockRepo);
+    const reportCard = await service.getReportCard('stu-sarah', { term: 'Semester 1' });
+
+    assert.equal(reportCard.student.first_name, 'Sarah');
+    assert.equal(reportCard.subjects.length, 2);
+
+    const math = reportCard.subjects.find((s) => s.subjectId === 'sub-math');
+    const english = reportCard.subjects.find((s) => s.subjectId === 'sub-eng');
+
+    // Math has 45/50 in 50% weight -> 90% normalized score, Grade A
+    assert.equal(math.totalScore, 90);
+    assert.equal(math.gradeLetter, 'A');
+    assert.equal(math.gradePoint, 4.0);
+    assert.match(math.remark, /50% evaluated/);
+
+    // English has no marks entered yet
+    assert.equal(english.totalScore, 0);
+    assert.equal(english.gradeLetter, '—');
+    assert.equal(english.remark, 'Not yet assessed');
+
+    // Overall academic summary
+    assert.equal(reportCard.academicSummary.completedSubjects, 1);
+    assert.equal(reportCard.academicSummary.totalSubjects, 2);
+    assert.equal(reportCard.academicSummary.averageScore, 90);
+    assert.equal(reportCard.academicSummary.finalGradeLetter, 'A');
+    assert.match(reportCard.academicSummary.promotionStatus, /IN PROGRESS \(Passing/);
   });
 });

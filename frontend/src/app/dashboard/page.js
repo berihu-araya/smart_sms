@@ -413,6 +413,264 @@ function StudentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   );
 }
 
+function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
+  const parent = data?.parent || {};
+  const children = data?.children || [];
+  const parentStats = data?.stats || {};
+  const [selectedChildId, setSelectedChildId] = useState(() => children[0]?.id || null);
+
+  useEffect(() => {
+    if (children.length > 0 && (!selectedChildId || !children.find((c) => c.id === selectedChildId))) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children, selectedChildId]);
+
+  const selectedChild = children.find((c) => c.id === selectedChildId) || children[0] || {};
+  const childStats = selectedChild.stats || {};
+  const attendance = selectedChild.attendance || {};
+  const todaySchedule = selectedChild.todaySchedule || [];
+  const assignments = selectedChild.assignments || [];
+  const upcomingExams = selectedChild.upcomingExams || [];
+  const recentMarks = selectedChild.recentMarks || [];
+
+  const currentHour = currentTime.getHours();
+  const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
+  const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(currentTime);
+
+  return (
+    <div className={styles.dashboard}>
+      <header className={styles.hero}>
+        <div>
+          <span className={styles.kicker}><span className={styles.liveDot} />Parent Portal / {dateLabel}</span>
+          <h1>{greeting}, {parent.name || "Parent"}.</h1>
+          <p>Monitor your children&apos;s real-time attendance, homework submissions, marks, and daily class schedules.</p>
+        </div>
+        <div className={styles.heroActions}>
+          <span className={styles.termBadge}><HiCalendarDays />{parent.schoolName || "Academic Year"}</span>
+          <button className={styles.refreshButton} onClick={onRefresh} disabled={refreshing} title="Refresh dashboard">
+            <HiArrowPath className={refreshing ? styles.spinning : ""} /> <span>{refreshing ? "Refreshing" : "Refresh"}</span>
+          </button>
+        </div>
+      </header>
+
+      {children.length === 0 ? (
+        <section className={styles.unassignedNotice} aria-label="No children linked">
+          <HiIdentification className={styles.unassignedNoticeIcon} />
+          <div>
+            <h3>Parent Account Active</h3>
+            <p>Welcome! Your parent portal is active. However, no student profile is currently linked to your account. Please contact your school administrator to link your child&apos;s enrollment record with your phone number ({parent.phone || "on file"}) or email.</p>
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* Multi-Child Selector */}
+          <div className={styles.childTabsWrap}>
+            <div className={styles.childTabsHeader}>
+              <h3><HiUserGroup /> Your Children ({children.length})</h3>
+              <span className={styles.childTabsHint}>Select a child to view their academic records & schedules</span>
+            </div>
+            <div className={styles.childTabs}>
+              {children.map((child) => {
+                const isSelected = child.id === selectedChild.id;
+                const initial = (child.firstName || child.name || "C")[0].toUpperCase();
+                return (
+                  <button
+                    key={child.id}
+                    type="button"
+                    className={`${styles.childTab} ${isSelected ? styles.childTabActive : ""}`}
+                    onClick={() => setSelectedChildId(child.id)}
+                  >
+                    <div className={styles.childAvatar}>{initial}</div>
+                    <div className={styles.childTabInfo}>
+                      <strong>{child.name || `${child.firstName || ""} ${child.lastName || ""}`}</strong>
+                      <span>{child.gradeName ? `${child.gradeName} • ${child.sectionName || "Section"}` : "Pending Assignment"}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Active Child Header Badges */}
+          <div style={{ maxWidth: "1440px", margin: "0 auto 1.25rem" }}>
+            <div className={styles.studentMetaTags}>
+              <span className={styles.studentBadge}><HiIdentification /> Monitoring: <b>{selectedChild.name || `${selectedChild.firstName} ${selectedChild.lastName}`}</b></span>
+              <span className={styles.studentBadge}><HiBookOpen /> Grade: <b>{selectedChild.gradeName || "—"}</b></span>
+              <span className={styles.studentBadge}><HiAcademicCap /> Section: <b>{selectedChild.sectionName || "—"}</b> {selectedChild.roomNumber ? `(${selectedChild.roomNumber})` : ""}</span>
+              {selectedChild.admissionNumber && <span className={`${styles.studentBadge} ${styles.studentBadgeGold}`}>ID: <b>{selectedChild.admissionNumber}</b></span>}
+              {selectedChild.rollNumber && <span className={`${styles.studentBadge} ${styles.studentBadgeBlue}`}>Roll #{selectedChild.rollNumber}</span>}
+            </div>
+          </div>
+
+          {/* Child Academic KPI Metrics */}
+          <section className={styles.metricsGrid} aria-label="Child key academic indicators">
+            <Metric icon={HiBookOpen} label="Enrolled Subjects" value={number(childStats.enrolledSubjectsCount)} detail="active curriculum" tone="Blue" />
+            <Metric icon={HiCheckCircle} label="Attendance" value={percent(childStats.attendanceRate)} detail="last 30 days" tone="Teal" />
+            <Metric icon={HiChartBarSquare} label="Average Score" value={percent(childStats.averageScore)} detail="overall marks" tone="Amber" />
+            <Metric icon={HiClipboardDocumentList} label="Pending Homework" value={number(childStats.pendingAssignmentsCount)} detail={`${childStats.submittedAssignmentsCount || 0} submitted`} tone="Rose" />
+          </section>
+
+          {/* Quick Stats Summary */}
+          <section className={styles.quickStats} aria-label="Child quick summary stats">
+            <span><HiAcademicCap /><b>{number(childStats.enrolledSubjectsCount)}</b> enrolled subjects</span>
+            <span><HiClock /><b>{number(childStats.todayClassesCount)}</b> classes today</span>
+            <span><HiPresentationChartLine /><b>{number(childStats.upcomingExamsCount)}</b> upcoming assessments</span>
+            <span><HiCheckCircle /><b>{number(attendance.present)}</b> days present</span>
+          </section>
+
+          {/* Dashboard Grid */}
+          <main className={styles.dashboardGrid}>
+            {/* Today's Schedule */}
+            <section className={styles.panel}>
+              <PanelHeader
+                eyebrow="Daily Routine"
+                title={`${selectedChild.firstName || "Child"}'s Schedule Today`}
+                action={<Link href={`/dashboard/timetable/class${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`} className={styles.textLink}>Full timetable <HiOutlineArrowUpRight /></Link>}
+              />
+              <div className={styles.scheduleList}>
+                {todaySchedule.map((item) => (
+                  <div className={styles.scheduleItem} key={item.id || item.period_number}>
+                    <div className={styles.scheduleTime}>
+                      <strong>{item.start_time || "—"}</strong>
+                      <small>{item.end_time || ""}</small>
+                    </div>
+                    <div className={styles.itemMain}>
+                      <h4>{item.subject_name || item.period_name}</h4>
+                      <p>
+                        {item.subject_code && <span className={styles.subjectPill}>{item.subject_code}</span>}
+                        {item.teacher_first_name && <span>👨‍🏫 {item.teacher_first_name} {item.teacher_last_name || ""}</span>}
+                        {item.room_number && <span>🏫 Room {item.room_number}</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {!todaySchedule.length && (
+                  <p className={styles.emptyState}>No scheduled classes today for this student.</p>
+                )}
+              </div>
+            </section>
+
+            {/* Attendance Pulse */}
+            <AttendancePanel attendance={attendance} />
+
+            {/* Assignments & Homework */}
+            <section className={styles.panel}>
+              <PanelHeader
+                eyebrow="Homework & Tasks"
+                title="Assignments & Deadlines"
+                action={<Link href={`/dashboard/assignments${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`} className={styles.textLink}>All assignments <HiOutlineArrowUpRight /></Link>}
+              />
+              <div className={styles.assignmentList}>
+                {assignments.map((assignment) => {
+                  const isSubmitted = assignment.submission_status === "SUBMITTED" || assignment.submission_status === "GRADED";
+                  const isGraded = assignment.submission_status === "GRADED";
+                  return (
+                    <div className={styles.assignmentItem} key={assignment.id}>
+                      <div className={styles.itemMain}>
+                        <h4>{assignment.title}</h4>
+                        <p>
+                          <span className={styles.subjectPill}>{assignment.subject_name || assignment.subject_code}</span>
+                          <span>📅 Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : "No deadline"}</span>
+                          <span>Max: {assignment.max_marks || 100} pts</span>
+                        </p>
+                      </div>
+                      <div>
+                        {isGraded ? (
+                          <span className={`${styles.statusTag} ${styles.statusGraded}`}>Graded: {assignment.obtained_marks} pts</span>
+                        ) : isSubmitted ? (
+                          <span className={`${styles.statusTag} ${styles.statusSubmitted}`}><HiCheckCircle /> Submitted</span>
+                        ) : (
+                          <span className={`${styles.statusTag} ${styles.statusPending}`}><HiClock /> Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!assignments.length && (
+                  <p className={styles.emptyState}>No homework assignments currently pending for {selectedChild.firstName || "this student"}.</p>
+                )}
+              </div>
+            </section>
+
+            {/* Upcoming Assessments / Exams */}
+            <section className={styles.panel}>
+              <PanelHeader
+                eyebrow="Examinations"
+                title="Upcoming Assessments"
+                action={<Link href={`/dashboard/exams${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`} className={styles.textLink}>Exam schedule <HiOutlineArrowUpRight /></Link>}
+              />
+              <div className={styles.examList}>
+                {upcomingExams.map((exam) => (
+                  <div className={styles.examItem} key={exam.id}>
+                    <div className={styles.itemMain}>
+                      <h4>{exam.title}</h4>
+                      <p>
+                        <span className={styles.subjectPill}>{exam.subject_name || exam.subject_code}</span>
+                        <span>📝 {exam.exam_type || "EXAM"}</span>
+                        <span>⚖️ Weight: {exam.weight_percentage || 0}%</span>
+                        <span>🎯 {exam.max_marks} pts</span>
+                      </p>
+                    </div>
+                    <div className={styles.scheduleTime}>
+                      <strong>{exam.exam_date ? new Date(exam.exam_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "TBD"}</strong>
+                      <small>{exam.term_or_semester || "Term"}</small>
+                    </div>
+                  </div>
+                ))}
+                {!upcomingExams.length && (
+                  <p className={styles.emptyState}>No published examinations scheduled at this time for this class.</p>
+                )}
+              </div>
+            </section>
+
+            {/* Recent Assessment Marks */}
+            <section className={styles.panel}>
+              <PanelHeader
+                eyebrow="Academic Performance"
+                title="Recent Assessment Marks"
+                action={<Link href={`/dashboard/results/report-card${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`} className={styles.textLink}>Official report card <HiOutlineArrowUpRight /></Link>}
+              />
+              <div className={styles.markList}>
+                {recentMarks.map((mark) => (
+                  <div className={styles.markItem} key={mark.id}>
+                    <div className={styles.itemMain}>
+                      <h4>{mark.exam_title || mark.subject_name}</h4>
+                      <p>
+                        <span className={styles.subjectPill}>{mark.subject_name || mark.subject_code}</span>
+                        <span>{mark.exam_type || "Assessment"}</span>
+                      </p>
+                    </div>
+                    <div className={styles.gradeScoreBadge}>
+                      <strong>{mark.score !== null ? `${mark.score} / ${mark.max_marks || 100}` : "—"}</strong>
+                      {mark.grade_letter && <small>Grade: {mark.grade_letter}</small>}
+                    </div>
+                  </div>
+                ))}
+                {!recentMarks.length && (
+                  <p className={styles.emptyState}>No published marks yet for this student.</p>
+                )}
+              </div>
+            </section>
+
+            {/* Parent Quick Navigation Actions */}
+            <section className={`${styles.panel} ${styles.actionPanel}`}>
+              <PanelHeader eyebrow="Parent Portal" title="Quick Actions" action={<HiBookOpen className={styles.panelIcon} />} />
+              <div className={styles.actionList}>
+                <Link href={`/dashboard/timetable/class${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiCalendarDays /><span>{selectedChild.firstName || "Child"}&apos;s Timetable</span><HiOutlineArrowUpRight /></Link>
+                <Link href={`/dashboard/attendance${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiCheckCircle /><span>Attendance Matrix</span><HiOutlineArrowUpRight /></Link>
+                <Link href={`/dashboard/results/report-card${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiChartBarSquare /><span>Official Report Card</span><HiOutlineArrowUpRight /></Link>
+                <Link href={`/dashboard/assignments${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiClipboardDocumentList /><span>Homework & Assignments</span><HiOutlineArrowUpRight /></Link>
+                <Link href={`/dashboard/exams${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiPresentationChartLine /><span>Exam Schedules</span><HiOutlineArrowUpRight /></Link>
+                <Link href={`/dashboard/students/${selectedChild.id}`}><HiIdentification /><span>Student Full Profile</span><HiOutlineArrowUpRight /></Link>
+              </div>
+            </section>
+          </main>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -484,6 +742,17 @@ export default function Dashboard() {
   if (dashboard.isStudent || (user?.role || "").toLowerCase() === "student") {
     return (
       <StudentDashboardView
+        data={dashboard}
+        refreshing={refreshing}
+        onRefresh={() => fetchDashboardData(true)}
+        currentTime={currentTime}
+      />
+    );
+  }
+
+  if (dashboard.isParent || (user?.role || "").toLowerCase() === "parent") {
+    return (
+      <ParentDashboardView
         data={dashboard}
         refreshing={refreshing}
         onRefresh={() => fetchDashboardData(true)}

@@ -138,12 +138,10 @@ class AuthorizationService {
     const res = await this.db.query(
       `
       SELECT 1
-      FROM student_parents sp
-      INNER JOIN parents p ON p.id = sp.parent_id
-      INNER JOIN students s ON s.id = sp.student_id
-      WHERE p.user_id = $1
+      FROM students s
+      INNER JOIN parents p ON p.id = s.parent_id
+      WHERE (p.user_id = $1 OR p.id::text = $1)
         AND (s.id = $2 OR s.user_id = $2)
-        AND sp.deleted_at IS NULL
         AND p.deleted_at IS NULL
         AND s.deleted_at IS NULL
       LIMIT 1
@@ -215,9 +213,12 @@ class AuthorizationService {
       `
       SELECT 1
       FROM marks m
-      INNER JOIN student_parents sp ON sp.student_id = m.student_id
-      INNER JOIN parents p ON p.id = sp.parent_id
-      WHERE p.user_id = $1 AND m.id = $2 AND sp.deleted_at IS NULL AND p.deleted_at IS NULL
+      INNER JOIN students s ON s.id = m.student_id
+      INNER JOIN parents p ON p.id = s.parent_id
+      WHERE (p.user_id = $1 OR p.id::text = $1)
+        AND m.id = $2
+        AND p.deleted_at IS NULL
+        AND s.deleted_at IS NULL
       LIMIT 1
       `,
       [parentUserId, marksId]

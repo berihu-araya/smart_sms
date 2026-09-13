@@ -11,6 +11,9 @@ const studentService = new StudentService(new StudentRepository(db));
 
 async function listStudents(req, res, next) {
   try {
+    const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+    const parentId = isParent ? (req.parentScope?.parent_id || '00000000-0000-0000-0000-000000000000') : null;
+
     const data = await studentService.listStudents({
       search: req.query.search || '',
       name: req.query.name || '',
@@ -19,6 +22,7 @@ async function listStudents(req, res, next) {
       sectionId: req.query.sectionId || req.query.section_id || '',
       status: req.query.status || '',
       studentId: req.studentScope?.student_id || null,
+      parentId,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });
@@ -38,6 +42,15 @@ async function getStudentById(req, res, next) {
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  }
+
+  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
   }
 
   try {
@@ -174,6 +187,15 @@ async function getStudentProfile(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
+  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
+  }
+
   try {
     const data = await studentService.getStudentProfile(id);
 
@@ -192,6 +214,15 @@ async function getStudentGuardian(req, res, next) {
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
+  }
+
+  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
   }
 
   try {

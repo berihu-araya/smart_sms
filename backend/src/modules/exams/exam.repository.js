@@ -3,7 +3,7 @@ class ExamRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', academicYearId = null, gradeId = null, teacherId = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
+  async findAll({ search = '', academicYearId = null, gradeId = null, gradeIds = null, teacherId = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
     const params = [`%${search.trim()}%`];
     let whereClause = `WHERE e.deleted_at IS NULL AND (LOWER(e.title) LIKE LOWER($1) OR LOWER(e.term_or_semester) LIKE LOWER($1))`;
     let index = 2;
@@ -18,7 +18,11 @@ class ExamRepository {
       index++;
     }
 
-    if (gradeId) {
+    if (gradeIds && Array.isArray(gradeIds) && gradeIds.length > 0) {
+      whereClause += ` AND e.grade_id = ANY($${index}::uuid[])`;
+      params.push(gradeIds);
+      index++;
+    } else if (gradeId) {
       whereClause += ` AND e.grade_id = $${index}`;
       params.push(gradeId);
       index++;

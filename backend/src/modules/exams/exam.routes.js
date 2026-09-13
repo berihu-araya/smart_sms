@@ -10,11 +10,13 @@ const {
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
 const { attachStudentScope, requireStudentRelatedRecord } = require('../../middlewares/student.scope');
+const { attachParentScope } = require('../../middlewares/parent.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(attachStudentScope);
+router.use(attachParentScope);
 
 router.get('/', listExams);
 router.get('/:id', requireStudentRelatedRecord('exam'), getExamById);

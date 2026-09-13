@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import {
@@ -8,6 +9,7 @@ import {
   saveBulkAttendance,
   getMonthlyAttendanceMatrix,
   getOwnAttendance,
+  getMyChildrenAttendance,
 } from '@/services/attendanceService';
 import { listGrades } from '@/services/gradeService';
 import { listSections } from '@/services/sectionService';
@@ -35,9 +37,13 @@ const EXCUSED_REASONS = [
 ];
 
 export default function AttendancePage() {
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const isParent = (user?.role || '').toLowerCase() === 'parent';
   const [studentAttendance, setStudentAttendance] = useState(null);
+  const [parentChildrenAttendance, setParentChildrenAttendance] = useState([]);
+  const [selectedChildId, setSelectedChildId] = useState('');
   const [viewMode, setViewMode] = useState('DAILY'); // 'DAILY' | 'MONTHLY'
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -80,6 +86,7 @@ export default function AttendancePage() {
     if (authLoading || !user || !isStudent) return;
 
     let mounted = true;
+    setLoading(true);
     getOwnAttendance()
       .then((data) => {
         if (mounted) setStudentAttendance(data);
@@ -94,7 +101,37 @@ export default function AttendancePage() {
     return () => {
       mounted = false;
     };
-    }, [authLoading, isStudent, user]);
+  }, [authLoading, isStudent, user]);
+
+  useEffect(() => {
+    if (authLoading || !user || !isParent) return;
+
+    let mounted = true;
+    setLoading(true);
+    getMyChildrenAttendance()
+      .then((data) => {
+        if (mounted) {
+          const list = Array.isArray(data) ? data : [];
+          setParentChildrenAttendance(list);
+          const paramStudentId = searchParams?.get('studentId');
+          if (paramStudentId && list.find((item) => item.student?.id === paramStudentId)) {
+            setSelectedChildId(paramStudentId);
+          } else if (list.length > 0) {
+            setSelectedChildId(list[0].student?.id);
+          }
+        }
+      })
+      .catch((err) => {
+        if (mounted) setAlert({ type: 'error', message: err.message || 'Failed to load children attendance' });
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [authLoading, isParent, user, searchParams]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -106,11 +143,11 @@ export default function AttendancePage() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+  }, []);
 
   // Initial Load: Grades
   useEffect(() => {
-    if (authLoading || !user || isStudent) return;
+    if (authLoading || !user || isStudent || isParent) return;
 
     async function loadGrades() {
       try {
@@ -124,12 +161,12 @@ export default function AttendancePage() {
         console.error('Failed to load grades', err);
       }
     }
-      loadGrades();
-    }, [authLoading, isStudent, user]);
+    loadGrades();
+  }, [authLoading, isStudent, isParent, user]);
 
   // When Grade changes, load Sections
   useEffect(() => {
-    if (authLoading || !user || isStudent) return;
+    if (authLoading || !user || isStudent || isParent) return;
 
     if (!selectedGrade) {
       setSections([]);
@@ -152,12 +189,12 @@ export default function AttendancePage() {
         console.error('Failed to load sections', err);
       }
     }
-      loadSections();
-    }, [authLoading, isStudent, selectedGrade, user]);
+    loadSections();
+  }, [authLoading, isStudent, isParent, selectedGrade, user]);
 
   // Load Daily Roster
   const fetchRoster = useCallback(async () => {
-    if (authLoading || !user || isStudent) return;
+    if (authLoading || !user || isStudent || isParent) return;
     if (!selectedSection || !selectedDate) return;
     setLoading(true);
     setAlert(null);
@@ -183,11 +220,11 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isStudent, selectedSection, selectedDate, user]);
+  }, [authLoading, isStudent, isParent, selectedSection, selectedDate, user]);
 
   // Load Monthly Matrix
   const fetchMonthlyMatrix = useCallback(async () => {
-    if (authLoading || !user || isStudent) return;
+    if (authLoading || !user || isStudent || isParent) return;
     if (!selectedSection) return;
     setLoading(true);
     setAlert(null);
@@ -203,11 +240,11 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isStudent, selectedSection, selectedYear, selectedMonth, user]);
+  }, [authLoading, isStudent, isParent, selectedSection, selectedYear, selectedMonth, user]);
 
   // Trigger load on filter change
   useEffect(() => {
-    if (authLoading || !user || isStudent) return;
+    if (authLoading || !user || isStudent || isParent) return;
     if (selectedSection) {
       if (viewMode === 'DAILY') {
         fetchRoster();
@@ -215,7 +252,7 @@ export default function AttendancePage() {
         fetchMonthlyMatrix();
       }
     }
-  }, [authLoading, isStudent, selectedSection, selectedDate, selectedYear, selectedMonth, viewMode, fetchRoster, fetchMonthlyMatrix, user]);
+  }, [authLoading, isStudent, isParent, selectedSection, selectedDate, selectedYear, selectedMonth, viewMode, fetchRoster, fetchMonthlyMatrix, user]);
 
   // Calculate Daily Stats (5 KPIs: Total, Present, Absent, Late, Excused + Reason Breakdown)
   const calculateSummary = (currentRoster) => {
@@ -444,6 +481,180 @@ export default function AttendancePage() {
       </div>
     );
   }
+
+  if (isParent) {
+    const activeItem = parentChildrenAttendance.find((item) => item.student?.id === selectedChildId) || parentChildrenAttendance[0] || {};
+    const child = activeItem.student || {};
+    const stats = activeItem.stats || {};
+    const history = activeItem.history || [];
+    const totalDays = Number(stats.total_days || 0);
+    const presentDays = Number(stats.present_days || 0);
+    const rate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Children Attendance</h1>
+            <p className={styles.subtitle}>Daily presence tracking and overall attendance rates for your children.</p>
+          </div>
+        </div>
+
+        {alert && (
+          <div className={`${styles.alert} ${alert.type === 'success' ? styles.alertSuccess : styles.alertError}`}>
+            {alert.message}
+          </div>
+        )}
+
+        {/* Multi-Child Switcher */}
+        {parentChildrenAttendance.length > 1 && (
+          <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            {parentChildrenAttendance.map((item) => {
+              const c = item.student || {};
+              const isSelected = c.id === selectedChildId;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedChildId(c.id)}
+                  style={{
+                    padding: '0.6rem 1rem',
+                    borderRadius: '8px',
+                    border: isSelected ? '1.5px solid #0d9488' : '1px solid #cbd5e1',
+                    background: isSelected ? '#f0fdfa' : '#ffffff',
+                    color: isSelected ? '#0f766e' : '#334155',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    boxShadow: isSelected ? '0 2px 8px rgba(13, 148, 136, 0.12)' : 'none',
+                    transition: 'all 150ms ease',
+                  }}
+                >
+                  <span>👤 {c.first_name} {c.last_name}</span>
+                  {c.grade_name && <small style={{ opacity: 0.8 }}>({c.grade_name})</small>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {loading ? (
+          <p>Loading children attendance...</p>
+        ) : parentChildrenAttendance.length === 0 ? (
+          <div className={styles.emptyState}>
+            <HiUsers className={styles.emptyIcon} />
+            <h3>No linked student profiles found</h3>
+            <p>Please contact your school administrator to link your child&apos;s enrollment record to your parent account.</p>
+          </div>
+        ) : (
+          <>
+            <div className={styles.statsGrid}>
+              <div className={styles.statCard}>
+                <div className={`${styles.statIcon} ${styles.statTotal}`}><HiCalendar /></div>
+                <div className={styles.statContent}>
+                  <h4>Attendance Rate</h4>
+                  <div className={styles.statValue}>{rate}%</div>
+                </div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={`${styles.statIcon} ${styles.statPresent}`}><HiCheckCircle /></div>
+                <div className={styles.statContent}>
+                  <h4>Present</h4>
+                  <div className={styles.statValue}>{stats.present_days || 0}</div>
+                </div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={`${styles.statIcon} ${styles.statAbsent}`}><HiXCircle /></div>
+                <div className={styles.statContent}>
+                  <h4>Absent</h4>
+                  <div className={styles.statValue}>{stats.absent_days || 0}</div>
+                </div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={`${styles.statIcon} ${styles.statLate}`}><HiClock /></div>
+                <div className={styles.statContent}>
+                  <h4>Late</h4>
+                  <div className={styles.statValue}>{stats.late_days || 0}</div>
+                </div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={`${styles.statIcon} ${styles.statExcused}`}><HiInformationCircle /></div>
+                <div className={styles.statContent}>
+                  <h4>Excused</h4>
+                  <div className={styles.statValue}>{stats.excused_days || 0}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.rosterSection}>
+              <div className={styles.rosterHeader}>
+                <div className={styles.rosterTitle}>
+                  Attendance History for {child.first_name || 'Child'} {child.last_name || ''}
+                </div>
+              </div>
+              {history.length === 0 ? (
+                <p style={{ padding: '1.25rem', color: '#64748b' }}>No recorded attendance history for this student yet.</p>
+              ) : (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Reason / Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((record) => {
+                        let statusColor = '#15803d';
+                        let statusBg = '#dcfce7';
+                        if (record.status === 'ABSENT') {
+                          statusColor = '#b91c1c';
+                          statusBg = '#fee2e2';
+                        } else if (record.status === 'LATE') {
+                          statusColor = '#b45309';
+                          statusBg = '#fef3c7';
+                        } else if (record.status === 'EXCUSED') {
+                          statusColor = '#0369a1';
+                          statusBg = '#e0f2fe';
+                        }
+
+                        return (
+                          <tr key={record.id}>
+                            <td style={{ fontWeight: 600 }}>{record.date}</td>
+                            <td>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: '6px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 750,
+                                  background: statusBg,
+                                  color: statusColor,
+                                }}
+                              >
+                                {record.status}
+                              </span>
+                            </td>
+                            <td style={{ color: '#64748b' }}>{record.remark || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
 
   return (
     <div className={styles.container} ref={dropdownRef}>

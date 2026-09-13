@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import studentService from "@/services/studentService";
 import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
@@ -42,6 +43,12 @@ const GROUP_ICONS = {
 };
 
 export default function StudentListPage() {
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const canEdit = ["school admin", "admin", "staff"].includes(role);
+  const canDelete = ["school admin", "admin"].includes(role);
+  const isParent = role === "parent";
+
   const [students, setStudents] = useState([]);
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -217,14 +224,18 @@ export default function StudentListPage() {
               <td>
                 <div className={styles.actionButtons}>
                   <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>View</Link>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(student.id)}
-                    className={styles.editLink}
-                  >
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)} className={styles.deleteLink}>Delete</button>
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(student.id)}
+                        className={styles.editLink}
+                      >
+                        Edit
+                      </button>
+                      {canDelete && <button onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)} className={styles.deleteLink}>Delete</button>}
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
@@ -242,17 +253,19 @@ export default function StudentListPage() {
     <div className={styles.page}>
       <div className={styles.headerRow}>
         <div>
-          <h1>Student Management</h1>
-          <p>Manage admission, profile, status, and academic records.</p>
+          <h1>{isParent ? "My Children" : "Student Management"}</h1>
+          <p>{isParent ? "View and monitor your children's enrollment profiles and records." : "Manage admission, profile, status, and academic records."}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenCreate}
-          className={styles.primaryButton}
-        >
-          + Add Student
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className={styles.primaryButton}
+          >
+            + Add Student
+          </button>
+        )}
       </div>
 
       {successMsg ? <div className={styles.successBox}>{successMsg}</div> : null}
@@ -359,19 +372,23 @@ export default function StudentListPage() {
                     <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>
                       View
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(student.id)}
-                      className={styles.editLink}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
-                      className={styles.deleteLink}
-                    >
-                      Delete
-                    </button>
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(student.id)}
+                          className={styles.editLink}
+                        >
+                          Edit
+                        </button>
+                        {canDelete && <button
+                          onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
+                          className={styles.deleteLink}
+                        >
+                          Delete
+                        </button>}
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

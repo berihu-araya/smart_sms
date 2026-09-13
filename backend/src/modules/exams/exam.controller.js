@@ -14,7 +14,25 @@ async function listExams(req, res, next) {
     const role = (req.user?.role || '').toLowerCase();
     let teacherId = null;
     let gradeId = req.studentScope?.grade_id || null;
+    let gradeIds = null;
     const isStudent = role === 'student';
+    const isParent = role === 'parent';
+
+    if (isParent) {
+      gradeIds = req.parentScope?.child_grade_ids || [];
+      if (req.query.gradeId && isValidUUID(req.query.gradeId)) {
+        if (gradeIds.includes(req.query.gradeId)) {
+          gradeId = req.query.gradeId;
+          gradeIds = null;
+        } else {
+          return res.status(200).json({
+            success: true,
+            message: 'Exams loaded successfully',
+            data: [],
+          });
+        }
+      }
+    }
 
     if (role.includes('teacher') && !role.includes('admin')) {
       const teacherRes = await db.query(
@@ -35,8 +53,9 @@ async function listExams(req, res, next) {
     const data = await examService.listExams({
       search: req.query.search || '',
       academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
-      gradeId: isStudent ? gradeId : (req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null),
-      publishedOnly: isStudent,
+      gradeId: isStudent ? gradeId : (gradeId || (req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null)),
+      gradeIds: isParent ? gradeIds : null,
+      publishedOnly: isStudent || isParent,
       teacherId,
       limit: Number(req.query.limit || 50),
       offset: Number(req.query.offset || 0),
@@ -59,6 +78,19 @@ async function getExamById(req, res, next) {
 
   try {
     const data = await examService.getExamById(req.params.id);
+    const role = (req.user?.role || '').toLowerCase();
+
+    if (role === 'parent') {
+      const parentGrades = req.parentScope?.child_grade_ids || [];
+      if (!parentGrades.includes(data.grade_id) || !data.is_published) {
+        return res.status(403).json({
+          success: false,
+          message: 'Parents can only access published exams of their children\'s grades',
+          data: null,
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Exam details loaded',

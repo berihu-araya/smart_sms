@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import styles from './report-card.module.css';
-import { getStudentReportCard } from '@/services/resultService';
+import { getOwnReportCard, getStudentReportCard } from '@/services/resultService';
 import { listStudents } from '@/services/studentService';
 import {
   HiPrinter,
@@ -14,25 +14,26 @@ import {
 } from 'react-icons/hi2';
 
 function ReportCardContent() {
-  const { user } = useAuth();
-  const isStudent = (user?.role || '').toLowerCase() === 'student';
+  const { user, loading: authLoading } = useAuth();
+  const role = (user?.role || user?.role_name || '').toLowerCase().trim();
+  const isStudent = role === 'student';
 
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get('studentId');
-  const termParam = searchParams.get('term') || 'Semester 1';
+  const termParam = searchParams.get('term') || 'all';
   const yearParam = searchParams.get('year') || '';
 
   const [studentId, setStudentId] = useState(studentIdParam || (isStudent ? 'me' : ''));
+  const [selectedTerm, setSelectedTerm] = useState(termParam);
   const [allStudents, setAllStudents] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isStudent) {
-      setStudentId('me');
-      return;
-    }
+    if (authLoading || !user) return;
+
+    if (isStudent) return;
     async function loadStudentList() {
       try {
         const res = await listStudents({ limit: 100 });
@@ -48,18 +49,22 @@ function ReportCardContent() {
     if (!studentIdParam && !isStudent) {
       loadStudentList();
     }
-  }, [studentIdParam, studentId, isStudent]);
+  }, [authLoading, studentIdParam, studentId, isStudent, user]);
 
   useEffect(() => {
     async function fetchCard() {
-      if (!studentId) return;
+      const targetStudentId = isStudent ? 'me' : studentId;
+      if (authLoading || !user || !targetStudentId) return;
       setLoading(true);
       setError(null);
       try {
-        const data = await getStudentReportCard(studentId, {
+        const options = {
           academicYearId: yearParam || null,
-          term: termParam,
-        });
+          term: selectedTerm === 'all' ? null : selectedTerm,
+        };
+        const data = isStudent
+          ? await getOwnReportCard(options)
+          : await getStudentReportCard(targetStudentId, options);
         setReportData(data);
       } catch (err) {
         setError(err.message || 'Failed to load report card');
@@ -69,7 +74,7 @@ function ReportCardContent() {
       }
     }
     fetchCard();
-  }, [studentId, termParam, yearParam]);
+  }, [authLoading, isStudent, studentId, selectedTerm, user, yearParam]);
 
   const handlePrint = () => {
     window.print();
@@ -99,10 +104,10 @@ function ReportCardContent() {
           <HiArrowLeft size={16} /> {isStudent ? "Back to Dashboard" : "Back to Results"}
         </Link>
 
-        {!isStudent && !studentIdParam && allStudents.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
-              Select Student:
+              Term:
             </span>
             <select
               style={{
@@ -110,26 +115,53 @@ function ReportCardContent() {
                 borderRadius: '6px',
                 border: '1px solid #cbd5e1',
                 fontSize: '0.9rem',
+                background: '#ffffff',
               }}
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              value={selectedTerm}
+              onChange={(e) => setSelectedTerm(e.target.value)}
             >
-              {allStudents.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.first_name} {s.last_name} ({s.admission_number})
-                </option>
-              ))}
+              <option value="all">All Terms (Cumulative)</option>
+              <option value="Semester 1">Semester 1</option>
+              <option value="Semester 2">Semester 2</option>
+              <option value="Term 1">Term 1</option>
+              <option value="Term 2">Term 2</option>
+              <option value="Term 3">Term 3</option>
             </select>
           </div>
-        )}
 
-        <button className={styles.btnPrint} onClick={handlePrint}>
-          <HiPrinter size={18} /> Print Official Report Card
-        </button>
+          {!isStudent && !studentIdParam && allStudents.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
+                Student:
+              </span>
+              <select
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.9rem',
+                  background: '#ffffff',
+                }}
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+              >
+                {allStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.first_name} {s.last_name} ({s.admission_number})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button className={styles.btnPrint} onClick={handlePrint}>
+            <HiPrinter size={18} /> Print Official Report Card
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div style={{ color: '#dc2626', background: '#fee2e2', padding: '1rem', borderRadius: '8px' }}>
+        <div style={{ color: '#dc2626', background: '#fee2e2', padding: '1rem', borderRadius: '8px', margin: '1rem 0' }}>
           {error}
         </div>
       )}
@@ -147,7 +179,7 @@ function ReportCardContent() {
                 {school.school_name || 'Smart SMS International Academy'}
               </h1>
               <div className={styles.schoolMotto}>
-                "{school.motto || 'Excellence in Digital Education & Character Development'}"
+                &quot;{school.motto || 'Excellence in Digital Education & Character Development'}&quot;
               </div>
               <div className={styles.schoolContact}>
                 {school.address || 'Addis Ababa, Ethiopia'} • Phone: {school.phone || '+251 11 123 4567'} • Email: {school.email || 'info@smartsms.edu.et'}
@@ -156,7 +188,7 @@ function ReportCardContent() {
           </div>
 
           <div className={styles.documentTitle}>
-            Official Terminal Academic Achievement Report — {academic.term || 'Semester 1'}
+            Official Terminal Academic Achievement Report — {selectedTerm === 'all' ? 'All Terms (Cumulative)' : (academic.term || selectedTerm)}
           </div>
 
           {/* Student Profile Info Grid */}
@@ -170,7 +202,7 @@ function ReportCardContent() {
 
             <div className={styles.bioItem}>
               <span className={styles.bioLabel}>Admission ID:</span>
-              <span className={styles.bioValue}>{student.admission_number}</span>
+              <span className={styles.bioValue}>{student.admission_number || '—'}</span>
             </div>
 
             <div className={styles.bioItem}>
@@ -182,12 +214,12 @@ function ReportCardContent() {
 
             <div className={styles.bioItem}>
               <span className={styles.bioLabel}>Grade Level:</span>
-              <span className={styles.bioValue}>{student.grade_name || 'Grade 10'}</span>
+              <span className={styles.bioValue}>{student.grade_name || '—'}</span>
             </div>
 
             <div className={styles.bioItem}>
               <span className={styles.bioLabel}>Section:</span>
-              <span className={styles.bioValue}>{student.section_name || 'A'}</span>
+              <span className={styles.bioValue}>{student.section_name || '—'}</span>
             </div>
 
             <div className={styles.bioItem}>
@@ -211,7 +243,7 @@ function ReportCardContent() {
                 </th>
                 <th>Continuous Assmt</th>
                 <th>Final Exam</th>
-                <th>Total Score (100)</th>
+                <th>Evaluated Score (%)</th>
                 <th>Letter Grade</th>
                 <th>Points</th>
                 <th style={{ width: '25%' }}>Teacher Evaluation</th>
@@ -219,27 +251,43 @@ function ReportCardContent() {
             </thead>
             <tbody>
               {subjects.map((sub) => {
-                const quiz = sub.assessments?.find((a) => a.examType !== 'FINAL');
-                const finalExam = sub.assessments?.find((a) => a.examType === 'FINAL');
+                const continuousAssessments = sub.assessments?.filter((a) => (a.examType || '').toUpperCase() !== 'FINAL') || [];
+                const finalExam = sub.assessments?.find((a) => (a.examType || '').toUpperCase() === 'FINAL');
+
+                const continuousText = continuousAssessments.length > 0
+                  ? continuousAssessments.map((a) => `${a.examTitle || a.examType}: ${a.score}/${a.maxMarks}`).join(', ')
+                  : '—';
+                const finalText = finalExam
+                  ? `${finalExam.score} / ${finalExam.maxMarks}`
+                  : '—';
 
                 return (
                   <tr key={sub.subjectId}>
                     <td className={styles.tdLeft}>
-                      {sub.subjectName} ({sub.subjectCode})
+                      {sub.subjectName} {sub.subjectCode ? `(${sub.subjectCode})` : ''}
                     </td>
-                    <td>{quiz ? `${quiz.score} / ${quiz.maxMarks}` : '-'}</td>
-                    <td>{finalExam ? `${finalExam.score} / ${finalExam.maxMarks}` : '-'}</td>
-                    <td style={{ fontWeight: 700 }}>{sub.totalScore}%</td>
+                    <td style={{ fontSize: '0.85rem' }}>{continuousText}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{finalText}</td>
+                    <td style={{ fontWeight: 700 }}>
+                      {sub.totalScore > 0 || sub.assessments?.length > 0 ? `${sub.totalScore}%` : '—'}
+                    </td>
                     <td>
-                      <span className={styles.gradeLetter}>{sub.gradeLetter}</span>
+                      <span className={styles.gradeLetter}>{sub.gradeLetter || '—'}</span>
                     </td>
-                    <td>{sub.gradePoint}</td>
+                    <td>{sub.gradePoint !== null && sub.gradePoint !== undefined ? sub.gradePoint : '—'}</td>
                     <td style={{ fontSize: '0.8rem', color: '#475569' }}>
                       {sub.remark || 'Satisfactory progress'}
                     </td>
                   </tr>
                 );
               })}
+              {!subjects.length && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                    No assessment records recorded for this period yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 

@@ -139,7 +139,27 @@ async function getMonthlyMatrix(req, res, next) {
 }
 
 async function getStudentAttendance(req, res, next) {
-  const studentId = req.params.studentId;
+  let studentId = req.params.studentId;
+  const role = (req.user?.role || '').toLowerCase().trim();
+
+  if (role === 'parent') {
+    if (studentId === 'me') {
+      studentId = req.parentScope?.child_student_ids[0];
+      if (!studentId) {
+        return res.status(200).json({
+          success: true,
+          message: 'No children linked to parent',
+          data: { student: null, attendance: [], stats: {} },
+        });
+      }
+    } else if (!req.parentScope?.child_student_ids.includes(studentId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access attendance of their own linked children',
+        data: null,
+      });
+    }
+  }
 
   if (!isValidUUID(studentId)) {
     return res.status(400).json({
@@ -159,6 +179,41 @@ async function getStudentAttendance(req, res, next) {
       success: true,
       message: 'Student attendance history loaded',
       data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getMyChildrenAttendance(req, res, next) {
+  try {
+    const children = req.parentScope?.children || [];
+    if (!children.length) {
+      return res.status(200).json({
+        success: true,
+        message: 'No children linked to parent',
+        data: [],
+      });
+    }
+
+    const limit = Number(req.query.limit || 30);
+    const offset = Number(req.query.offset || 0);
+
+    const results = await Promise.all(
+      children.map(async (child) => {
+        const history = await attendanceService.getStudentAttendance(child.id, { limit, offset });
+        return {
+          student: child,
+          attendance: history.attendance || [],
+          stats: history.stats || {},
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Children attendance loaded successfully',
+      data: results,
     });
   } catch (error) {
     return next(error);
@@ -198,5 +253,6 @@ module.exports = {
   getDailySummary,
   getMonthlyMatrix,
   getStudentAttendance,
+  getMyChildrenAttendance,
   getOwnAttendance,
 };

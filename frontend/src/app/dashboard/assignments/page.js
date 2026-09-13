@@ -943,6 +943,11 @@ export default function AssignmentsPage() {
                       <HiPaperAirplane />
                       <span>{mySub ? 'View / Update Submission' : 'Submit Homework'}</span>
                     </button>
+                  ) : isParent ? (
+                    <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+                      <span>Class Homework</span>
+                      <span style={{ fontWeight: 600, color: '#0d9488' }}>{a.grade_name} {a.section_name ? `• ${a.section_name}` : ''}</span>
+                    </div>
                   ) : (
                     <>
                       <button
@@ -1125,6 +1130,10 @@ export default function AssignmentsPage() {
                           <HiPaperAirplane />
                           <span>{mySub ? 'View / Edit' : 'Submit'}</span>
                         </button>
+                      ) : isParent ? (
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>
+                          View only
+                        </span>
                       ) : (
                         <div className={styles.cardActions} style={{ justifyContent: 'flex-end' }}>
                           <button

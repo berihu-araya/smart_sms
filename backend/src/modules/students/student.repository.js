@@ -3,7 +3,7 @@ class StudentRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', studentId = null, limit = 20, offset = 0 } = {}, client = null) {
+  async findAll({ search = '', name = '', gender = '', gradeId = '', sectionId = '', status = '', studentId = null, studentIds = null, parentId = null, schoolId = null, limit = 20, offset = 0 } = {}, client = null) {
     const db = client || this.database;
     const conditions = ['s.deleted_at IS NULL'];
     const values = [];
@@ -12,6 +12,24 @@ class StudentRepository {
     if (studentId) {
       conditions.push(`s.id = $${index}`);
       values.push(studentId);
+      index += 1;
+    }
+
+    if (studentIds && Array.isArray(studentIds) && studentIds.length > 0) {
+      conditions.push(`s.id = ANY($${index}::uuid[])`);
+      values.push(studentIds);
+      index += 1;
+    }
+
+    if (parentId) {
+      conditions.push(`s.parent_id = $${index}`);
+      values.push(parentId);
+      index += 1;
+    }
+
+    if (schoolId) {
+      conditions.push(`s.school_id = $${index}`);
+      values.push(schoolId);
       index += 1;
     }
 

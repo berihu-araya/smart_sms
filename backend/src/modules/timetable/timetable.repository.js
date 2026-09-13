@@ -713,7 +713,13 @@ class TimetableRepository {
 
   async findUserParentContext(userId) {
     const parentRes = await this.database.query(
-      `SELECT id, full_name, phone_number FROM parents WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      `SELECT p.id, p.full_name, p.phone, p.email
+       FROM parents p
+       LEFT JOIN users u ON u.id = $1
+       WHERE (p.user_id = $1 OR (u.email IS NOT NULL AND LOWER(p.email) = LOWER(u.email)) OR (u.phone IS NOT NULL AND p.phone = u.phone))
+         AND p.deleted_at IS NULL
+       ORDER BY (CASE WHEN p.user_id = $1 THEN 0 ELSE 1 END) ASC
+       LIMIT 1`,
       [userId]
     );
     const parent = parentRes.rows[0] || null;
@@ -721,11 +727,11 @@ class TimetableRepository {
 
     const childrenRes = await this.database.query(
       `SELECT s.id, s.first_name, s.last_name, s.section_id, sec.name as section_name, sec.grade_id, g.name as grade_name
-       FROM student_parents sp
-       INNER JOIN students s ON s.id = sp.student_id AND s.deleted_at IS NULL
-       LEFT JOIN sections sec ON sec.id = s.section_id
-       LEFT JOIN grades g ON g.id = sec.grade_id
-       WHERE sp.parent_id = $1`,
+       FROM students s
+       LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+       LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
+       WHERE s.parent_id = $1 AND s.deleted_at IS NULL
+       ORDER BY s.first_name ASC, s.last_name ASC`,
       [parent.id]
     );
     return {
