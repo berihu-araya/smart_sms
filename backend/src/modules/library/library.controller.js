@@ -35,6 +35,14 @@ function getContext(req) {
   return { userId, schoolId };
 }
 
+function normalizeBookData(data) {
+  const normalized = { ...data };
+  ['category_id', 'subject_id', 'publisher_id', 'publication_year', 'pages'].forEach((field) => {
+    if (normalized[field] === '') normalized[field] = null;
+  });
+  return normalized;
+}
+
 // ==========================================
 // 1. SETTINGS & POLICIES
 // ==========================================
@@ -307,7 +315,7 @@ async function createBook(req, res, next) {
     if (errors.length > 0) {
       return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
     }
-    const { author_ids, initial_copies, ...bookData } = req.body;
+    const { author_ids, initial_copies, ...bookData } = normalizeBookData(req.body);
     const book = await service.createBook(bookData, author_ids || [], schoolId);
 
     // If initial_copies was provided, generate bulk copies
@@ -338,7 +346,7 @@ async function updateBook(req, res, next) {
     if (errors.length > 0) {
       return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
     }
-    const { author_ids, ...bookData } = req.body;
+    const { author_ids, ...bookData } = normalizeBookData(req.body);
     const book = await service.updateBook(req.params.id, bookData, author_ids);
     res.json({ success: true, message: 'Book updated successfully', data: book });
   } catch (error) {

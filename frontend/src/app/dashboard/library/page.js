@@ -302,7 +302,14 @@ export default function LibraryDashboardPage() { // this means Create a React co
   }, [isPatronOnly]);
 
   useEffect(() => {
-    fetchAllData();
+    let cancelled = false;
+    const load = async () => {
+      if (!cancelled) await fetchAllData();
+    };
+    queueMicrotask(load);
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAllData]);
 
   // Accurate coordinate mapping between viewport/touch and internal canvas buffer
@@ -1076,39 +1083,54 @@ export default function LibraryDashboardPage() { // this means Create a React co
 
       {!isPatronOnly && activeTab === 'analytics' && (
         <div className={styles.analyticsPanel}>
-          <div className={styles.sectionHeader}>
-            <div><h2>Library performance</h2><p>Circulation, collection health, engagement, and fine recovery.</p></div>
-            <button className={styles.outlineBtn} onClick={loadAnalytics}><FaSync /> Refresh</button>
+          <div className={styles.analyticsHero}>
+            <div>
+              <span className={styles.analyticsEyebrow}>LIBRARY INTELLIGENCE</span>
+              <h2>Know what is moving, overdue, and underused.</h2>
+              <p>Six-month circulation pulse, collection health, patron engagement, and cash recovery in one view.</p>
+            </div>
+            <div className={styles.analyticsHeroActions}>
+              <span className={styles.liveIndicator}><i /> Live data</span>
+              <button className={styles.analyticsRefreshBtn} onClick={loadAnalytics}><FaSync /> Refresh report</button>
+            </div>
           </div>
           {analyticsLoading && <div className={styles.emptyStateText}>Loading analytics...</div>}
           {analytics && (
             <>
-              <div className={styles.statsGrid}>
-                {[
-                  ['Total circulation', analytics.overview.total_lifetime_loans],
-                  ['Punctuality', `${analytics.overview.punctuality_rate}%`],
-                  ['Fine collection', `${analytics.overview.fine_collection_rate}%`],
-                  ['Catalog utilization', `${analytics.overview.catalog_utilization}%`],
-                ].map(([label, value]) => <div className={styles.statCard} key={label}><div><div className={styles.statLabel}>{label}</div><div className={styles.statValue}>{value || 0}</div></div></div>)}
+              <div className={styles.analyticsKpis}>
+                <div className={`${styles.analyticsKpi} ${styles.kpiInk}`}><span>Total circulation</span><strong>{analytics.overview.total_lifetime_loans || 0}</strong><small>lifetime loans</small><FaBookReader /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiMint}`}><span>On-time returns</span><strong>{analytics.overview.punctuality_rate || 0}%</strong><small>{analytics.overview.on_time_returns || 0} successful returns</small><FaCheckCircle /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiGold}`}><span>Fine recovery</span><strong>{analytics.overview.fine_collection_rate || 0}%</strong><small>${Number(analytics.overview.total_fines_collected || 0).toFixed(2)} collected</small><FaMoneyBillWave /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiCoral}`}><span>Collection in use</span><strong>{analytics.overview.catalog_utilization || 0}%</strong><small>{analytics.overview.borrowed_copies || 0} copies out now</small><FaChartBar /></div>
               </div>
-              <div className={styles.analyticsColumns}>
-                <section className={styles.tableContainer}>
-                  <div className={styles.sectionHeader}><h3>Most borrowed books</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-top-books', analytics.top_books)}><FaDownload /></button></div>
-                  {analytics.top_books?.map((book, index) => <div className={styles.analyticsRow} key={book.id}><strong>#{index + 1}</strong><span>{book.title}</span><b>{book.borrow_count}</b></div>)}
+
+              <div className={styles.analyticsMainGrid}>
+                <section className={styles.analyticsCardLarge}>
+                  <div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>POPULARITY</span><h3>Most borrowed titles</h3></div><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-top-books', analytics.top_books)} title="Export most borrowed titles"><FaDownload /></button></div>
+                  <div className={styles.rankList}>
+                    {analytics.top_books?.slice(0, 6).map((book, index) => {
+                      const maxBorrowed = Math.max(...(analytics.top_books || []).map((item) => Number(item.borrow_count) || 0), 1);
+                      return <div className={styles.rankItem} key={book.id}><strong className={styles.rankNumber}>{String(index + 1).padStart(2, '0')}</strong><div className={styles.rankBook}><span>{book.title}</span><div className={styles.rankTrack}><i style={{ width: `${Math.max(8, (Number(book.borrow_count) / maxBorrowed) * 100)}%` }} /></div></div><b>{book.borrow_count}<small> loans</small></b></div>;
+                    })}
+                  </div>
                 </section>
-                <section className={styles.tableContainer}>
-                  <div className={styles.sectionHeader}><h3>Overdue risk</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-overdue-risk', [analytics.overdue_aging])}><FaDownload /></button></div>
-                  {Object.entries(analytics.overdue_aging || {}).map(([label, value]) => <div className={styles.analyticsRow} key={label}><span>{label.replaceAll('_', ' ')}</span><b>{value}</b></div>)}
+                <section className={styles.analyticsCardRisk}>
+                  <div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>ATTENTION NEEDED</span><h3>Overdue risk</h3></div><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-overdue-risk', [analytics.overdue_aging])} title="Export overdue risk"><FaDownload /></button></div>
+                  <div className={styles.riskTotal}><strong>{analytics.overview.overdue_loans || 0}</strong><span>active overdue loans</span></div>
+                  <div className={styles.riskList}>{Object.entries(analytics.overdue_aging || {}).map(([label, value], index) => { const colors = ['#f2a93b', '#ed7d4a', '#df5d5d', '#a93d59']; const total = Math.max(Number(analytics.overview.overdue_loans) || 1, 1); return <div className={styles.riskItem} key={label}><div><span>{label.replace('overdue_', '').replaceAll('_', ' ')}</span><b>{value}</b></div><div className={styles.riskTrack}><i style={{ width: `${Math.max(value > 0 ? 7 : 0, (Number(value) / total) * 100)}%`, background: colors[index] }} /></div></div>; })}</div>
                 </section>
-                <section className={styles.tableContainer}>
-                  <div className={styles.sectionHeader}><h3>Fine payments</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-fine-payments', analytics.fine_payments_by_method)}><FaDownload /></button></div>
-                  {analytics.fine_payments_by_method?.map((payment) => <div className={styles.analyticsRow} key={payment.payment_method}><span>{payment.payment_method}</span><b>${Number(payment.total_collected).toFixed(2)}</b></div>)}
+                <section className={styles.analyticsCardFinance}>
+                  <div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>CASH RECOVERY</span><h3>Fine collection</h3></div><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-fine-payments', analytics.fine_payments_by_method)} title="Export fine payments"><FaDownload /></button></div>
+                  <div className={styles.financeAmount}>${Number(analytics.overview.total_fines_collected || 0).toFixed(2)}<small> collected to date</small></div>
+                  <div className={styles.financeMeta}><span>Outstanding <b>${Number(analytics.overview.outstanding_fines || 0).toFixed(2)}</b></span><span>Waived <b>${Number(analytics.overview.total_fines_waived || 0).toFixed(2)}</b></span></div>
+                  <div className={styles.paymentList}>{analytics.fine_payments_by_method?.slice(0, 3).map((payment) => <div key={payment.payment_method}><span>{payment.payment_method.replaceAll('_', ' ')}</span><b>${Number(payment.total_collected).toFixed(2)}</b></div>)}</div>
                 </section>
               </div>
-              <section className={styles.tableContainer}>
-                <div className={styles.sectionHeader}><h3>Circulation trend</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-circulation-trends', analytics.circulation_trends)}><FaDownload /></button></div>
-                <div className={styles.analyticsTrend}>{analytics.circulation_trends?.map((month) => <div key={month.month_label} className={styles.trendColumn}><span>{month.month_label}</span><i style={{ height: `${Math.max(8, Math.min(100, month.issues_count * 8))}%` }} /><em>{month.issues_count}/{month.returns_count}</em></div>)}</div>
-              </section>
+
+              <div className={styles.analyticsBottomGrid}>
+                <section className={styles.analyticsChartCard}><div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>LAST 6 MONTHS</span><h3>Circulation pulse</h3></div><div className={styles.chartLegend}><span><i className={styles.legendIssue} /> Loans</span><span><i className={styles.legendReturn} /> Returns</span><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-circulation-trends', analytics.circulation_trends)} title="Export circulation trends"><FaDownload /></button></div></div><div className={styles.analyticsChart}>{analytics.circulation_trends?.map((month) => { const maxVolume = Math.max(...(analytics.circulation_trends || []).flatMap((item) => [Number(item.issues_count) || 0, Number(item.returns_count) || 0]), 1); return <div className={styles.chartMonth} key={month.month_label}><div className={styles.chartBars}><i className={styles.loanBar} style={{ height: `${Math.max(4, (Number(month.issues_count) / maxVolume) * 100)}%` }} /><i className={styles.returnBar} style={{ height: `${Math.max(4, (Number(month.returns_count) / maxVolume) * 100)}%` }} /></div><strong>{month.issues_count}</strong><span>{month.month_label?.split(' ')[0]}</span></div>; })}</div></section>
+                <section className={styles.analyticsCardLarge}><div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>ENGAGEMENT</span><h3>Most active patrons</h3></div><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-active-patrons', analytics.active_patrons)} title="Export active patrons"><FaDownload /></button></div><div className={styles.patronList}>{analytics.active_patrons?.slice(0, 5).map((patron, index) => <div className={styles.patronItem} key={patron.member_id}><span className={styles.patronAvatar}>{(patron.member_name || '?').charAt(0)}</span><div><strong>{patron.member_name}</strong><small>{patron.role_name || 'Member'} · {patron.on_time_returns_count || 0} on-time returns</small></div><b>{patron.total_loans_count}<small> loans</small></b></div>)}</div></section>
+              </div>
             </>
           )}
         </div>
