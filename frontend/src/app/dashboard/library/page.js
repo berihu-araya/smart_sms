@@ -47,7 +47,12 @@ import {
   createLibraryPublisher,
   deleteLibraryPublisher,
   listLibraryAuditLogs,
+  fetchLibraryAnalytics,
+  importBooksBatch,
+  importCopiesBatch,
+  importMembersBatch,
 } from '@/services/libraryService';
+import { csvToText, parseCsv } from '@/utils/csvParser';
 
 import {
   FaBook,
@@ -87,13 +92,15 @@ import {
   FaInfoCircle,
   FaCheck,
   FaQrcode,
+  FaUpload,
+  FaDownload,
 } from 'react-icons/fa';
 
-export default function LibraryDashboardPage() {
+export default function LibraryDashboardPage() { // this means Create a React component called LibraryDashboardPage.
   const { user } = useContext(AuthContext);
 
   // Role detection
-  const roleName = (user?.role || user?.role_name || '').toLowerCase();
+  const roleName = (user?.role || user?.role_name || '').toLowerCase();// this checks the role and convert to lowercase
   const isLibrarianOrAdmin = roleName.includes('librarian') || roleName.includes('admin');
   const isStaff = roleName.includes('staff');
   const isStudent = roleName.includes('student');
@@ -119,6 +126,8 @@ export default function LibraryDashboardPage() {
   const [myLoans, setMyLoans] = useState([]);
   const [myReservations, setMyReservations] = useState([]);
   const [myFines, setMyFines] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // UI States
   const [loading, setLoading] = useState(true);
@@ -143,6 +152,11 @@ export default function LibraryDashboardPage() {
   const [activeFineForWaive, setActiveFineForWaive] = useState(null);
   const [isAddCopyModalOpen, setIsAddCopyModalOpen] = useState(false);
   const [isMasterDataModalOpen, setIsMasterDataModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importType, setImportType] = useState('books');
+  const [importRows, setImportRows] = useState([]);
+  const [importErrors, setImportErrors] = useState([]);
+  const [importing, setImporting] = useState(false);
   const [masterDataType, setMasterDataType] = useState('category'); // 'category' | 'subject' | 'author' | 'publisher'
 
   // Master Data sub-tab
@@ -202,6 +216,27 @@ export default function LibraryDashboardPage() {
   });
 
   const [policyFormData, setPolicyFormData] = useState({});
+
+  const importDefinitions = {
+    books: {
+      label: 'Books',
+      required: ['title'],
+      columns: ['title', 'isbn', 'author_names', 'category_name', 'subject_name', 'publisher_name', 'publication_year', 'initial_copies', 'cover_image', 'description'],
+      submit: importBooksBatch,
+    },
+    copies: {
+      label: 'Book Copies',
+      required: ['isbn or book_title'],
+      columns: ['isbn', 'book_title', 'accession_number', 'barcode', 'condition', 'status', 'call_number', 'price'],
+      submit: importCopiesBatch,
+    },
+    members: {
+      label: 'Members',
+      required: ['email or admission_number or employee_id'],
+      columns: ['email', 'admission_number', 'employee_id', 'member_number', 'member_type', 'max_loans_override', 'status', 'expiry_date'],
+      submit: importMembersBatch,
+    },
+  };
 
   // Helper Toast
   const showToast = (message, type = 'success') => {
@@ -270,29 +305,62 @@ export default function LibraryDashboardPage() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Accurate coordinate mapping between viewport/touch and internal canvas buffer
+  const getCanvasCoordinates = (e, canvas) => {
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    }
+
+    const scaleX = rect.width ? canvas.width / rect.width : 1;
+    const scaleY = rect.height ? canvas.height / rect.height : 1;
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
   // Signature Pad Handlers
   const startDrawing = (e) => {
+    if (e.cancelable && e.type && e.type.startsWith('touch')) {
+      e.preventDefault();
+    }
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    const { x, y } = getCanvasCoordinates(e, canvas);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1e1b4b';
     ctx.beginPath();
     ctx.moveTo(x, y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
     setIsDrawing(true);
   };
 
   const draw = (e) => {
     if (!isDrawing) return;
+    if (e.cancelable && e.type && e.type.startsWith('touch')) {
+      e.preventDefault();
+    }
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
-    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+    const { x, y } = getCanvasCoordinates(e, canvas);
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = '#1e1b4b';
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -363,6 +431,108 @@ export default function LibraryDashboardPage() {
     } catch (err) {
       showToast(err.message, 'error');
     }
+  };
+
+  const loadAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      setAnalytics(await fetchLibraryAnalytics());
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = parseCsv(await file.text());
+      const definition = importDefinitions[importType];
+      const errors = rows.flatMap((row) => {
+        const missing = definition.required.filter((field) => {
+          if (field.includes(' or ')) return !field.split(' or ').some((option) => row[option]);
+          return !row[field];
+        });
+        return missing.length ? [{ row: row._row, error: `Missing ${missing.join(', ')}` }] : [];
+      });
+      setImportRows(rows);
+      setImportErrors(errors);
+    } catch (err) {
+      setImportRows([]);
+      setImportErrors([{ row: 0, error: err.message }]);
+    }
+    event.target.value = '';
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importRows.length || importErrors.length) return;
+    setImporting(true);
+    try {
+      const result = await importDefinitions[importType].submit(importRows.map(({ _row, ...row }) => row));
+      showToast(`Imported ${result.imported_count} ${importDefinitions[importType].label.toLowerCase()}`);
+      setIsImportModalOpen(false);
+      setImportRows([]);
+      setImportErrors([]);
+      fetchAllData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const downloadImportTemplate = () => {
+    const definition = importDefinitions[importType];
+    const blob = new Blob([`${definition.columns.join(',')}\r\n`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `library-${importType}-template.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadCsv = (name, rows) => {
+    if (!rows?.length) return showToast('There is no data to export yet', 'error');
+    const blob = new Blob([csvToText(rows)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${name}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const fetchBookByIsbn = async () => {
+    const isbn = bookFormData.isbn.trim();
+    if (!isbn) return showToast('Enter an ISBN first', 'error');
+    try {
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`);
+      const payload = await response.json();
+      const info = payload.items?.[0]?.volumeInfo;
+      if (!info) throw new Error('No book information found for this ISBN');
+      setBookFormData((current) => ({
+        ...current,
+        title: current.title || info.title || '',
+        description: current.description || info.description || '',
+        publication_year: current.publication_year || info.publishedDate?.slice(0, 4) || '',
+        language: current.language || info.language || 'English',
+        cover_image: current.cover_image || `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-L.jpg`,
+      }));
+      showToast('Book information and cover fetched');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCoverUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return showToast('Choose an image file', 'error');
+    const reader = new FileReader();
+    reader.onload = () => setBookFormData((current) => ({ ...current, cover_image: reader.result }));
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteBook = async (bookId) => {
@@ -677,9 +847,21 @@ export default function LibraryDashboardPage() {
           <>
             <button
               className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTabBtn : ''}`}
-              onClick={() => setActiveTab('overview')}
+              onClick={() => { setActiveTab('overview'); loadAnalytics(); }}
             >
               <FaChartBar /> Overview
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === 'analytics' ? styles.activeTabBtn : ''}`}
+              onClick={() => { setActiveTab('analytics'); loadAnalytics(); }}
+            >
+              <FaChartBar /> Reports & Analytics
+            </button>
+            <button
+              className={styles.tabBtn}
+              onClick={() => { setImportRows([]); setImportErrors([]); setIsImportModalOpen(true); }}
+            >
+              <FaUpload /> Import Center
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'catalog' ? styles.activeTabBtn : ''}`}
@@ -890,6 +1072,46 @@ export default function LibraryDashboardPage() {
             </div>
           </div>
         </>
+      )}
+
+      {!isPatronOnly && activeTab === 'analytics' && (
+        <div className={styles.analyticsPanel}>
+          <div className={styles.sectionHeader}>
+            <div><h2>Library performance</h2><p>Circulation, collection health, engagement, and fine recovery.</p></div>
+            <button className={styles.outlineBtn} onClick={loadAnalytics}><FaSync /> Refresh</button>
+          </div>
+          {analyticsLoading && <div className={styles.emptyStateText}>Loading analytics...</div>}
+          {analytics && (
+            <>
+              <div className={styles.statsGrid}>
+                {[
+                  ['Total circulation', analytics.overview.total_lifetime_loans],
+                  ['Punctuality', `${analytics.overview.punctuality_rate}%`],
+                  ['Fine collection', `${analytics.overview.fine_collection_rate}%`],
+                  ['Catalog utilization', `${analytics.overview.catalog_utilization}%`],
+                ].map(([label, value]) => <div className={styles.statCard} key={label}><div><div className={styles.statLabel}>{label}</div><div className={styles.statValue}>{value || 0}</div></div></div>)}
+              </div>
+              <div className={styles.analyticsColumns}>
+                <section className={styles.tableContainer}>
+                  <div className={styles.sectionHeader}><h3>Most borrowed books</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-top-books', analytics.top_books)}><FaDownload /></button></div>
+                  {analytics.top_books?.map((book, index) => <div className={styles.analyticsRow} key={book.id}><strong>#{index + 1}</strong><span>{book.title}</span><b>{book.borrow_count}</b></div>)}
+                </section>
+                <section className={styles.tableContainer}>
+                  <div className={styles.sectionHeader}><h3>Overdue risk</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-overdue-risk', [analytics.overdue_aging])}><FaDownload /></button></div>
+                  {Object.entries(analytics.overdue_aging || {}).map(([label, value]) => <div className={styles.analyticsRow} key={label}><span>{label.replaceAll('_', ' ')}</span><b>{value}</b></div>)}
+                </section>
+                <section className={styles.tableContainer}>
+                  <div className={styles.sectionHeader}><h3>Fine payments</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-fine-payments', analytics.fine_payments_by_method)}><FaDownload /></button></div>
+                  {analytics.fine_payments_by_method?.map((payment) => <div className={styles.analyticsRow} key={payment.payment_method}><span>{payment.payment_method}</span><b>${Number(payment.total_collected).toFixed(2)}</b></div>)}
+                </section>
+              </div>
+              <section className={styles.tableContainer}>
+                <div className={styles.sectionHeader}><h3>Circulation trend</h3><button className={styles.outlineBtn} onClick={() => downloadCsv('library-circulation-trends', analytics.circulation_trends)}><FaDownload /></button></div>
+                <div className={styles.analyticsTrend}>{analytics.circulation_trends?.map((month) => <div key={month.month_label} className={styles.trendColumn}><span>{month.month_label}</span><i style={{ height: `${Math.max(8, Math.min(100, month.issues_count * 8))}%` }} /><em>{month.issues_count}/{month.returns_count}</em></div>)}</div>
+              </section>
+            </>
+          )}
+        </div>
       )}
 
       {/* TAB 2: BOOKS CATALOG */}
@@ -1305,12 +1527,12 @@ export default function LibraryDashboardPage() {
                     <td>
                       <span
                         className={`${styles.badge} ${res.status === 'READY_FOR_PICKUP'
-                            ? styles.badgeGreen
-                            : res.status === 'PENDING'
-                              ? styles.badgeYellow
-                              : res.status === 'FULFILLED'
-                                ? styles.badgeBlue
-                                : styles.badgeGray
+                          ? styles.badgeGreen
+                          : res.status === 'PENDING'
+                            ? styles.badgeYellow
+                            : res.status === 'FULFILLED'
+                              ? styles.badgeBlue
+                              : styles.badgeGray
                           }`}
                       >
                         {res.status.replace(/_/g, ' ')}
@@ -1371,10 +1593,10 @@ export default function LibraryDashboardPage() {
                       <td>
                         <span
                           className={`${styles.badge} ${fine.status === 'PAID'
-                              ? styles.badgeGreen
-                              : fine.status === 'WAIVED'
-                                ? styles.badgePurple
-                                : styles.badgeRed
+                            ? styles.badgeGreen
+                            : fine.status === 'WAIVED'
+                              ? styles.badgePurple
+                              : styles.badgeRed
                             }`}
                         >
                           {fine.status}
@@ -2077,6 +2299,16 @@ export default function LibraryDashboardPage() {
                   </div>
                 </div>
 
+                <div className={styles.formGroup}>
+                  <label>Cover image</label>
+                  <div className={styles.coverTools}>
+                    <button type="button" className={styles.outlineBtn} onClick={fetchBookByIsbn}><FaSearch /> Auto-fetch by ISBN</button>
+                    <label className={styles.outlineBtn} htmlFor="library-cover-upload"><FaUpload /> Upload image</label>
+                    <input id="library-cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} hidden />
+                  </div>
+                  {bookFormData.cover_image && <img src={bookFormData.cover_image} alt="Book cover preview" className={styles.coverPreview} />}
+                </div>
+
                 <div className={styles.formRow3}>
                   <div className={styles.formGroup}>
                     <label>Category</label>
@@ -2218,6 +2450,33 @@ export default function LibraryDashboardPage() {
         </div>
       )}
 
+      {isImportModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h2><FaUpload /> Bulk Import Center</h2>
+              <button className={styles.closeModalBtn} onClick={() => setIsImportModalOpen(false)}><FaTimes /></button>
+            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.importTabs}>
+                {Object.entries(importDefinitions).map(([key, definition]) => <button key={key} className={`${styles.outlineBtn} ${importType === key ? styles.activeTabBtn : ''}`} onClick={() => { setImportType(key); setImportRows([]); setImportErrors([]); }}>{definition.label}</button>)}
+              </div>
+              <div className={styles.importActions}>
+                <button className={styles.outlineBtn} onClick={downloadImportTemplate}><FaDownload /> Download template</button>
+                <label className={styles.primaryBtn} htmlFor="library-csv-upload"><FaUpload /> Choose CSV</label>
+                <input id="library-csv-upload" type="file" accept=".csv,text/csv" onChange={handleImportFile} hidden />
+              </div>
+              {importErrors.length > 0 && <div className={styles.importErrorList}>{importErrors.map((item) => <div key={`${item.row}-${item.error}`}><FaExclamationTriangle /> Row {item.row}: {item.error}</div>)}</div>}
+              {importRows.length > 0 && <div className={styles.importPreview}><strong>{importRows.length} rows ready for review</strong><div className={styles.tableWrapper}><table className={styles.customTable}><thead><tr>{importDefinitions[importType].columns.slice(0, 5).map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{importRows.slice(0, 8).map((row) => <tr key={row._row}>{importDefinitions[importType].columns.slice(0, 5).map((column) => <td key={column}>{row[column] || '-'}</td>)}</tr>)}</tbody></table></div></div>}
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.outlineBtn} onClick={() => setIsImportModalOpen(false)}>Cancel</button>
+              <button className={styles.primaryBtn} disabled={!importRows.length || importErrors.length > 0 || importing} onClick={handleImportSubmit}>{importing ? 'Importing...' : `Confirm ${importRows.length} rows`}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 2: SMART ISSUE BOOK LOAN WORKSTATION */}
       {isIssueModalOpen && (() => {
         const cleanBookIdent = (issueFormData.identifier || '').trim().toLowerCase();
@@ -2240,8 +2499,8 @@ export default function LibraryDashboardPage() {
         const defaultDuration = matchedMember?.member_type === 'TEACHER'
           ? (settings?.default_teacher_loan_period || 30)
           : matchedMember?.member_type === 'STAFF'
-          ? (settings?.default_staff_loan_period || 21)
-          : (settings?.default_student_loan_period || 14);
+            ? (settings?.default_staff_loan_period || 21)
+            : (settings?.default_student_loan_period || 14);
 
         const durationDays = issueFormData.loan_duration_days ? Number(issueFormData.loan_duration_days) : defaultDuration;
         const dueDate = new Date();
@@ -2250,8 +2509,8 @@ export default function LibraryDashboardPage() {
         const maxLoans = matchedMember?.member_type === 'TEACHER'
           ? (settings?.max_active_loans_teacher || 10)
           : matchedMember?.member_type === 'STAFF'
-          ? (settings?.max_active_loans_staff || 5)
-          : (settings?.max_active_loans_student || 3);
+            ? (settings?.max_active_loans_staff || 5)
+            : (settings?.max_active_loans_student || 3);
 
         const activeLoansCount = matchedMember?.active_loans_count || 0;
         const isLimitReached = matchedMember && activeLoansCount >= maxLoans;
@@ -2477,13 +2736,12 @@ export default function LibraryDashboardPage() {
                       {matchedMember ? (
                         <div className={`${styles.smartPreviewBox} ${styles.smartPreviewBoxActive}`}>
                           <div
-                            className={`${styles.memberAvatar} ${
-                              matchedMember.member_type === 'TEACHER'
-                                ? styles.avatarTeacher
-                                : matchedMember.member_type === 'STAFF'
+                            className={`${styles.memberAvatar} ${matchedMember.member_type === 'TEACHER'
+                              ? styles.avatarTeacher
+                              : matchedMember.member_type === 'STAFF'
                                 ? styles.avatarStaff
                                 : styles.avatarStudent
-                            }`}
+                              }`}
                           >
                             {matchedMember.full_name?.charAt(0)?.toUpperCase() || 'M'}
                           </div>
@@ -2505,13 +2763,12 @@ export default function LibraryDashboardPage() {
                               </div>
                               <div className={styles.meterBar}>
                                 <div
-                                  className={`${styles.meterBarFill} ${
-                                    activeLoansCount >= maxLoans
-                                      ? styles.meterBarFillDanger
-                                      : activeLoansCount >= maxLoans * 0.7
+                                  className={`${styles.meterBarFill} ${activeLoansCount >= maxLoans
+                                    ? styles.meterBarFillDanger
+                                    : activeLoansCount >= maxLoans * 0.7
                                       ? styles.meterBarFillWarning
                                       : ''
-                                  }`}
+                                    }`}
                                   style={{ width: `${Math.min(100, (activeLoansCount / maxLoans) * 100)}%` }}
                                 />
                               </div>
@@ -2622,8 +2879,8 @@ export default function LibraryDashboardPage() {
                       <div className={styles.signaturePadContainer}>
                         <canvas
                           ref={signatureCanvasRef}
-                          width={500}
-                          height={100}
+                          width={600}
+                          height={150}
                           className={styles.signatureCanvas}
                           onMouseDown={startDrawing}
                           onMouseMove={draw}
@@ -2989,10 +3246,10 @@ export default function LibraryDashboardPage() {
                           <td>
                             <span
                               className={`${styles.badge} ${copy.status === 'AVAILABLE'
-                                  ? styles.badgeGreen
-                                  : copy.status === 'BORROWED'
-                                    ? styles.badgeYellow
-                                    : styles.badgeRed
+                                ? styles.badgeGreen
+                                : copy.status === 'BORROWED'
+                                  ? styles.badgeYellow
+                                  : styles.badgeRed
                                 }`}
                             >
                               {copy.status}

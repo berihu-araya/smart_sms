@@ -870,7 +870,9 @@ class LibraryRepository {
         COALESCE(r.name, '') AS role_name,
         u.profile_image,
         (SELECT COUNT(*)::int FROM library_loans ll WHERE ll.member_id = lm.id AND ll.status = 'ACTIVE') AS active_loans_count,
-        (SELECT COUNT(*)::int FROM library_loans ll WHERE ll.member_id = lm.id AND ll.status = 'ACTIVE' AND ll.due_date < current_timestamp) AS overdue_loans_count,
+        (
+          SELECT COUNT(*)::int FROM library_loans ll WHERE ll.member_id = lm.id AND ll.status = 'ACTIVE' AND ll.due_date < current_timestamp
+        ) AS overdue_loans_count,
         (SELECT COALESCE(SUM(lf.amount - lf.amount_paid), 0)::numeric(10,2) FROM library_fines lf WHERE lf.member_id = lm.id AND lf.status IN ('UNPAID', 'PARTIALLY_PAID')) AS outstanding_fines_sum
       FROM library_members lm
       INNER JOIN users u ON u.id = lm.user_id
@@ -1807,7 +1809,7 @@ class LibraryRepository {
         (SELECT COUNT(*)::int FROM library_loans WHERE status = 'ACTIVE' AND due_date < current_timestamp AND (school_id = $1 OR $1 IS NULL)) AS overdue_loans,
         (SELECT COUNT(*)::int FROM library_members WHERE status = 'ACTIVE' AND deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS active_members,
         (SELECT COUNT(*)::int FROM library_reservations WHERE status IN ('PENDING', 'READY_FOR_PICKUP') AND (school_id = $1 OR $1 IS NULL)) AS active_reservations,
-        (SELECT COALESCE(SUM(amount_paid), 0)::numeric(10,2) FROM library_fine_payments lfp INNER JOIN library_fines lf ON lf.id = lfp.fine_id WHERE (lf.school_id = $1 OR $1 IS NULL)) AS total_fines_collected,
+        (SELECT COALESCE(SUM(lfp.amount), 0)::numeric(10,2) FROM library_fine_payments lfp INNER JOIN library_fines lf ON lf.id = lfp.fine_id WHERE (lf.school_id = $1 OR $1 IS NULL)) AS total_fines_collected,
         (SELECT COALESCE(SUM(amount - amount_paid), 0)::numeric(10,2) FROM library_fines WHERE status IN ('UNPAID', 'PARTIALLY_PAID') AND (school_id = $1 OR $1 IS NULL)) AS outstanding_fines
     `;
     const res = await this.db.query(statsQuery, [schoolId]);
@@ -1875,6 +1877,638 @@ class LibraryRepository {
 
     const res = await this.db.query(query, params);
     return res.rows;
+  }
+
+  // ==========================================
+  // 13. COMPREHENSIVE ANALYTICS & REPORTING
+  // ==========================================
+
+  async getDetailedAnalytics(schoolId = null) {
+    // 1. KPI Overview & Circulation Health
+    const overviewQuery = `
+      SELECT
+        (SELECT COUNT(*)::int FROM library_books WHERE deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS total_titles,
+        (SELECT COUNT(*)::int FROM library_book_copies WHERE deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS total_copies,
+        (SELECT COUNT(*)::int FROM library_book_copies WHERE status = 'AVAILABLE' AND deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS available_copies,
+        (SELECT COUNT(*)::int FROM library_book_copies WHERE status = 'BORROWED' AND deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS borrowed_copies,
+        (SELECT COUNT(*)::int FROM library_book_copies WHERE status IN ('LOST', 'DAMAGED', 'MAINTENANCE') AND deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS damaged_or_lost_copies,
+        (SELECT COUNT(*)::int FROM library_loans WHERE status = 'ACTIVE' AND (school_id = $1 OR $1 IS NULL)) AS active_loans,
+        (SELECT COUNT(*)::int FROM library_loans WHERE status = 'ACTIVE' AND due_date < current_timestamp AND (school_id = $1 OR $1 IS NULL)) AS overdue_loans,
+        (SELECT COUNT(*)::int FROM library_loans WHERE status = 'RETURNED' AND (school_id = $1 OR $1 IS NULL)) AS returned_loans,
+        (SELECT COUNT(*)::int FROM library_loans WHERE status = 'RETURNED' AND return_date <= due_date AND (school_id = $1 OR $1 IS NULL)) AS on_time_returns,
+        (SELECT COUNT(*)::int FROM library_loans WHERE (school_id = $1 OR $1 IS NULL)) AS total_lifetime_loans,
+        (SELECT COUNT(*)::int FROM library_members WHERE status = 'ACTIVE' AND deleted_at IS NULL AND (school_id = $1 OR $1 IS NULL)) AS active_members,
+        (SELECT COUNT(*)::int FROM library_reservations WHERE status IN ('PENDING', 'READY_FOR_PICKUP') AND (school_id = $1 OR $1 IS NULL)) AS active_reservations,
+        (SELECT COALESCE(SUM(amount), 0)::numeric(10,2) FROM library_fines WHERE (school_id = $1 OR $1 IS NULL)) AS total_fines_assessed,
+        (SELECT COALESCE(SUM(lfp.amount), 0)::numeric(10,2) FROM library_fine_payments lfp INNER JOIN library_fines lf ON lf.id = lfp.fine_id WHERE (lf.school_id = $1 OR $1 IS NULL)) AS total_fines_collected,
+        (SELECT COALESCE(SUM(amount - amount_paid), 0)::numeric(10,2) FROM library_fines WHERE status = 'WAIVED' AND (school_id = $1 OR $1 IS NULL)) AS total_fines_waived,
+        (SELECT COALESCE(SUM(amount - amount_paid), 0)::numeric(10,2) FROM library_fines WHERE status IN ('UNPAID', 'PARTIALLY_PAID') AND (school_id = $1 OR $1 IS NULL)) AS outstanding_fines
+    `;
+    const overviewRes = await this.db.query(overviewQuery, [schoolId]);
+    const overview = overviewRes.rows[0];
+
+    // 2. Top Borrowed Books (Top 10)
+    const topBooks = await this.getTopBorrowedBooks(schoolId, 10);
+
+    // 3. Overdue Aging Risk Breakdown
+    const overdueAgingQuery = `
+      SELECT
+        COUNT(CASE WHEN (current_timestamp - due_date) <= INTERVAL '7 days' THEN 1 END)::int AS overdue_1_to_7_days,
+        COUNT(CASE WHEN (current_timestamp - due_date) > INTERVAL '7 days' AND (current_timestamp - due_date) <= INTERVAL '14 days' THEN 1 END)::int AS overdue_8_to_14_days,
+        COUNT(CASE WHEN (current_timestamp - due_date) > INTERVAL '14 days' AND (current_timestamp - due_date) <= INTERVAL '30 days' THEN 1 END)::int AS overdue_15_to_30_days,
+        COUNT(CASE WHEN (current_timestamp - due_date) > INTERVAL '30 days' THEN 1 END)::int AS overdue_over_30_days
+      FROM library_loans
+      WHERE status = 'ACTIVE' AND due_date < current_timestamp AND (school_id = $1 OR $1 IS NULL)
+    `;
+    const overdueAgingRes = await this.db.query(overdueAgingQuery, [schoolId]);
+
+    // 4. Top Overdue Borrowers
+    const topOverdueBorrowersQuery = `
+      SELECT
+        lm.id AS member_id,
+        lm.member_number,
+        (u.first_name || ' ' || u.last_name) AS member_name,
+        u.email AS member_email,
+        COALESCE(r.name, '') AS role_name,
+        COUNT(DISTINCT ll.id)::int AS overdue_books_count,
+        COALESCE(SUM(
+          CASE 
+            WHEN lf.status IN ('UNPAID', 'PARTIALLY_PAID') THEN (lf.amount - lf.amount_paid) 
+            ELSE 0 
+          END
+        ), 0)::numeric(10,2) AS accumulated_unpaid_fines
+      FROM library_loans ll
+      INNER JOIN library_members lm ON lm.id = ll.member_id
+      INNER JOIN users u ON u.id = lm.user_id
+      LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN library_fines lf ON lf.member_id = lm.id
+      WHERE ll.status = 'ACTIVE' AND ll.due_date < current_timestamp AND (ll.school_id = $1 OR $1 IS NULL)
+      GROUP BY lm.id, lm.member_number, u.first_name, u.last_name, u.email, r.name
+      ORDER BY overdue_books_count DESC, accumulated_unpaid_fines DESC
+      LIMIT 10
+    `;
+    const topOverdueBorrowersRes = await this.db.query(topOverdueBorrowersQuery, [schoolId]);
+
+    // 5. Circulation Volume Trends (Past 6 Months)
+    const circulationTrendQuery = `
+      WITH months AS (
+        SELECT generate_series(
+          date_trunc('month', current_date - INTERVAL '5 months'),
+          date_trunc('month', current_date),
+          '1 month'::interval
+        ) AS month_date
+      )
+      SELECT 
+        TO_CHAR(m.month_date, 'Mon YYYY') AS month_label,
+        m.month_date,
+        (
+          SELECT COUNT(*)::int 
+          FROM library_loans ll 
+          WHERE date_trunc('month', ll.issue_date) = m.month_date 
+            AND (ll.school_id = $1 OR $1 IS NULL)
+        ) AS issues_count,
+        (
+          SELECT COUNT(*)::int 
+          FROM library_loans ll 
+          WHERE date_trunc('month', ll.return_date) = m.month_date 
+            AND (ll.school_id = $1 OR $1 IS NULL)
+        ) AS returns_count
+      FROM months m
+      ORDER BY m.month_date ASC
+    `;
+    const circulationTrendRes = await this.db.query(circulationTrendQuery, [schoolId]);
+
+    // 6. Fines Payment Methods Breakdown
+    const finePaymentsQuery = `
+      SELECT
+        payment_method,
+        COUNT(*)::int AS transaction_count,
+        COALESCE(SUM(amount_paid), 0)::numeric(10,2) AS total_collected
+      FROM library_fine_payments lfp
+      INNER JOIN library_fines lf ON lf.id = lfp.fine_id
+      WHERE (lf.school_id = $1 OR $1 IS NULL)
+      GROUP BY payment_method
+      ORDER BY total_collected DESC
+    `;
+    const finePaymentsRes = await this.db.query(finePaymentsQuery, [schoolId]);
+
+    // 7. Most Active Patron Engagement (Top 10 Borrowers)
+    const activePatronsQuery = `
+      SELECT
+        lm.id AS member_id,
+        lm.member_number,
+        (u.first_name || ' ' || u.last_name) AS member_name,
+        u.email AS member_email,
+        COALESCE(r.name, '') AS role_name,
+        COUNT(ll.id)::int AS total_loans_count,
+        COUNT(CASE WHEN ll.status = 'ACTIVE' THEN 1 END)::int AS current_active_loans,
+        COUNT(CASE WHEN ll.status = 'RETURNED' AND ll.return_date <= ll.due_date THEN 1 END)::int AS on_time_returns_count
+      FROM library_loans ll
+      INNER JOIN library_members lm ON lm.id = ll.member_id
+      INNER JOIN users u ON u.id = lm.user_id
+      LEFT JOIN roles r ON r.id = u.role_id
+      WHERE (ll.school_id = $1 OR $1 IS NULL)
+      GROUP BY lm.id, lm.member_number, u.first_name, u.last_name, u.email, r.name
+      ORDER BY total_loans_count DESC
+      LIMIT 10
+    `;
+    const activePatronsRes = await this.db.query(activePatronsQuery, [schoolId]);
+
+    // 8. Category Distribution
+    const categoryDistQuery = `
+      SELECT
+        COALESCE(c.name, 'Uncategorized') AS category_name,
+        COUNT(DISTINCT b.id)::int AS titles_count,
+        COUNT(DISTINCT bc.id)::int AS copies_count,
+        COUNT(DISTINCT ll.id)::int AS circulation_count
+      FROM library_books b
+      LEFT JOIN library_categories c ON c.id = b.category_id
+      LEFT JOIN library_book_copies bc ON bc.book_id = b.id AND bc.deleted_at IS NULL
+      LEFT JOIN library_loans ll ON ll.book_id = b.id
+      WHERE b.deleted_at IS NULL AND (b.school_id = $1 OR $1 IS NULL)
+      GROUP BY c.name
+      ORDER BY titles_count DESC
+      LIMIT 8
+    `;
+    const categoryDistRes = await this.db.query(categoryDistQuery, [schoolId]);
+
+    return {
+      overview: {
+        ...overview,
+        punctuality_rate: overview.returned_loans > 0 
+          ? Math.round((overview.on_time_returns / overview.returned_loans) * 100) 
+          : 100,
+        fine_collection_rate: (Number(overview.total_fines_collected) + Number(overview.outstanding_fines)) > 0
+          ? Math.round((Number(overview.total_fines_collected) / (Number(overview.total_fines_collected) + Number(overview.outstanding_fines))) * 100)
+          : 100,
+        catalog_utilization: overview.total_copies > 0
+          ? Math.round((overview.borrowed_copies / overview.total_copies) * 100)
+          : 0,
+      },
+      top_books: topBooks,
+      overdue_aging: overdueAgingRes.rows[0] || {
+        overdue_1_to_7_days: 0,
+        overdue_8_to_14_days: 0,
+        overdue_15_to_30_days: 0,
+        overdue_over_30_days: 0,
+      },
+      top_overdue_borrowers: topOverdueBorrowersRes.rows,
+      circulation_trends: circulationTrendRes.rows,
+      fine_payments_by_method: finePaymentsRes.rows,
+      active_patrons: activePatronsRes.rows,
+      category_distribution: categoryDistRes.rows,
+    };
+  }
+
+  // ==========================================
+  // 14. BULK IMPORT OPERATIONS
+  // ==========================================
+
+  async bulkImportBooks(booksList, schoolId = null, userId = null) {
+    const client = await this.db.connect();
+    const importedBooks = [];
+    const errors = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < booksList.length; i++) {
+        const item = booksList[i];
+        const rowNum = i + 1;
+
+        if (!item.title || !String(item.title).trim()) {
+          errors.push({ row: rowNum, error: 'Title is required' });
+          continue;
+        }
+
+        try {
+          // 1. Resolve Category
+          let categoryId = item.category_id || null;
+          if (!categoryId && (item.category_name || item.category)) {
+            const catName = String(item.category_name || item.category).trim();
+            const findCat = await client.query(
+              'SELECT id FROM library_categories WHERE LOWER(name) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [catName, schoolId]
+            );
+            if (findCat.rows.length > 0) {
+              categoryId = findCat.rows[0].id;
+            } else {
+              const newCat = await client.query(
+                'INSERT INTO library_categories (name, description, school_id) VALUES ($1, $2, $3) RETURNING id',
+                [catName, 'Auto-created via bulk import', schoolId]
+              );
+              categoryId = newCat.rows[0].id;
+            }
+          }
+
+          // 2. Resolve Subject
+          let subjectId = item.subject_id || null;
+          if (!subjectId && (item.subject_name || item.subject)) {
+            const subjName = String(item.subject_name || item.subject).trim();
+            const findSubj = await client.query(
+              'SELECT id FROM library_subjects WHERE LOWER(name) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [subjName, schoolId]
+            );
+            if (findSubj.rows.length > 0) {
+              subjectId = findSubj.rows[0].id;
+            } else {
+              const newSubj = await client.query(
+                'INSERT INTO library_subjects (name, description, school_id) VALUES ($1, $2, $3) RETURNING id',
+                [subjName, 'Auto-created via bulk import', schoolId]
+              );
+              subjectId = newSubj.rows[0].id;
+            }
+          }
+
+          // 3. Resolve Publisher
+          let publisherId = item.publisher_id || null;
+          if (!publisherId && (item.publisher_name || item.publisher)) {
+            const pubName = String(item.publisher_name || item.publisher).trim();
+            const findPub = await client.query(
+              'SELECT id FROM library_publishers WHERE LOWER(name) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [pubName, schoolId]
+            );
+            if (findPub.rows.length > 0) {
+              publisherId = findPub.rows[0].id;
+            } else {
+              const newPub = await client.query(
+                'INSERT INTO library_publishers (name, school_id) VALUES ($1, $2) RETURNING id',
+                [pubName, schoolId]
+              );
+              publisherId = newPub.rows[0].id;
+            }
+          }
+
+          // 4. Resolve Authors
+          const authorIds = [];
+          const rawAuthors = item.author_names || item.authors || item.author;
+          if (Array.isArray(rawAuthors)) {
+            for (const aName of rawAuthors) {
+              const nameStr = String(aName).trim();
+              if (!nameStr) continue;
+              const findAuth = await client.query(
+                'SELECT id FROM library_authors WHERE LOWER(name) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+                [nameStr, schoolId]
+              );
+              if (findAuth.rows.length > 0) {
+                authorIds.push(findAuth.rows[0].id);
+              } else {
+                const newAuth = await client.query(
+                  'INSERT INTO library_authors (name, school_id) VALUES ($1, $2) RETURNING id',
+                  [nameStr, schoolId]
+                );
+                authorIds.push(newAuth.rows[0].id);
+              }
+            }
+          } else if (typeof rawAuthors === 'string' && rawAuthors.trim()) {
+            const names = rawAuthors.split(',').map((s) => s.trim()).filter(Boolean);
+            for (const nameStr of names) {
+              const findAuth = await client.query(
+                'SELECT id FROM library_authors WHERE LOWER(name) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+                [nameStr, schoolId]
+              );
+              if (findAuth.rows.length > 0) {
+                authorIds.push(findAuth.rows[0].id);
+              } else {
+                const newAuth = await client.query(
+                  'INSERT INTO library_authors (name, school_id) VALUES ($1, $2) RETURNING id',
+                  [nameStr, schoolId]
+                );
+                authorIds.push(newAuth.rows[0].id);
+              }
+            }
+          }
+
+          // 5. Insert Book
+          const insertBookQuery = `
+            INSERT INTO library_books (
+              title, isbn, edition, category_id, subject_id, publisher_id,
+              publication_year, language, pages, ddc_number, shelf_location,
+              cover_image, description, school_id
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+            ) RETURNING *
+          `;
+          const bookRes = await client.query(insertBookQuery, [
+            String(item.title).trim(),
+            item.isbn ? String(item.isbn).trim() : null,
+            item.edition ? String(item.edition).trim() : null,
+            categoryId,
+            subjectId,
+            publisherId,
+            item.publication_year ? parseInt(item.publication_year, 10) : new Date().getFullYear(),
+            item.language ? String(item.language).trim() : 'English',
+            item.pages ? parseInt(item.pages, 10) : null,
+            item.ddc_number ? String(item.ddc_number).trim() : null,
+            item.shelf_location ? String(item.shelf_location).trim() : null,
+            item.cover_image ? String(item.cover_image).trim() : null,
+            item.description ? String(item.description).trim() : null,
+            schoolId,
+          ]);
+          const newBook = bookRes.rows[0];
+
+          // 6. Link Authors
+          for (const aId of authorIds) {
+            await client.query(
+              'INSERT INTO library_book_authors (book_id, author_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+              [newBook.id, aId]
+            );
+          }
+
+          // 7. Create Initial Physical Copies
+          const initialCopies = item.initial_copies ? parseInt(item.initial_copies, 10) : (item.copies ? parseInt(item.copies, 10) : 1);
+          const prefix = item.accession_prefix ? String(item.accession_prefix).trim() : 'ACC';
+          const stamp = Date.now().toString().slice(-6);
+
+          for (let c = 1; c <= Math.min(Math.max(initialCopies, 1), 50); c++) {
+            const accNum = `${prefix}-${stamp}-${rowNum}-${c}`;
+            const barcode = `BC-${stamp}-${rowNum}-${c}`;
+            await client.query(
+              `INSERT INTO library_book_copies (
+                school_id, book_id, accession_number, barcode, call_number, condition, status, acquisition_date, price, remarks
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+              [
+                schoolId,
+                newBook.id,
+                accNum,
+                barcode,
+                item.call_number ? String(item.call_number).trim() : null,
+                'GOOD',
+                'AVAILABLE',
+                new Date(),
+                item.price ? parseFloat(item.price) : null,
+                item.shelf_location ? String(item.shelf_location).trim() : null,
+              ]
+            );
+          }
+
+          // Refresh counters on book
+          await client.query(
+            `UPDATE library_books SET
+              total_copies = (SELECT COUNT(*) FROM library_book_copies WHERE book_id = $1 AND deleted_at IS NULL),
+              available_copies = (SELECT COUNT(*) FROM library_book_copies WHERE book_id = $1 AND status = 'AVAILABLE' AND deleted_at IS NULL)
+            WHERE id = $1`,
+            [newBook.id]
+          );
+
+          importedBooks.push(newBook);
+        } catch (itemErr) {
+          errors.push({ row: rowNum, title: item.title, error: itemErr.message });
+        }
+      }
+
+      // Record Audit Log
+      if (importedBooks.length > 0) {
+        await client.query(
+          `INSERT INTO library_audit_logs (user_id, action, entity_type, entity_id, details, school_id)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            userId,
+            'BULK_IMPORT_BOOKS',
+            'BOOK',
+            null,
+            JSON.stringify({ importedCount: importedBooks.length, errorCount: errors.length }),
+            schoolId,
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+      return { success: true, imported_count: importedBooks.length, errors, books: importedBooks };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async bulkImportCopies(copiesList, schoolId = null, userId = null) {
+    const client = await this.db.connect();
+    const importedCopies = [];
+    const errors = [];
+    const touchedBookIds = new Set();
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < copiesList.length; i++) {
+        const item = copiesList[i];
+        const rowNum = i + 1;
+
+        try {
+          // 1. Find Book by ID, ISBN, or Title
+          let bookId = item.book_id || null;
+          if (!bookId && item.isbn) {
+            const bRes = await client.query(
+              'SELECT id FROM library_books WHERE LOWER(isbn) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL LIMIT 1',
+              [String(item.isbn).trim(), schoolId]
+            );
+            if (bRes.rows.length > 0) bookId = bRes.rows[0].id;
+          }
+          if (!bookId && (item.book_title || item.title)) {
+            const bRes = await client.query(
+              'SELECT id FROM library_books WHERE LOWER(title) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL LIMIT 1',
+              [String(item.book_title || item.title).trim(), schoolId]
+            );
+            if (bRes.rows.length > 0) bookId = bRes.rows[0].id;
+          }
+
+          if (!bookId) {
+            errors.push({ row: rowNum, error: `Book not found for identifier: ${item.isbn || item.book_title || item.title || item.book_id}` });
+            continue;
+          }
+
+          // 2. Generate accession number & barcode if missing
+          const stamp = Date.now().toString().slice(-6);
+          const accNum = item.accession_number ? String(item.accession_number).trim() : `ACC-${stamp}-${rowNum}`;
+          const barcode = item.barcode ? String(item.barcode).trim() : `BC-${stamp}-${rowNum}`;
+          const condition = ['EXCELLENT', 'NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'].includes(String(item.condition).toUpperCase())
+            ? (String(item.condition).toUpperCase() === 'NEW' ? 'EXCELLENT' : String(item.condition).toUpperCase())
+            : 'GOOD';
+          const status = ['AVAILABLE', 'BORROWED', 'RESERVED', 'LOST', 'DAMAGED', 'MAINTENANCE'].includes(String(item.status).toUpperCase())
+            ? String(item.status).toUpperCase()
+            : 'AVAILABLE';
+
+          const insertCopyQuery = `
+            INSERT INTO library_book_copies (
+              school_id, book_id, accession_number, barcode, call_number, condition, status, acquisition_date, price, remarks
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING *
+          `;
+          const copyRes = await client.query(insertCopyQuery, [
+            schoolId,
+            bookId,
+            accNum,
+            barcode,
+            item.call_number ? String(item.call_number).trim() : null,
+            condition,
+            status,
+            item.acquisition_date ? new Date(item.acquisition_date) : new Date(),
+            item.price ? parseFloat(item.price) : (item.acquisition_price ? parseFloat(item.acquisition_price) : null),
+            item.remarks ? String(item.remarks).trim() : (item.shelf_location ? String(item.shelf_location).trim() : null),
+          ]);
+
+          importedCopies.push(copyRes.rows[0]);
+          touchedBookIds.add(bookId);
+        } catch (itemErr) {
+          errors.push({ row: rowNum, error: itemErr.message });
+        }
+      }
+
+      // Refresh counters on all touched books
+      for (const bId of touchedBookIds) {
+        await client.query(
+          `UPDATE library_books SET
+            total_copies = (SELECT COUNT(*) FROM library_book_copies WHERE book_id = $1 AND deleted_at IS NULL),
+            available_copies = (SELECT COUNT(*) FROM library_book_copies WHERE book_id = $1 AND status = 'AVAILABLE' AND deleted_at IS NULL)
+          WHERE id = $1`,
+          [bId]
+        );
+      }
+
+      // Record Audit Log
+      if (importedCopies.length > 0) {
+        await client.query(
+          `INSERT INTO library_audit_logs (user_id, action, entity_type, entity_id, details, school_id)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            userId,
+            'BULK_IMPORT_COPIES',
+            'BOOK_COPY',
+            null,
+            JSON.stringify({ importedCount: importedCopies.length, errorCount: errors.length }),
+            schoolId,
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+      return { success: true, imported_count: importedCopies.length, errors, copies: importedCopies };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async bulkImportMembers(membersList, schoolId = null, userId = null) {
+    const client = await this.db.connect();
+    const importedMembers = [];
+    const errors = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (let i = 0; i < membersList.length; i++) {
+        const item = membersList[i];
+        const rowNum = i + 1;
+
+        try {
+          // Find user by email or admission_number or employee_id
+          let targetUserId = item.user_id || null;
+
+          if (!targetUserId && item.email) {
+            const uRes = await client.query(
+              'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [String(item.email).trim(), schoolId]
+            );
+            if (uRes.rows.length > 0) targetUserId = uRes.rows[0].id;
+          }
+
+          if (!targetUserId && (item.admission_number || item.admissionNumber)) {
+            const admNum = String(item.admission_number || item.admissionNumber).trim();
+            const sRes = await client.query(
+              'SELECT user_id FROM students WHERE LOWER(admission_number) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [admNum, schoolId]
+            );
+            if (sRes.rows.length > 0) targetUserId = sRes.rows[0].user_id;
+          }
+
+          if (!targetUserId && (item.employee_id || item.employeeId || item.staff_id)) {
+            const empId = String(item.employee_id || item.employeeId || item.staff_id).trim();
+            const tRes = await client.query(
+              'SELECT user_id FROM teachers WHERE LOWER(employee_id) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
+              [empId, schoolId]
+            );
+            if (tRes.rows.length > 0) targetUserId = tRes.rows[0].user_id;
+          }
+
+          if (!targetUserId) {
+            errors.push({ row: rowNum, error: `User not found for identifier: ${item.email || item.admission_number || item.employee_id || item.user_id}` });
+            continue;
+          }
+
+          const memberNumber = item.member_number 
+            ? String(item.member_number).trim() 
+            : `LIB-M-${Date.now().toString().slice(-6)}-${rowNum}`;
+          const maxLoansOverride = item.max_loans_override
+            ? parseInt(item.max_loans_override, 10)
+            : (item.max_books_allowed ? parseInt(item.max_books_allowed, 10) : null);
+          const memberType = ['STUDENT', 'TEACHER', 'STAFF'].includes(String(item.member_type || '').toUpperCase())
+            ? String(item.member_type).toUpperCase()
+            : 'STUDENT';
+          const status = ['ACTIVE', 'SUSPENDED', 'EXPIRED', 'INACTIVE'].includes(String(item.status).toUpperCase())
+            ? String(item.status).toUpperCase()
+            : 'ACTIVE';
+
+          // Insert or update member
+          const memberRes = await client.query(
+            `INSERT INTO library_members (user_id, member_number, member_type, max_loans_override, status, expiry_date, notes, school_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             ON CONFLICT (school_id, user_id) DO UPDATE SET
+               member_number = COALESCE(EXCLUDED.member_number, library_members.member_number),
+               member_type = COALESCE(EXCLUDED.member_type, library_members.member_type),
+               max_loans_override = COALESCE(EXCLUDED.max_loans_override, library_members.max_loans_override),
+               status = COALESCE(EXCLUDED.status, library_members.status),
+               expiry_date = COALESCE(EXCLUDED.expiry_date, library_members.expiry_date),
+               notes = COALESCE(EXCLUDED.notes, library_members.notes),
+               deleted_at = NULL,
+               updated_at = current_timestamp
+             RETURNING *`,
+            [
+              targetUserId,
+              memberNumber,
+              memberType,
+              maxLoansOverride,
+              status,
+              item.expiry_date || null,
+              item.notes ? String(item.notes).trim() : null,
+              schoolId,
+            ]
+          );
+
+          importedMembers.push(memberRes.rows[0]);
+        } catch (itemErr) {
+          errors.push({ row: rowNum, error: itemErr.message });
+        }
+      }
+
+      // Record Audit Log
+      if (importedMembers.length > 0) {
+        await client.query(
+          `INSERT INTO library_audit_logs (user_id, action, entity_type, entity_id, details, school_id)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            userId,
+            'BULK_IMPORT_MEMBERS',
+            'MEMBER',
+            null,
+            JSON.stringify({ importedCount: importedMembers.length, errorCount: errors.length }),
+            schoolId,
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+      return { success: true, imported_count: importedMembers.length, errors, members: importedMembers };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

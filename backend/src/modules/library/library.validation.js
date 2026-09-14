@@ -191,6 +191,33 @@ function validateFineWaiver(data) {
   return errors;
 }
 
+function validateBulkBooksImport(data) {
+  const errors = [];
+  const books = Array.isArray(data) ? data : data.books;
+  if (!books || !Array.isArray(books) || books.length === 0) {
+    errors.push('A non-empty list of books is required for bulk import');
+  }
+  return errors;
+}
+
+function validateBulkCopiesImport(data) {
+  const errors = [];
+  const copies = Array.isArray(data) ? data : data.copies;
+  if (!copies || !Array.isArray(copies) || copies.length === 0) {
+    errors.push('A non-empty list of copies is required for bulk import');
+  }
+  return errors;
+}
+
+function validateBulkMembersImport(data) {
+  const errors = [];
+  const members = Array.isArray(data) ? data : data.members;
+  if (!members || !Array.isArray(members) || members.length === 0) {
+    errors.push('A non-empty list of members is required for bulk import');
+  }
+  return errors;
+}
+
 module.exports = {
   validateLibrarySettings,
   validateCategory,
@@ -205,4 +232,7 @@ module.exports = {
   validateReservation,
   validateFinePayment,
   validateFineWaiver,
+  validateBulkBooksImport,
+  validateBulkCopiesImport,
+  validateBulkMembersImport,
 };

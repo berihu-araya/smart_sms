@@ -47,12 +47,16 @@ const {
   cancelReservation,
   getMyReservations,
   listFines,
+  getMyFines,
   recordFinePayment,
   waiveFine,
-  getMyFines,
   getDashboardStats,
   getTopBooks,
+  getAnalytics,
   listAuditLogs,
+  importBooks,
+  importCopies,
+  importMembers,
 } = require('./library.controller');
 
 const router = express.Router();
@@ -70,6 +74,7 @@ router.put('/config', authorizeRoles(...LIBRARIAN_ROLES), updateSettings);
 // 2. STATS & REPORTS
 router.get('/stats', authorizeRoles(...STAFF_AND_LIBRARIAN), getDashboardStats);
 router.get('/reports/top-books', authorizeRoles(...STAFF_AND_LIBRARIAN), getTopBooks);
+router.get('/reports/analytics', authorizeRoles(...STAFF_AND_LIBRARIAN), getAnalytics);
 router.get('/audit', authorizeRoles(...LIBRARIAN_ROLES), listAuditLogs);
 
 // 3. MASTER DATA (Categories, Subjects, Authors, Publishers)
@@ -107,14 +112,19 @@ router.post('/copies/bulk', authorizeRoles(...LIBRARIAN_ROLES), createBulkCopies
 router.put('/copies/:id', authorizeRoles(...LIBRARIAN_ROLES), updateCopy);
 router.delete('/copies/:id', authorizeRoles(...LIBRARIAN_ROLES), deleteCopy);
 
-// 5. MEMBERS
+// 5. BULK IMPORT
+router.post('/import/books', authorizeRoles(...LIBRARIAN_ROLES), importBooks);
+router.post('/import/copies', authorizeRoles(...LIBRARIAN_ROLES), importCopies);
+router.post('/import/members', authorizeRoles(...LIBRARIAN_ROLES), importMembers);
+
+// 6. MEMBERS
 router.get('/members/me', getMyMemberProfile);
 router.get('/members', authorizeRoles(...STAFF_AND_LIBRARIAN), listMembers);
 router.get('/members/:id', authorizeRoles(...STAFF_AND_LIBRARIAN), getMemberById);
 router.post('/members/sync', authorizeRoles(...LIBRARIAN_ROLES), syncMembers);
 router.patch('/members/:id/status', authorizeRoles(...LIBRARIAN_ROLES), updateMemberStatus);
 
-// 6. CIRCULATION (Loans, Returns, Renewals)
+// 7. CIRCULATION (Loans, Returns, Renewals)
 router.get('/loans/my-loans', getMyLoans);
 router.get('/loans', authorizeRoles(...STAFF_AND_LIBRARIAN), listLoans);
 router.get('/loans/:id', authorizeRoles(...STAFF_AND_LIBRARIAN), getLoanById);
@@ -122,13 +132,13 @@ router.post('/loans/issue', authorizeRoles(...STAFF_AND_LIBRARIAN), issueLoan);
 router.post('/loans/:id/return', authorizeRoles(...STAFF_AND_LIBRARIAN), returnLoan);
 router.post('/loans/:id/renew', renewLoan); // Can be triggered by borrower or librarian
 
-// 7. RESERVATIONS
+// 8. RESERVATIONS
 router.get('/reservations/my-reservations', getMyReservations);
 router.get('/reservations', authorizeRoles(...STAFF_AND_LIBRARIAN), listReservations);
 router.post('/reservations', createReservation);
 router.delete('/reservations/:id', cancelReservation);
 
-// 8. FINES & PAYMENTS & WAIVERS
+// 9. FINES & PAYMENTS & WAIVERS
 router.get('/fines/my-fines', getMyFines);
 router.get('/fines', authorizeRoles(...STAFF_AND_LIBRARIAN), listFines);
 router.post('/fines/pay', authorizeRoles(...STAFF_AND_LIBRARIAN), recordFinePayment);

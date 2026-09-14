@@ -677,6 +677,10 @@
   touch-action: none;
   cursor: crosshair;
   border-radius: 6px;
+  display: block;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .signatureActions {
@@ -712,6 +716,54 @@
 
 .policySectionTitle:first-of-type {
   margin-top: 0;
+}
+
+.analyticsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.analyticsColumns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.analyticsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.analyticsRow span { flex: 1; color: #475569; text-transform: capitalize; }
+.analyticsRow b { color: #0f172a; }
+.analyticsRow strong { color: #4f46e5; min-width: 2rem; }
+
+.analyticsTrend {
+  height: 190px;
+  display: flex;
+  align-items: end;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.trendColumn { height: 100%; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 0.35rem; color: #64748b; font-size: 0.72rem; }
+.trendColumn i { width: 70%; min-height: 8px; background: #4f46e5; border-radius: 5px 5px 0 0; }
+.trendColumn em { font-style: normal; color: #334155; font-weight: 700; }
+
+.sectionHeader { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.sectionHeader h2, .sectionHeader h3 { margin: 0; }
+.sectionHeader p { margin: 0.3rem 0 0; color: #64748b; }
+.coverTools, .importActions, .importTabs { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.coverPreview { width: 100px; height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; margin-top: 0.5rem; }
+.importErrorList { display: grid; gap: 0.35rem; padding: 0.75rem; color: #b91c1c; background: #fef2f2; border-radius: 8px; }
+.importPreview { display: grid; gap: 0.75rem; overflow: hidden; }
+
+@media (max-width: 900px) {
+  .analyticsColumns { grid-template-columns: 1fr; }
 }
 
 .toggleWrapper {

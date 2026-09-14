@@ -505,8 +505,28 @@ class LibraryService {
     return await this.repository.getTopBorrowedBooks(schoolId, limit);
   }
 
+  async getDetailedAnalytics(schoolId = null) {
+    return await this.repository.getDetailedAnalytics(schoolId);
+  }
+
   async listAuditLogs(filter) {
     return await this.repository.listAuditLogs(filter);
+  }
+
+  // ==========================================
+  // 9. BULK IMPORT BATCHES
+  // ==========================================
+
+  async importBooksBatch(booksList, schoolId = null, userId = null) {
+    return await this.repository.bulkImportBooks(booksList, schoolId, userId);
+  }
+
+  async importCopiesBatch(copiesList, schoolId = null, userId = null) {
+    return await this.repository.bulkImportCopies(copiesList, schoolId, userId);
+  }
+
+  async importMembersBatch(membersList, schoolId = null, userId = null) {
+    return await this.repository.bulkImportMembers(membersList, schoolId, userId);
   }
 }
 

@@ -20,6 +20,9 @@ const {
   validateReservation,
   validateFinePayment,
   validateFineWaiver,
+  validateBulkBooksImport,
+  validateBulkCopiesImport,
+  validateBulkMembersImport,
 } = require('./library.validation');
 
 const repository = new LibraryRepository(db);
@@ -764,6 +767,77 @@ async function listAuditLogs(req, res, next) {
   }
 }
 
+async function getAnalytics(req, res, next) {
+  try {
+    const { schoolId } = getContext(req);
+    const analytics = await service.getDetailedAnalytics(schoolId);
+    res.json({ success: true, message: 'Comprehensive library analytics retrieved', data: analytics });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ==========================================
+// 9. BULK IMPORT CONTROLLERS
+// ==========================================
+
+async function importBooks(req, res, next) {
+  try {
+    const { schoolId, userId } = getContext(req);
+    const errors = validateBulkBooksImport(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
+    }
+    const booksList = Array.isArray(req.body) ? req.body : req.body.books;
+    const result = await service.importBooksBatch(booksList, schoolId, userId);
+    res.status(201).json({
+      success: true,
+      message: `Successfully imported ${result.imported_count} book(s)${result.errors.length > 0 ? ` with ${result.errors.length} issue(s)` : ''}`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function importCopies(req, res, next) {
+  try {
+    const { schoolId, userId } = getContext(req);
+    const errors = validateBulkCopiesImport(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
+    }
+    const copiesList = Array.isArray(req.body) ? req.body : req.body.copies;
+    const result = await service.importCopiesBatch(copiesList, schoolId, userId);
+    res.status(201).json({
+      success: true,
+      message: `Successfully imported ${result.imported_count} copy/copies${result.errors.length > 0 ? ` with ${result.errors.length} issue(s)` : ''}`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function importMembers(req, res, next) {
+  try {
+    const { schoolId, userId } = getContext(req);
+    const errors = validateBulkMembersImport(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
+    }
+    const membersList = Array.isArray(req.body) ? req.body : req.body.members;
+    const result = await service.importMembersBatch(membersList, schoolId, userId);
+    res.status(201).json({
+      success: true,
+      message: `Successfully imported/updated ${result.imported_count} library member(s)${result.errors.length > 0 ? ` with ${result.errors.length} issue(s)` : ''}`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -815,5 +889,9 @@ module.exports = {
   getMyFines,
   getDashboardStats,
   getTopBooks,
+  getAnalytics,
   listAuditLogs,
+  importBooks,
+  importCopies,
+  importMembers,
 };

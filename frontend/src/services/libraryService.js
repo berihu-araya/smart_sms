@@ -342,6 +342,35 @@ export async function getLibraryTopBooks(limit = 10) {
   return res.data;
 }
 
+export async function fetchLibraryAnalytics() {
+  const res = await request('/api/v1/library/reports/analytics');
+  return res.data;
+}
+
+export async function importBooksBatch(books) {
+  const res = await request('/api/v1/library/import/books', {
+    method: 'POST',
+    body: JSON.stringify({ books }),
+  });
+  return res.data;
+}
+
+export async function importCopiesBatch(copies) {
+  const res = await request('/api/v1/library/import/copies', {
+    method: 'POST',
+    body: JSON.stringify({ copies }),
+  });
+  return res.data;
+}
+
+export async function importMembersBatch(members) {
+  const res = await request('/api/v1/library/import/members', {
+    method: 'POST',
+    body: JSON.stringify({ members }),
+  });
+  return res.data;
+}
+
 export async function listLibraryAuditLogs(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await request(`/api/v1/library/audit${query ? `?${query}` : ''}`);
