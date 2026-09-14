@@ -30,6 +30,14 @@ const service = new TimetableService(
 
 async function listTimetables(req, res, next) {
   try {
+    if ((req.user?.role || '').toLowerCase().trim() === 'parent') {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access their children\'s class timetable',
+        data: null,
+      });
+    }
+
     const { academic_year_id, academicYearId, term, status, limit = 50, offset = 0 } = req.query;
 
     const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 50));
@@ -193,10 +201,20 @@ async function listEntries(req, res, next) {
   try {
     const { id: timetableId } = req.params;
     const { section_id, sectionId, teacher_id, teacherId, room_id, roomId, day_of_week, dayOfWeek, period_id, periodId } = req.query;
+    const role = (req.user?.role || '').toLowerCase().trim();
+    const requestedSectionId = section_id || sectionId;
+
+    if (role === 'parent' && (!requestedSectionId || !req.parentScope?.child_section_ids.includes(requestedSectionId))) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access timetable entries for their children\'s sections',
+        data: null,
+      });
+    }
 
     const entries = await service.listEntries({
       timetableId,
-      sectionId: req.studentScope?.section_id || (section_id || sectionId),
+      sectionId: req.studentScope?.section_id || requestedSectionId,
       teacherId: teacher_id || teacherId,
       roomId: room_id || roomId,
       dayOfWeek: day_of_week || dayOfWeek,
@@ -370,7 +388,8 @@ async function validateTimetable(req, res, next) {
 async function getActiveTimetable(req, res, next) {
   try {
     const { academic_year_id, academicYearId } = req.query;
-    if ((req.user?.role || '').toLowerCase() === 'student') {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'student' || role === 'parent') {
       const schedule = await service.getMySchedule(req.user, {
         academicYearId: academic_year_id || academicYearId,
       });

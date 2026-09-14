@@ -34,7 +34,9 @@ import {
 export default function TimetableDashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isStudent = (user?.role || "").toLowerCase() === "student";
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isParent = role === "parent";
 
   const [timetables, setTimetables] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
@@ -45,10 +47,10 @@ export default function TimetableDashboardPage() {
   const [viewMode, setViewMode] = useState("grid");
 
   useEffect(() => {
-    if (isStudent) {
+    if (isStudent || isParent) {
       router.replace("/dashboard/timetable/class");
     }
-  }, [isStudent, router]);
+  }, [isStudent, isParent, router]);
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -225,7 +227,7 @@ export default function TimetableDashboardPage() {
   const publishedCount = timetables.filter((t) => t.status === "PUBLISHED").length;
   const draftCount = timetables.filter((t) => t.status === "DRAFT").length;
 
-  if (isStudent) {
+  if (isStudent || isParent) {
     return (
       <div className={styles.container}>
         <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>

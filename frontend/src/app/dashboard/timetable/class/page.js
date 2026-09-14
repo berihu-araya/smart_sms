@@ -49,12 +49,14 @@ export default function StudentClassTimetableViewPage() {
   };
 
   const loadSections = useCallback(async () => {
+    if (isStudent || isParent) return;
+
     try {
       const res = await sectionService.listSections({ status: "active", limit: 100 });
       const list = res.items || [];
       setSections(list);
 
-      if (!isStudent && !isParent && list.length > 0 && !selectedSectionId) {
+      if (list.length > 0 && !selectedSectionId) {
         setSelectedSectionId(list[0].id);
       }
     } catch (err) {
