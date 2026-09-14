@@ -31,6 +31,7 @@ const periodRoutes = require('./modules/timetable/periods/period.routes');
 const availabilityRoutes = require('./modules/timetable/availability/availability.routes');
 const substitutionRoutes = require('./modules/timetable/substitutions/substitution.routes');
 const notificationRoutes = require('./modules/notifications/notification.routes');
+const libraryRoutes = require('./modules/library/library.routes');
 
 const { db } = require('./config/database');
 const AuthorizationService = require('./services/authorization.service');
@@ -90,6 +91,7 @@ app.use('/api/v1/timetable/periods', periodRoutes);
 app.use('/api/v1/timetable/availability', availabilityRoutes);
 app.use('/api/v1/timetable/substitutions', substitutionRoutes);
 app.use('/api/v1/timetable', timetableRoutes);
+app.use('/api/v1/library', libraryRoutes);
 
 
 

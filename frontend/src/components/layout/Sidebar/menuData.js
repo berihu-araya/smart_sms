@@ -46,10 +46,10 @@ import {
   FaSlidersH,
 } from "react-icons/fa";
 
-const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff"];
+const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff", "Librarian"];
 const ADMIN_ONLY = ["School Admin", "Admin"];
-const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff"];
-const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff"];
+const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff", "Librarian"];
+const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff", "Librarian"];
 
 export function roleIsAllowed(allowedRoles = [], role) {
   const currentRole = (role || "").trim().toLowerCase();
@@ -241,13 +241,13 @@ const menuData = [
   {
     title: "Campus Services",
     icon: HiBuildingLibrary,
-    roles: ["School Admin", "Admin", "Student", "Staff"],
+    roles: ["School Admin", "Admin", "Librarian", "Student", "Teacher", "Staff"],
     children: [
       {
         title: "Library",
         icon: FaBookReader,
         link: "/dashboard/library",
-        roles: ["School Admin", "Admin", "Student", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Librarian", "Student", "Teacher", "Staff"],
       },
       {
         title: "Hostel",

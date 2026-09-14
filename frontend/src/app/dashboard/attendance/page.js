@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
@@ -36,7 +36,7 @@ const EXCUSED_REASONS = [
   { label: 'ℹ️ General Excused', value: 'Excused', status: 'EXCUSED', icon: 'ℹ️' },
 ];
 
-export default function AttendancePage() {
+function AttendancePageContent() {
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const isStudent = (user?.role || '').toLowerCase() === 'student';
@@ -1557,5 +1557,13 @@ export default function AttendancePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AttendancePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading attendance...</div>}>
+      <AttendancePageContent />
+    </Suspense>
   );
 }
