@@ -80,6 +80,13 @@ import {
   FaFilter,
   FaThLarge,
   FaList,
+  FaUserGraduate,
+  FaChalkboardTeacher,
+  FaUserTie,
+  FaArrowRight,
+  FaInfoCircle,
+  FaCheck,
+  FaQrcode,
 } from 'react-icons/fa';
 
 export default function LibraryDashboardPage() {
@@ -169,12 +176,13 @@ export default function LibraryDashboardPage() {
   });
 
   const [issueFormData, setIssueFormData] = useState({
-    identifier: '', // barcode / accession
+    identifier: '', // barcode / accession / title
     memberIdentifier: '', // student ID / email / member number
     loan_duration_days: '',
     condition_on_issue: 'GOOD',
     issue_notes: '',
   });
+  const [memberRoleFilter, setMemberRoleFilter] = useState('ALL');
 
   const [returnFormData, setReturnFormData] = useState({
     condition_on_return: 'GOOD',
@@ -374,13 +382,22 @@ export default function LibraryDashboardPage() {
     e.preventDefault();
     try {
       await issueLibraryLoan({
-        accessionNumber: issueFormData.identifier,
+        copy_id: issueFormData.copy_id || undefined,
+        accession_number: issueFormData.identifier,
         barcode: issueFormData.identifier,
+        accessionNumber: issueFormData.identifier,
+        member_number: issueFormData.memberIdentifier,
         memberNumber: issueFormData.memberIdentifier,
+        member_id: issueFormData.member_id || undefined,
+        loan_duration_days: issueFormData.loan_duration_days || undefined,
         loanDurationDays: issueFormData.loan_duration_days || undefined,
+        condition_on_issue: issueFormData.condition_on_issue,
         conditionOnIssue: issueFormData.condition_on_issue,
+        borrower_acknowledgment_type: acknowledgmentType,
         borrowerAcknowledgmentType: acknowledgmentType,
+        borrower_signature: signatureData || (acknowledgmentType === 'DIGITAL_ACK' ? 'E-ACK-CONFIRMED' : null),
         borrowerSignature: signatureData || (acknowledgmentType === 'DIGITAL_ACK' ? 'E-ACK-CONFIRMED' : null),
+        issue_notes: issueFormData.issue_notes,
         issueNotes: issueFormData.issue_notes,
       });
 
@@ -969,9 +986,8 @@ export default function LibraryDashboardPage() {
                         </div>
                       )}
                       <span
-                        className={`${styles.bookStatusBadge} ${
-                          book.available_copies_count > 0 ? styles.statusAvailable : styles.statusUnavailable
-                        }`}
+                        className={`${styles.bookStatusBadge} ${book.available_copies_count > 0 ? styles.statusAvailable : styles.statusUnavailable
+                          }`}
                       >
                         {book.available_copies_count > 0 ? `${book.available_copies_count} Available` : 'Checked Out'}
                       </span>
@@ -1288,15 +1304,14 @@ export default function LibraryDashboardPage() {
                     <td>{res.hold_until ? new Date(res.hold_until).toLocaleDateString() : '-'}</td>
                     <td>
                       <span
-                        className={`${styles.badge} ${
-                          res.status === 'READY_FOR_PICKUP'
+                        className={`${styles.badge} ${res.status === 'READY_FOR_PICKUP'
                             ? styles.badgeGreen
                             : res.status === 'PENDING'
-                            ? styles.badgeYellow
-                            : res.status === 'FULFILLED'
-                            ? styles.badgeBlue
-                            : styles.badgeGray
-                        }`}
+                              ? styles.badgeYellow
+                              : res.status === 'FULFILLED'
+                                ? styles.badgeBlue
+                                : styles.badgeGray
+                          }`}
                       >
                         {res.status.replace(/_/g, ' ')}
                       </span>
@@ -1355,13 +1370,12 @@ export default function LibraryDashboardPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.badge} ${
-                            fine.status === 'PAID'
+                          className={`${styles.badge} ${fine.status === 'PAID'
                               ? styles.badgeGreen
                               : fine.status === 'WAIVED'
-                              ? styles.badgePurple
-                              : styles.badgeRed
-                          }`}
+                                ? styles.badgePurple
+                                : styles.badgeRed
+                            }`}
                         >
                           {fine.status}
                         </span>
@@ -2204,144 +2218,493 @@ export default function LibraryDashboardPage() {
         </div>
       )}
 
-      {/* MODAL 2: ISSUE BOOK WITH SIGNATURE PAD */}
-      {isIssueModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <div className={styles.modalHeader}>
-              <h2><FaHandHolding /> Issue Book Loan</h2>
-              <button className={styles.closeModalBtn} onClick={() => setIsIssueModalOpen(false)}>
-                <FaTimes />
-              </button>
-            </div>
+      {/* MODAL 2: SMART ISSUE BOOK LOAN WORKSTATION */}
+      {isIssueModalOpen && (() => {
+        const cleanBookIdent = (issueFormData.identifier || '').trim().toLowerCase();
+        const matchedBook = books.find(
+          (b) =>
+            b.title?.toLowerCase() === cleanBookIdent ||
+            (b.isbn && b.isbn.toLowerCase() === cleanBookIdent) ||
+            b.id === cleanBookIdent
+        );
 
-            <form onSubmit={handleIssueLoanSubmit}>
-              <div className={styles.modalBody}>
-                <div className={styles.formGroup}>
-                  <label>Book Accession Number / Barcode *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Scan or type barcode (e.g. LIB-2026-00001)"
-                    className={styles.formInput}
-                    value={issueFormData.identifier}
-                    onChange={(e) => setIssueFormData({ ...issueFormData, identifier: e.target.value })}
-                  />
-                </div>
+        const cleanMemIdent = (issueFormData.memberIdentifier || '').trim().toLowerCase();
+        const matchedMember = members.find(
+          (m) =>
+            m.member_number?.toLowerCase() === cleanMemIdent ||
+            (m.email && m.email.toLowerCase() === cleanMemIdent) ||
+            m.id === cleanMemIdent ||
+            m.full_name?.toLowerCase() === cleanMemIdent
+        );
 
-                <div className={styles.formGroup}>
-                  <label>Borrower (Member ID, Card Number, or Student/Teacher Email) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. LIB-STU-2026-0001 or user@school.edu"
-                    className={styles.formInput}
-                    value={issueFormData.memberIdentifier}
-                    onChange={(e) => setIssueFormData({ ...issueFormData, memberIdentifier: e.target.value })}
-                  />
-                </div>
+        const defaultDuration = matchedMember?.member_type === 'TEACHER'
+          ? (settings?.default_teacher_loan_period || 30)
+          : matchedMember?.member_type === 'STAFF'
+          ? (settings?.default_staff_loan_period || 21)
+          : (settings?.default_student_loan_period || 14);
 
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label>Loan Duration (Days - leave blank for policy default)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Policy Default"
-                      className={styles.formInput}
-                      value={issueFormData.loan_duration_days}
-                      onChange={(e) => setIssueFormData({ ...issueFormData, loan_duration_days: e.target.value })}
-                    />
+        const durationDays = issueFormData.loan_duration_days ? Number(issueFormData.loan_duration_days) : defaultDuration;
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + (isNaN(durationDays) || durationDays < 1 ? 14 : durationDays));
+
+        const maxLoans = matchedMember?.member_type === 'TEACHER'
+          ? (settings?.max_active_loans_teacher || 10)
+          : matchedMember?.member_type === 'STAFF'
+          ? (settings?.max_active_loans_staff || 5)
+          : (settings?.max_active_loans_student || 3);
+
+        const activeLoansCount = matchedMember?.active_loans_count || 0;
+        const isLimitReached = matchedMember && activeLoansCount >= maxLoans;
+        const hasUnpaidFines = Number(matchedMember?.outstanding_fines_sum || 0) > 0;
+
+        const filteredMembersList = members.filter((m) => {
+          if (memberRoleFilter === 'ALL') return true;
+          return m.member_type === memberRoleFilter;
+        });
+
+        return (
+          <div className={styles.modalOverlay}>
+            <div className={styles.issueModalContent}>
+              {/* Header */}
+              <div className={styles.issueHeader}>
+                <div className={styles.issueHeaderTitle}>
+                  <div className={styles.issueHeaderIcon}>
+                    <FaHandHolding />
                   </div>
-                  <div className={styles.formGroup}>
-                    <label>Condition at Issue</label>
-                    <select
-                      className={styles.formSelect}
-                      value={issueFormData.condition_on_issue}
-                      onChange={(e) => setIssueFormData({ ...issueFormData, condition_on_issue: e.target.value })}
-                    >
-                      <option value="EXCELLENT">EXCELLENT</option>
-                      <option value="GOOD">GOOD</option>
-                      <option value="FAIR">FAIR</option>
-                    </select>
+                  <div>
+                    <span className={styles.issueHeaderTag}>Circulation Desk</span>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#ffffff', fontWeight: 800 }}>
+                      Issue Book Loan & Physical Checkout
+                    </h2>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className={styles.issueHeaderClose}
+                  onClick={() => {
+                    setIsIssueModalOpen(false);
+                    setIssueFormData({ identifier: '', memberIdentifier: '', loan_duration_days: '', condition_on_issue: 'GOOD', issue_notes: '' });
+                    setSignatureData(null);
+                  }}
+                  title="Close"
+                >
+                  <FaTimes />
+                </button>
+              </div>
 
-                {/* Digital Signature Pad */}
-                <div className={styles.formGroup}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <FaSignature color="#4f46e5" /> Borrower Signature & Electronic Acknowledgment
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
-                      <label style={{ cursor: 'pointer' }}>
+              <form onSubmit={handleIssueLoanSubmit}>
+                <div className={styles.issueBody}>
+                  {/* Two-Column Intelligence Grid */}
+                  <div className={styles.issueGrid}>
+                    {/* Left Column: Book & Physical Copy Selection */}
+                    <div className={styles.issueCardPanel}>
+                      <div className={styles.issueCardHeader}>
+                        <div className={styles.issueCardHeaderTitle}>
+                          <FaBook color="#4f46e5" /> 1. Select Book Copy
+                        </div>
+                        {matchedBook && (
+                          <span className={`${styles.miniTag} ${matchedBook.available_copies_count > 0 ? styles.miniTagGreen : styles.miniTagRed}`}>
+                            {matchedBook.available_copies_count > 0 ? `${matchedBook.available_copies_count} in stock` : 'Out of Stock'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Scan Barcode, Enter Accession #, or Search Title</label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            required
+                            list="available-books-list"
+                            placeholder="e.g. LIB-2026-00001 or Advanced Mathematics"
+                            className={styles.formInput}
+                            style={{ paddingLeft: '2.4rem' }}
+                            value={issueFormData.identifier}
+                            onChange={(e) => setIssueFormData({ ...issueFormData, identifier: e.target.value })}
+                          />
+                          <FaQrcode style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        </div>
+                        <datalist id="available-books-list">
+                          {books.map((b) => (
+                            <option key={b.id} value={b.title}>
+                              {b.title} {b.isbn ? `[ISBN: ${b.isbn}]` : ''} — {b.available_copies_count} available
+                            </option>
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Quick Dropdown Picker */}
+                      {books.length > 0 && (
+                        <div className={styles.formGroup}>
+                          <label style={{ fontSize: '0.75rem', color: '#64748b' }}>Or Quick Pick from Catalog</label>
+                          <select
+                            className={styles.formSelect}
+                            style={{ fontSize: '0.82rem', padding: '0.45rem 0.75rem', background: '#f8fafc' }}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setIssueFormData({ ...issueFormData, identifier: e.target.value });
+                              }
+                            }}
+                            value={matchedBook ? matchedBook.title : ''}
+                          >
+                            <option value="">Select a catalog book...</option>
+                            {books.map((b) => (
+                              <option key={b.id} value={b.title}>
+                                {b.title} ({b.available_copies_count} avail) {b.category_name ? `• ${b.category_name}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Dynamic Book Preview Card */}
+                      {matchedBook ? (
+                        <div className={`${styles.smartPreviewBox} ${styles.smartPreviewBoxActive}`}>
+                          {matchedBook.cover_image ? (
+                            <img
+                              src={matchedBook.cover_image}
+                              alt={matchedBook.title}
+                              className={styles.bookThumb}
+                              style={{ objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className={styles.bookThumb}>
+                              <FaBook />
+                            </div>
+                          )}
+                          <div className={styles.previewInfo}>
+                            <div className={styles.previewTitle} title={matchedBook.title}>
+                              {matchedBook.title}
+                            </div>
+                            <div className={styles.previewSub}>
+                              {matchedBook.authors?.length > 0 ? `By ${matchedBook.authors.map(a => a.name).join(', ')}` : (matchedBook.category_name || 'General Catalog')}
+                            </div>
+                            <div className={styles.previewTags}>
+                              {matchedBook.isbn && <span className={styles.miniTag}>ISBN: {matchedBook.isbn}</span>}
+                              {matchedBook.shelf_location && <span className={styles.miniTag}>Shelf: {matchedBook.shelf_location}</span>}
+                              <span className={`${styles.miniTag} ${matchedBook.available_copies_count > 0 ? styles.miniTagGreen : styles.miniTagRed}`}>
+                                {matchedBook.available_copies_count > 0 ? '✓ Ready to Checkout' : '⚠️ No copies available'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={styles.smartPreviewBox}>
+                          <div className={styles.bookThumb} style={{ background: '#e2e8f0', color: '#94a3b8' }}>
+                            <FaBook />
+                          </div>
+                          <div className={styles.previewInfo}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>No Book Selected Yet</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                              Type an Accession # / Barcode, or choose a title from the catalog.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Column: Borrower Selection & Profile */}
+                    <div className={styles.issueCardPanel}>
+                      <div className={styles.issueCardHeader}>
+                        <div className={styles.issueCardHeaderTitle}>
+                          <FaUsers color="#4f46e5" /> 2. Select Borrower
+                        </div>
+                        {matchedMember && (
+                          <span className={`${styles.miniTag} ${isLimitReached ? styles.miniTagRed : styles.miniTagGreen}`}>
+                            {isLimitReached ? 'Loan Limit Reached' : 'Eligible to Borrow'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Role Filter Pills */}
+                      <div className={styles.roleFilterPills}>
+                        {['ALL', 'STUDENT', 'TEACHER', 'STAFF'].map((role) => (
+                          <button
+                            key={role}
+                            type="button"
+                            className={`${styles.roleFilterPill} ${memberRoleFilter === role ? styles.roleFilterPillActive : ''}`}
+                            onClick={() => setMemberRoleFilter(role)}
+                          >
+                            {role === 'ALL' ? 'All Roles' : `${role.charAt(0) + role.slice(1).toLowerCase()}s`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label>Member Number, Email, or Name</label>
                         <input
-                          type="radio"
-                          name="ackType"
-                          checked={acknowledgmentType === 'SIGNATURE'}
-                          onChange={() => setAcknowledgmentType('SIGNATURE')}
-                        />{' '}
-                        Draw Signature
-                      </label>
-                      <label style={{ cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="ackType"
-                          checked={acknowledgmentType === 'DIGITAL_ACK'}
-                          onChange={() => setAcknowledgmentType('DIGITAL_ACK')}
-                        />{' '}
-                        E-Consent
-                      </label>
+                          type="text"
+                          required
+                          list="registered-members-list"
+                          placeholder="e.g. LIB-STU-2026-0001 or student@school.edu"
+                          className={styles.formInput}
+                          value={issueFormData.memberIdentifier}
+                          onChange={(e) => setIssueFormData({ ...issueFormData, memberIdentifier: e.target.value })}
+                        />
+                        <datalist id="registered-members-list">
+                          {filteredMembersList.map((m) => (
+                            <option key={m.id} value={m.member_number}>
+                              {m.full_name} ({m.member_type}) — {m.email}
+                            </option>
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {/* Quick Dropdown Picker */}
+                      {filteredMembersList.length > 0 && (
+                        <div className={styles.formGroup}>
+                          <select
+                            className={styles.formSelect}
+                            style={{ fontSize: '0.82rem', padding: '0.45rem 0.75rem', background: '#f8fafc' }}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setIssueFormData({ ...issueFormData, memberIdentifier: e.target.value });
+                              }
+                            }}
+                            value={matchedMember ? matchedMember.member_number : ''}
+                          >
+                            <option value="">Quick Pick {memberRoleFilter === 'ALL' ? 'Member' : memberRoleFilter.toLowerCase()}...</option>
+                            {filteredMembersList.map((m) => (
+                              <option key={m.id} value={m.member_number}>
+                                {m.full_name} ({m.member_type}) • {m.member_number}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Dynamic Borrower Preview Card */}
+                      {matchedMember ? (
+                        <div className={`${styles.smartPreviewBox} ${styles.smartPreviewBoxActive}`}>
+                          <div
+                            className={`${styles.memberAvatar} ${
+                              matchedMember.member_type === 'TEACHER'
+                                ? styles.avatarTeacher
+                                : matchedMember.member_type === 'STAFF'
+                                ? styles.avatarStaff
+                                : styles.avatarStudent
+                            }`}
+                          >
+                            {matchedMember.full_name?.charAt(0)?.toUpperCase() || 'M'}
+                          </div>
+                          <div className={styles.previewInfo}>
+                            <div className={styles.previewTitle}>
+                              {matchedMember.full_name}
+                            </div>
+                            <div className={styles.previewSub}>
+                              <strong style={{ color: '#4f46e5' }}>{matchedMember.member_number}</strong> • {matchedMember.role_name || matchedMember.member_type}
+                            </div>
+                            <div style={{ marginTop: '0.4rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748b' }}>
+                                <span>Active Loans: <strong>{activeLoansCount} / {maxLoans}</strong></span>
+                                {hasUnpaidFines && (
+                                  <span style={{ color: '#dc2626', fontWeight: 700 }}>
+                                    ⚠️ Unpaid: ${matchedMember.outstanding_fines_sum}
+                                  </span>
+                                )}
+                              </div>
+                              <div className={styles.meterBar}>
+                                <div
+                                  className={`${styles.meterBarFill} ${
+                                    activeLoansCount >= maxLoans
+                                      ? styles.meterBarFillDanger
+                                      : activeLoansCount >= maxLoans * 0.7
+                                      ? styles.meterBarFillWarning
+                                      : ''
+                                  }`}
+                                  style={{ width: `${Math.min(100, (activeLoansCount / maxLoans) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={styles.smartPreviewBox}>
+                          <div className={styles.memberAvatar} style={{ background: '#e2e8f0', color: '#94a3b8' }}>
+                            <FaUsers />
+                          </div>
+                          <div className={styles.previewInfo}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>No Borrower Selected</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                              Type a Member ID / Email or pick from the list above.
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {acknowledgmentType === 'SIGNATURE' ? (
-                    <div className={styles.signaturePadContainer}>
-                      <canvas
-                        ref={signatureCanvasRef}
-                        width={550}
-                        height={140}
-                        className={styles.signatureCanvas}
-                        onMouseDown={startDrawing}
-                        onMouseMove={draw}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                        onTouchStart={startDrawing}
-                        onTouchMove={draw}
-                        onTouchEnd={stopDrawing}
-                      />
-                      <div className={styles.signatureActions}>
-                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                          Sign above using mouse, finger, or stylus
-                        </span>
-                        <button type="button" className={styles.outlineBtn} onClick={clearSignature} style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}>
-                          Clear Canvas
+                  {/* Smart Terms & Due Date Dynamic Timeline */}
+                  <div className={styles.timelineCard}>
+                    <div className={styles.timelineStep}>
+                      <div className={styles.timelineIconBox}>
+                        <FaCalendarAlt />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div className={styles.timelineLabel}>Issue Date</div>
+                        <div className={styles.timelineDate}>{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
+                      <div className={styles.formGroup} style={{ flex: 1, minWidth: '90px' }}>
+                        <label style={{ fontSize: '0.72rem' }}>Days Loaned</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="365"
+                          placeholder={`${defaultDuration}d`}
+                          className={styles.formInput}
+                          style={{ padding: '0.35rem 0.5rem', fontWeight: 700, textAlign: 'center', fontSize: '0.85rem' }}
+                          value={issueFormData.loan_duration_days}
+                          onChange={(e) => setIssueFormData({ ...issueFormData, loan_duration_days: e.target.value })}
+                        />
+                      </div>
+
+                      <div className={styles.formGroup} style={{ flex: 1.2, minWidth: '100px' }}>
+                        <label style={{ fontSize: '0.72rem' }}>Condition</label>
+                        <select
+                          className={styles.formSelect}
+                          style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                          value={issueFormData.condition_on_issue}
+                          onChange={(e) => setIssueFormData({ ...issueFormData, condition_on_issue: e.target.value })}
+                        >
+                          <option value="EXCELLENT">⭐ EXCELLENT</option>
+                          <option value="GOOD">✓ GOOD</option>
+                          <option value="FAIR">⚠️ FAIR</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className={styles.timelineStep}>
+                      <div className={`${styles.timelineIconBox} ${styles.timelineIconBoxDue}`}>
+                        <FaClock />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div className={styles.timelineLabel} style={{ color: '#059669' }}>Due Return Date</div>
+                        <div className={styles.timelineDate} style={{ color: '#047857' }}>
+                          {dueDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Digital Signature & E-Consent Section */}
+                  <div className={styles.signatureVerificationBox}>
+                    <div className={styles.signatureHeaderRow}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: '#1e293b', fontSize: '0.85rem' }}>
+                        <FaSignature color="#4f46e5" /> Borrower Verification
+                        {signatureData && acknowledgmentType === 'SIGNATURE' && (
+                          <span className={`${styles.miniTag} ${styles.miniTagGreen}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            <FaCheck /> Signed ✓
+                          </span>
+                        )}
+                      </label>
+                      <div className={styles.tabSegment}>
+                        <button
+                          type="button"
+                          className={`${styles.tabSegmentBtn} ${acknowledgmentType === 'SIGNATURE' ? styles.tabSegmentBtnActive : ''}`}
+                          onClick={() => setAcknowledgmentType('SIGNATURE')}
+                        >
+                          <FaSignature /> Draw Signature
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.tabSegmentBtn} ${acknowledgmentType === 'DIGITAL_ACK' ? styles.tabSegmentBtnActive : ''}`}
+                          onClick={() => setAcknowledgmentType('DIGITAL_ACK')}
+                        >
+                          <FaCheckCircle /> 1-Click E-Consent
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ padding: '1rem', background: '#eef2ff', borderRadius: '8px', border: '1px solid #c7d2fe', fontSize: '0.85rem' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600 }}>
-                        <input type="checkbox" required />
-                        I acknowledge receiving this library book and agree to return it before the due date.
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className={styles.modalFooter}>
-                <button type="button" className={styles.outlineBtn} onClick={() => setIsIssueModalOpen(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className={styles.primaryBtn}>
-                  <FaCheckCircle /> Confirm & Issue Book
-                </button>
-              </div>
-            </form>
+                    {acknowledgmentType === 'SIGNATURE' ? (
+                      <div className={styles.signaturePadContainer}>
+                        <canvas
+                          ref={signatureCanvasRef}
+                          width={500}
+                          height={100}
+                          className={styles.signatureCanvas}
+                          onMouseDown={startDrawing}
+                          onMouseMove={draw}
+                          onMouseUp={stopDrawing}
+                          onMouseLeave={stopDrawing}
+                          onTouchStart={startDrawing}
+                          onTouchMove={draw}
+                          onTouchEnd={stopDrawing}
+                        />
+                        <div className={styles.signatureActions}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            Draw signature above using mouse or touch
+                          </span>
+                          <button
+                            type="button"
+                            className={styles.outlineBtn}
+                            onClick={clearSignature}
+                            style={{ padding: '0.2rem 0.55rem', fontSize: '0.72rem' }}
+                          >
+                            <FaTimes /> Clear Canvas
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ padding: '0.85rem', background: '#eef2ff', borderRadius: '8px', border: '1px solid #c7d2fe', fontSize: '0.82rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, color: '#312e81' }}>
+                          <input type="checkbox" required defaultChecked />
+                          I verify the borrower agrees to return the book within {durationDays} days (Due: {dueDate.toLocaleDateString()}).
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Banner before confirmation */}
+                  <div className={styles.checkoutSummaryBanner}>
+                    <div className={styles.summaryFlow}>
+                      <div className={styles.summaryFlowItem}>
+                        <FaBook color="#a5b4fc" />
+                        <span>Book: <strong>{matchedBook ? matchedBook.title : (issueFormData.identifier || 'Pending...')}</strong></span>
+                      </div>
+                      <span>➔</span>
+                      <div className={styles.summaryFlowItem}>
+                        <FaUsers color="#86efac" />
+                        <span>Borrower: <strong>{matchedMember ? matchedMember.full_name : (issueFormData.memberIdentifier || 'Pending...')}</strong></span>
+                      </div>
+                      <span>➔</span>
+                      <div className={styles.summaryFlowItem}>
+                        <FaClock color="#fde047" />
+                        <span>Due: <strong>{dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className={styles.modalFooter}>
+                  <button
+                    type="button"
+                    className={styles.outlineBtn}
+                    onClick={() => {
+                      setIsIssueModalOpen(false);
+                      setIssueFormData({ identifier: '', memberIdentifier: '', loan_duration_days: '', condition_on_issue: 'GOOD', issue_notes: '' });
+                      setSignatureData(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.primaryBtn}
+                    style={{ padding: '0.75rem 1.75rem', fontSize: '0.95rem' }}
+                    disabled={Boolean(isLimitReached)}
+                  >
+                    <FaCheckCircle /> Confirm & Issue Book Loan
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 3: RETURN BOOK */}
       {isReturnModalOpen && activeLoanForAction && (
@@ -2625,13 +2988,12 @@ export default function LibraryDashboardPage() {
                           <td>{copy.condition}</td>
                           <td>
                             <span
-                              className={`${styles.badge} ${
-                                copy.status === 'AVAILABLE'
+                              className={`${styles.badge} ${copy.status === 'AVAILABLE'
                                   ? styles.badgeGreen
                                   : copy.status === 'BORROWED'
-                                  ? styles.badgeYellow
-                                  : styles.badgeRed
-                              }`}
+                                    ? styles.badgeYellow
+                                    : styles.badgeRed
+                                }`}
                             >
                               {copy.status}
                             </span>

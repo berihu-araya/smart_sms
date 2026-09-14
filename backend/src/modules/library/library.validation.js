@@ -82,10 +82,12 @@ function validateBook(data) {
 
 function validateBookCopy(data) {
   const errors = [];
-  if (!data.book_id) {
+  const bookId = data.book_id || data.bookId;
+  const accession = data.accession_number || data.accessionNumber;
+  if (!bookId) {
     errors.push('Book ID is required');
   }
-  if (!data.accession_number || !data.accession_number.trim()) {
+  if (!accession || !String(accession).trim()) {
     errors.push('Accession number/barcode is required');
   }
   return errors;
@@ -93,7 +95,8 @@ function validateBookCopy(data) {
 
 function validateBulkCopies(data) {
   const errors = [];
-  if (!data.book_id) {
+  const bookId = data.book_id || data.bookId;
+  if (!bookId) {
     errors.push('Book ID is required');
   }
   if (!data.quantity || isNaN(data.quantity) || Number(data.quantity) < 1 || Number(data.quantity) > 100) {
@@ -104,18 +107,41 @@ function validateBulkCopies(data) {
 
 function validateLoanIssue(data, policy) {
   const errors = [];
-  if (!data.copy_id && !data.accession_number && !data.barcode) {
+  const hasCopyId = Boolean(
+    data.copy_id ||
+    data.copyId ||
+    data.accession_number ||
+    data.accessionNumber ||
+    data.barcode ||
+    data.identifier
+  );
+  if (!hasCopyId) {
     errors.push('Book copy identifier (copy_id, accession_number, or barcode) is required');
   }
-  if (!data.member_id && !data.user_id && !data.member_number) {
+
+  const hasMemberId = Boolean(
+    data.member_id ||
+    data.memberId ||
+    data.user_id ||
+    data.userId ||
+    data.member_number ||
+    data.memberNumber ||
+    data.memberIdentifier
+  );
+  if (!hasMemberId) {
     errors.push('Library member identifier (member_id, user_id, or member_number) is required');
   }
+
+  const ackType = data.borrower_acknowledgment_type || data.borrowerAcknowledgmentType || 'SIGNATURE';
+  const sig = data.borrower_signature || data.borrowerSignature;
   if (policy && policy.require_signature) {
-    if (data.borrower_acknowledgment_type === 'SIGNATURE' && (!data.borrower_signature || !data.borrower_signature.trim())) {
+    if (ackType === 'SIGNATURE' && (!sig || !sig.trim())) {
       errors.push('Borrower signature is required according to library policy');
     }
   }
-  if (data.loan_duration_days && (isNaN(data.loan_duration_days) || Number(data.loan_duration_days) < 1)) {
+
+  const duration = data.loan_duration_days || data.loanDurationDays;
+  if (duration && (isNaN(duration) || Number(duration) < 1)) {
     errors.push('Loan duration must be at least 1 day');
   }
   return errors;
@@ -123,7 +149,8 @@ function validateLoanIssue(data, policy) {
 
 function validateLoanReturn(data) {
   const errors = [];
-  if (data.damage_fine_amount !== undefined && (isNaN(data.damage_fine_amount) || Number(data.damage_fine_amount) < 0)) {
+  const damage = data.damage_fine_amount !== undefined ? data.damage_fine_amount : data.damageFineAmount;
+  if (damage !== undefined && (isNaN(damage) || Number(damage) < 0)) {
     errors.push('Damage fine amount cannot be negative');
   }
   return errors;
@@ -131,10 +158,12 @@ function validateLoanReturn(data) {
 
 function validateReservation(data) {
   const errors = [];
-  if (!data.book_id) {
+  const bookId = data.book_id || data.bookId;
+  const memberId = data.member_id || data.memberId || data.user_id || data.userId;
+  if (!bookId) {
     errors.push('Book ID is required');
   }
-  if (!data.member_id && !data.user_id) {
+  if (!memberId) {
     errors.push('Member ID or User ID is required');
   }
   return errors;

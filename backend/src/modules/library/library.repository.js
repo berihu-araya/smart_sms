@@ -561,6 +561,10 @@ class LibraryRepository {
   }
 
   async findCopyByAccessionOrBarcode(identifier, schoolId = null) {
+    if (!identifier) return null;
+    const cleanId = String(identifier).trim();
+
+    // 1. Match by Accession Number, Barcode, or Copy UUID (case-insensitive)
     const query = `
       SELECT 
         lbc.*,
@@ -575,14 +579,46 @@ class LibraryRepository {
       INNER JOIN library_books b ON b.id = lbc.book_id
       LEFT JOIN library_categories c ON c.id = b.category_id
       LEFT JOIN library_subjects s ON s.id = b.subject_id
-      WHERE (lbc.accession_number = $1 OR lbc.barcode = $1 OR lbc.id::text = $1)
+      WHERE (LOWER(lbc.accession_number) = LOWER($1) OR LOWER(lbc.barcode) = LOWER($1) OR lbc.id::text = $1)
         AND (lbc.school_id = $2 OR lbc.school_id IS NULL)
         AND lbc.deleted_at IS NULL
         AND b.deleted_at IS NULL
       LIMIT 1
     `;
-    const res = await this.db.query(query, [identifier, schoolId]);
-    return res.rows[0] || null;
+    const res = await this.db.query(query, [cleanId, schoolId]);
+    if (res.rows.length > 0) {
+      return res.rows[0];
+    }
+
+    // 2. Fallback: Match by Book ISBN or Title and select the first AVAILABLE copy
+    const fallbackQuery = `
+      SELECT 
+        lbc.*,
+        b.title AS book_title,
+        b.isbn,
+        b.cover_image,
+        b.shelf_location,
+        c.name AS category_name,
+        s.name AS subject_name,
+        (SELECT COUNT(*)::int FROM library_book_copies WHERE book_id = b.id AND status = 'AVAILABLE' AND deleted_at IS NULL) AS available_copies_count
+      FROM library_book_copies lbc
+      INNER JOIN library_books b ON b.id = lbc.book_id
+      LEFT JOIN library_categories c ON c.id = b.category_id
+      LEFT JOIN library_subjects s ON s.id = b.subject_id
+      WHERE (LOWER(b.isbn) = LOWER($1) OR LOWER(b.title) = LOWER($1) OR b.id::text = $1)
+        AND (lbc.school_id = $2 OR lbc.school_id IS NULL)
+        AND lbc.status = 'AVAILABLE'
+        AND lbc.deleted_at IS NULL
+        AND b.deleted_at IS NULL
+      ORDER BY lbc.accession_number ASC
+      LIMIT 1
+    `;
+    const fallbackRes = await this.db.query(fallbackQuery, [cleanId, schoolId]);
+    if (fallbackRes.rows.length > 0) {
+      return fallbackRes.rows[0];
+    }
+
+    return null;
   }
 
   async createBookCopy(data, schoolId = null) {
@@ -882,13 +918,26 @@ class LibraryRepository {
       FROM library_members lm
       INNER JOIN users u ON u.id = lm.user_id
       LEFT JOIN roles r ON r.id = u.role_id
-      WHERE (lm.id::text = $1 OR lm.user_id::text = $1 OR lm.member_number = $1 OR LOWER(u.email) = LOWER($1))
+      WHERE (lm.id::text = $1 OR lm.user_id::text = $1 OR LOWER(lm.member_number) = LOWER($1) OR LOWER(u.email) = LOWER($1) OR u.phone = $1)
         AND (lm.school_id = $2 OR lm.school_id IS NULL)
         AND lm.deleted_at IS NULL
       LIMIT 1
     `;
     const res = await this.db.query(query, [identifier, schoolId]);
-    return res.rows[0] || null;
+    if (res.rows.length > 0) {
+      return res.rows[0];
+    }
+
+    // Fallback: If not yet in library_members, search users table by email, ID or phone and auto-sync
+    const userRes = await this.db.query(
+      `SELECT u.id, u.school_id FROM users u WHERE (LOWER(u.email) = LOWER($1) OR u.id::text = $1 OR u.phone = $1) AND u.deleted_at IS NULL LIMIT 1`,
+      [identifier]
+    );
+    if (userRes.rows.length > 0) {
+      return await this.createOrSyncMember(userRes.rows[0].id, schoolId || userRes.rows[0].school_id);
+    }
+
+    return null;
   }
 
   async createOrSyncMember(userId, schoolId = null, overrideType = null) {

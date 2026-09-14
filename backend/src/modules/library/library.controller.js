@@ -497,7 +497,17 @@ async function issueLoan(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join(', '), data: errors });
     }
     const loan = await service.issueLoan({
-      ...req.body,
+      copyId: req.body.copy_id || req.body.copyId,
+      accessionNumber: req.body.accession_number || req.body.accessionNumber || req.body.identifier,
+      barcode: req.body.barcode || req.body.identifier,
+      memberId: req.body.member_id || req.body.memberId,
+      userId: req.body.user_id || req.body.userId,
+      memberNumber: req.body.member_number || req.body.memberNumber || req.body.memberIdentifier,
+      loanDurationDays: req.body.loan_duration_days || req.body.loanDurationDays,
+      conditionOnIssue: req.body.condition_on_issue || req.body.conditionOnIssue || 'GOOD',
+      borrowerAcknowledgmentType: req.body.borrower_acknowledgment_type || req.body.borrowerAcknowledgmentType || 'SIGNATURE',
+      borrowerSignature: req.body.borrower_signature || req.body.borrowerSignature,
+      issueNotes: req.body.issue_notes || req.body.issueNotes,
       issuedByUserId: userId,
       schoolId,
     });
