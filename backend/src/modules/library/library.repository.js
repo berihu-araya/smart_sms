@@ -40,9 +40,9 @@ class LibraryRepository {
           allow_reservations, allow_renewals, allow_student_borrowing,
           allow_teacher_borrowing, allow_staff_borrowing, require_signature,
           require_librarian_approval, reservation_hold_period, max_outstanding_fine,
-          updated_at
+          shelf_locations, ddc_classifications, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
           current_timestamp
         ) RETURNING *
       `;
@@ -69,6 +69,8 @@ class LibraryRepository {
         data.require_librarian_approval ?? false,
         data.reservation_hold_period ?? 3,
         data.max_outstanding_fine ?? 50.00,
+        JSON.stringify(data.shelf_locations || []),
+        JSON.stringify(data.ddc_classifications || []),
       ];
       const res = await this.db.query(insertQuery, values);
       return res.rows[0];
@@ -97,8 +99,10 @@ class LibraryRepository {
         require_librarian_approval = COALESCE($19, require_librarian_approval),
         reservation_hold_period = COALESCE($20, reservation_hold_period),
         max_outstanding_fine = COALESCE($21, max_outstanding_fine),
+        shelf_locations = COALESCE($22::jsonb, shelf_locations),
+        ddc_classifications = COALESCE($23::jsonb, ddc_classifications),
         updated_at = current_timestamp
-      WHERE id = $22
+      WHERE id = $24
       RETURNING *
     `;
     const values = [
@@ -123,6 +127,8 @@ class LibraryRepository {
       data.require_librarian_approval,
       data.reservation_hold_period,
       data.max_outstanding_fine,
+      data.shelf_locations === undefined ? null : JSON.stringify(data.shelf_locations),
+      data.ddc_classifications === undefined ? null : JSON.stringify(data.ddc_classifications),
       current.id,
     ];
     const res = await this.db.query(updateQuery, values);

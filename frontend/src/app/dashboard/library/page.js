@@ -161,6 +161,8 @@ export default function LibraryDashboardPage() { // this means Create a React co
 
   // Master Data sub-tab
   const [masterSubTab, setMasterSubTab] = useState('categories');
+  const shelfLocations = settings?.shelf_locations || [];
+  const ddcClassifications = settings?.ddc_classifications || [];
 
   // Signature Pad Ref & Drawing State
   const signatureCanvasRef = useRef(null);
@@ -689,6 +691,47 @@ export default function LibraryDashboardPage() { // this means Create a React co
     }
   };
 
+  const handleSaveMasterConfiguration = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const code = String(formData.get('code') || '').trim();
+    const name = String(formData.get('name') || '').trim();
+    if (!code || !name) return showToast('Code and name are required', 'error');
+
+    const field = masterDataType === 'shelf' ? 'shelf_locations' : 'ddc_classifications';
+    const currentItems = field === 'shelf' ? shelfLocations : ddcClassifications;
+    if (currentItems.some((item) => item.code.toLowerCase() === code.toLowerCase())) {
+      return showToast('That code already exists', 'error');
+    }
+
+    try {
+      const updatedSettings = await updateLibrarySettings({
+        [field]: [...currentItems, { code, name }],
+      });
+      setSettings(updatedSettings);
+      setPolicyFormData(updatedSettings);
+      setIsMasterDataModalOpen(false);
+      showToast(`${masterDataType === 'shelf' ? 'Shelf' : 'DDC classification'} added successfully`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteMasterConfiguration = async (type, code) => {
+    const field = type === 'shelf' ? 'shelf_locations' : 'ddc_classifications';
+    const currentItems = field === 'shelf' ? shelfLocations : ddcClassifications;
+    try {
+      const updatedSettings = await updateLibrarySettings({
+        [field]: currentItems.filter((item) => item.code !== code),
+      });
+      setSettings(updatedSettings);
+      setPolicyFormData(updatedSettings);
+      showToast(`${type === 'shelf' ? 'Shelf' : 'DDC classification'} removed`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   // Sync Members
   const handleSyncMembers = async () => {
     try {
@@ -772,7 +815,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
             <FaBookReader /> {settings?.library_name || 'Library & Media Resource Management'}
           </h1>
           <p>
-            {settings?.branch || 'Main Campus'} • {settings?.opening_hours || 'Mon-Fri 08:00 - 17:00'} • Configurable Circulation & Media Center
+            {settings?.branch || 'Main Campus'} • {settings?.opening_hours || 'Mon-Sun 06:00 - 18:00'} • Configurable Circulation & Media Center
           </p>
         </div>
 
@@ -1648,6 +1691,18 @@ export default function LibraryDashboardPage() { // this means Create a React co
             >
               <FaBuilding /> Publishers ({publishers.length})
             </button>
+            <button
+              className={`${styles.tabBtn} ${masterSubTab === 'shelves' ? styles.activeTabBtn : ''}`}
+              onClick={() => setMasterSubTab('shelves')}
+            >
+              <FaBook /> Shelves ({shelfLocations.length})
+            </button>
+            <button
+              className={`${styles.tabBtn} ${masterSubTab === 'ddc' ? styles.activeTabBtn : ''}`}
+              onClick={() => setMasterSubTab('ddc')}
+            >
+              <FaLayerGroup /> DDC ({ddcClassifications.length})
+            </button>
           </div>
 
           <div className={styles.tableContainer}>
@@ -1656,12 +1711,12 @@ export default function LibraryDashboardPage() { // this means Create a React co
               <button
                 className={styles.primaryBtn}
                 onClick={() => {
-                  const typeMap = { categories: 'category', subjects: 'subject', authors: 'author', publishers: 'publisher' };
+                  const typeMap = { categories: 'category', subjects: 'subject', authors: 'author', publishers: 'publisher', shelves: 'shelf', ddc: 'ddc' };
                   setMasterDataType(typeMap[masterSubTab]);
                   setIsMasterDataModalOpen(true);
                 }}
               >
-                <FaPlus /> Add New {masterSubTab.slice(0, -1)}
+                <FaPlus /> Add New {masterSubTab === 'shelves' ? 'Shelf' : masterSubTab === 'ddc' ? 'DDC Class' : masterSubTab.slice(0, -1)}
               </button>
             </div>
 
@@ -1762,6 +1817,20 @@ export default function LibraryDashboardPage() { // this means Create a React co
                               }
                             }}
                           >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {(masterSubTab === 'shelves' || masterSubTab === 'ddc') &&
+                    (masterSubTab === 'shelves' ? shelfLocations : ddcClassifications).map((item) => (
+                      <tr key={item.code}>
+                        <td style={{ fontWeight: 700 }}>{item.name}</td>
+                        <td>{item.code}</td>
+                        <td>-</td>
+                        <td>
+                          <button className={styles.dangerBtn} onClick={() => handleDeleteMasterConfiguration(masterSubTab === 'shelves' ? 'shelf' : 'ddc', item.code)}>
                             <FaTrash />
                           </button>
                         </td>
@@ -2159,9 +2228,13 @@ export default function LibraryDashboardPage() { // this means Create a React co
       {/* MODAL 1: ADD / EDIT BOOK */}
       {isBookModalOpen && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <div className={styles.modalHeader}>
-              <h2>{editingBook ? <FaEdit /> : <FaPlus />} {editingBook ? 'Edit Book Catalog Item' : 'Register New Book'}</h2>
+          <div className={`${styles.modalContent} ${styles.bookModal}`}>
+            <div className={`${styles.modalHeader} ${styles.bookModalHeader}`}>
+              <div className={styles.modalTitleGroup}>
+                <span className={styles.modalEyebrow}>{editingBook ? 'CATALOG EDITOR' : 'LIBRARY CATALOG'}</span>
+                <h2>{editingBook ? <FaEdit /> : <FaPlus />} {editingBook ? 'Edit Book Catalog Item' : 'Register New Book'}</h2>
+                <p>{editingBook ? 'Keep the catalog record accurate and easy to find.' : 'Add a title, classify it, and prepare its first copies.'}</p>
+              </div>
               <button className={styles.closeModalBtn} onClick={() => setIsBookModalOpen(false)}>
                 <FaTimes />
               </button>
@@ -2169,49 +2242,47 @@ export default function LibraryDashboardPage() { // this means Create a React co
 
             <form onSubmit={handleSaveBook}>
               <div className={styles.modalBody}>
-                <div className={styles.formGroup}>
-                  <label>Book Title *</label>
-                  <input
-                    type="text"
-                    required
-                    className={styles.formInput}
-                    value={bookFormData.title}
-                    onChange={(e) => setBookFormData({ ...bookFormData, title: e.target.value })}
-                  />
-                </div>
-
-                <div className={styles.formRow}>
+                <section className={styles.modalSection}>
+                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>01</span><div><h3>Book identity</h3><p>Start with the details patrons will search for.</p></div></div>
                   <div className={styles.formGroup}>
-                    <label>ISBN</label>
+                    <label>Book Title *</label>
                     <input
                       type="text"
+                      required
                       className={styles.formInput}
-                      value={bookFormData.isbn}
-                      onChange={(e) => setBookFormData({ ...bookFormData, isbn: e.target.value })}
+                      value={bookFormData.title}
+                      onChange={(e) => setBookFormData({ ...bookFormData, title: e.target.value })}
                     />
                   </div>
+
+                  <div className={styles.formRow}>
+                    <div className={styles.formGroup}>
+                      <label>ISBN</label>
+                      <input type="text" className={styles.formInput} value={bookFormData.isbn} onChange={(e) => setBookFormData({ ...bookFormData, isbn: e.target.value })} />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Edition</label>
+                      <input type="text" className={styles.formInput} value={bookFormData.edition} onChange={(e) => setBookFormData({ ...bookFormData, edition: e.target.value })} />
+                    </div>
+                  </div>
+                </section>
+
+                <section className={styles.modalSection}>
+                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>02</span><div><h3>Cover and appearance</h3><p>Use ISBN lookup or add a cover from your device.</p></div></div>
                   <div className={styles.formGroup}>
-                    <label>Edition</label>
-                    <input
-                      type="text"
-                      className={styles.formInput}
-                      value={bookFormData.edition}
-                      onChange={(e) => setBookFormData({ ...bookFormData, edition: e.target.value })}
-                    />
+                    <label>Cover image</label>
+                    <div className={styles.coverTools}>
+                      <button type="button" className={styles.outlineBtn} onClick={fetchBookByIsbn}><FaSearch /> Auto-fetch by ISBN</button>
+                      <label className={styles.outlineBtn} htmlFor="library-cover-upload"><FaUpload /> Upload image</label>
+                      <input id="library-cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} hidden />
+                    </div>
+                    {bookFormData.cover_image && <img src={bookFormData.cover_image} alt="Book cover preview" className={styles.coverPreview} />}
                   </div>
-                </div>
+                </section>
 
-                <div className={styles.formGroup}>
-                  <label>Cover image</label>
-                  <div className={styles.coverTools}>
-                    <button type="button" className={styles.outlineBtn} onClick={fetchBookByIsbn}><FaSearch /> Auto-fetch by ISBN</button>
-                    <label className={styles.outlineBtn} htmlFor="library-cover-upload"><FaUpload /> Upload image</label>
-                    <input id="library-cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} hidden />
-                  </div>
-                  {bookFormData.cover_image && <img src={bookFormData.cover_image} alt="Book cover preview" className={styles.coverPreview} />}
-                </div>
-
-                <div className={styles.formRow3}>
+                <section className={styles.modalSection}>
+                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>03</span><div><h3>Classification</h3><p>Organize the book for fast catalog discovery.</p></div></div>
+                  <div className={styles.formRow3}>
                   <div className={styles.formGroup}>
                     <label>Category</label>
                     <select
@@ -2259,28 +2330,34 @@ export default function LibraryDashboardPage() { // this means Create a React co
                       ))}
                     </select>
                   </div>
-                </div>
+                  </div>
 
-                <div className={styles.formRow3}>
+                  <div className={styles.formRow3}>
                   <div className={styles.formGroup}>
                     <label>Shelf Location</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Aisle 3, Shelf B"
+                    <select
                       className={styles.formInput}
                       value={bookFormData.shelf_location}
                       onChange={(e) => setBookFormData({ ...bookFormData, shelf_location: e.target.value })}
-                    />
+                    >
+                      <option value="">Select shelf location</option>
+                      {shelfLocations.map((shelf) => (
+                        <option key={shelf.code} value={shelf.code}>{shelf.code} - {shelf.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className={styles.formGroup}>
                     <label>Dewey (DDC)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 530.1"
+                    <select
                       className={styles.formInput}
                       value={bookFormData.ddc_number}
                       onChange={(e) => setBookFormData({ ...bookFormData, ddc_number: e.target.value })}
-                    />
+                    >
+                      <option value="">Select DDC classification</option>
+                      {ddcClassifications.map((classification) => (
+                        <option key={classification.code} value={classification.code}>{classification.code} - {classification.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className={styles.formGroup}>
                     <label>Publication Year</label>
@@ -2291,30 +2368,27 @@ export default function LibraryDashboardPage() { // this means Create a React co
                       onChange={(e) => setBookFormData({ ...bookFormData, publication_year: e.target.value })}
                     />
                   </div>
-                </div>
+                  </div>
+                </section>
 
-                <div className={styles.formGroup}>
-                  <label>Authors (Hold Ctrl/Cmd to select multiple)</label>
-                  <select
-                    multiple
-                    className={styles.formSelect}
-                    style={{ height: '90px' }}
-                    value={bookFormData.author_ids}
-                    onChange={(e) => {
+                <section className={styles.modalSection}>
+                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>04</span><div><h3>Contributors</h3><p>Link one or more authors to this catalog record.</p></div></div>
+                  <div className={styles.formGroup}>
+                    <label>Authors</label>
+                    <select multiple className={styles.formSelect} style={{ height: '90px' }} value={bookFormData.author_ids} onChange={(e) => {
                       const selected = Array.from(e.target.selectedOptions, (option) => option.value);
                       setBookFormData({ ...bookFormData, author_ids: selected });
-                    }}
-                  >
-                    {authors.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    }}>
+                      {authors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                    <span className={styles.fieldHint}>Select multiple authors when needed.</span>
+                  </div>
+                </section>
 
                 {!editingBook && (
-                  <div className={styles.formRow}>
+                  <section className={styles.modalSection}>
+                    <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>05</span><div><h3>Initial inventory</h3><p>Generate the first physical copies now.</p></div></div>
+                    <div className={styles.formRow}>
                     <div className={styles.formGroup}>
                       <label>Initial Physical Copies Count</label>
                       <input
@@ -2335,7 +2409,8 @@ export default function LibraryDashboardPage() { // this means Create a React co
                         onChange={(e) => setBookFormData({ ...bookFormData, accession_prefix: e.target.value })}
                       />
                     </div>
-                  </div>
+                    </div>
+                  </section>
                 )}
               </div>
 
@@ -3257,7 +3332,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
             </div>
 
             <form
-              onSubmit={async (e) => {
+              onSubmit={masterDataType === 'shelf' || masterDataType === 'ddc' ? handleSaveMasterConfiguration : async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const name = formData.get('name');
@@ -3278,12 +3353,12 @@ export default function LibraryDashboardPage() { // this means Create a React co
             >
               <div className={styles.modalBody}>
                 <div className={styles.formGroup}>
-                  <label>{masterDataType} Name *</label>
+                  <label>{masterDataType === 'shelf' ? 'Shelf name' : masterDataType === 'ddc' ? 'DDC classification name' : `${masterDataType} Name`} *</label>
                   <input type="text" name="name" required className={styles.formInput} />
                 </div>
                 <div className={styles.formGroup}>
-                  <label>{masterDataType === 'publisher' ? 'Contact Email' : 'Code'}</label>
-                  <input type="text" name="code" className={styles.formInput} />
+                  <label>{masterDataType === 'publisher' ? 'Contact Email' : 'Code'} *</label>
+                  <input type="text" name="code" required={masterDataType === 'shelf' || masterDataType === 'ddc'} className={styles.formInput} />
                 </div>
                 <div className={styles.formGroup}>
                   <label>Description / Details</label>

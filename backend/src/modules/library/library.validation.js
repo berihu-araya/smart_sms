@@ -4,6 +4,11 @@
 
 function validateLibrarySettings(data) {
   const errors = [];
+  for (const field of ['shelf_locations', 'ddc_classifications']) {
+    if (data[field] !== undefined && (!Array.isArray(data[field]) || data[field].some((item) => !item || !String(item.code || '').trim() || !String(item.name || '').trim()))) {
+      errors.push(`${field} must contain entries with code and name`);
+    }
+  }
   if (data.max_active_loans_student !== undefined && (isNaN(data.max_active_loans_student) || Number(data.max_active_loans_student) < 1)) {
     errors.push('max_active_loans_student must be a positive integer');
   }

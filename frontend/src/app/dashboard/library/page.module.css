@@ -564,9 +564,11 @@
   max-width: 650px;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .modalHeader {
@@ -585,6 +587,119 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.bookModal {
+  max-width: 760px;
+  border: 1px solid rgba(82, 112, 105, 0.2);
+  box-shadow: 0 28px 70px rgba(19, 43, 48, 0.28);
+}
+
+.bookModalHeader {
+  padding: 1.5rem 1.75rem;
+  background: linear-gradient(135deg, #18383b 0%, #27615e 100%);
+  border-bottom: 0;
+  color: #fffaf1;
+}
+
+.bookModalHeader h2 {
+  color: #fffaf1;
+  font-size: 1.45rem;
+}
+
+.bookModalHeader .closeModalBtn {
+  color: #c8d9d3;
+}
+
+.bookModalHeader .closeModalBtn:hover {
+  color: #18383b;
+  background: #fffaf1;
+}
+
+.modalTitleGroup {
+  min-width: 0;
+}
+
+.modalTitleGroup p {
+  margin: 0.45rem 0 0;
+  color: #c8d9d3;
+  font-size: 0.82rem;
+}
+
+.modalEyebrow {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #edc36a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.bookModal .modalBody {
+  padding: 1.5rem 1.75rem;
+  gap: 1rem;
+  background: #fbfcf9;
+}
+
+.modalSection {
+  padding: 1.1rem 1.15rem 1.2rem;
+  border: 1px solid #e2e9e3;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(30, 48, 46, 0.035);
+}
+
+.modalSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.modalSectionNumber {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: #e0eee9;
+  color: #27615e;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.modalSectionHeader h3 {
+  margin: 0;
+  color: #18383b;
+  font-size: 0.98rem;
+}
+
+.modalSectionHeader p {
+  margin: 0.2rem 0 0;
+  color: #82918b;
+  font-size: 0.76rem;
+}
+
+.fieldHint {
+  color: #82918b;
+  font-size: 0.72rem;
+}
+
+.bookModal .modalFooter {
+  padding: 1rem 1.75rem;
+  background: #ffffff;
+}
+
+.bookModal .modalFooter .primaryBtn {
+  min-width: 150px;
+  justify-content: center;
+  background: #27615e;
+  box-shadow: 0 8px 16px rgba(39, 97, 94, 0.2);
+}
+
+.bookModal .modalFooter .primaryBtn:hover {
+  background: #18383b;
 }
 
 .closeModalBtn {
@@ -607,6 +722,14 @@
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
+  min-width: 0;
+}
+
+.modalContent form,
+.modalContent .formGroup,
+.modalContent .formRow,
+.modalContent .formRow3 {
+  min-width: 0;
 }
 
 .modalFooter {
@@ -632,6 +755,9 @@
 }
 
 .formInput, .formTextarea, .formSelect {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.65rem 0.85rem;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -997,6 +1123,15 @@
   }
   .header {
     padding: 1.25rem;
+  }
+  .modalOverlay {
+    padding: 0.5rem;
+  }
+  .modalHeader,
+  .modalBody,
+  .modalFooter {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   .formRow, .formRow3 {
     grid-template-columns: 1fr;
