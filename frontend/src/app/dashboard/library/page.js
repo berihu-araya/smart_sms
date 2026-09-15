@@ -108,7 +108,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
   const isPatronOnly = (isStudent || isTeacher) && !isLibrarianOrAdmin && !isStaff;
 
   // Active Navigation Tab
-  const [activeTab, setActiveTab] = useState(isPatronOnly ? 'my_library' : 'overview');
+  const [activeTab, setActiveTab] = useState(isPatronOnly ? 'my_library' : 'analytics');
 
   // Core Data States
   const [stats, setStats] = useState(null);
@@ -440,7 +440,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
     }
   };
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
       setAnalytics(await fetchLibraryAnalytics());
@@ -449,7 +449,11 @@ export default function LibraryDashboardPage() { // this means Create a React co
     } finally {
       setAnalyticsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isPatronOnly) queueMicrotask(loadAnalytics);
+  }, [isPatronOnly, loadAnalytics]);
 
   const handleImportFile = async (event) => {
     const file = event.target.files?.[0];
@@ -516,7 +520,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
     const isbn = bookFormData.isbn.trim();
     if (!isbn) return showToast('Enter an ISBN first', 'error');
     try {
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`);
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`);// 
       const payload = await response.json();
       const info = payload.items?.[0]?.volumeInfo;
       if (!info) throw new Error('No book information found for this ISBN');
@@ -853,12 +857,6 @@ export default function LibraryDashboardPage() { // this means Create a React co
         ) : (
           <>
             <button
-              className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTabBtn : ''}`}
-              onClick={() => { setActiveTab('overview'); loadAnalytics(); }}
-            >
-              <FaChartBar /> Overview
-            </button>
-            <button
               className={`${styles.tabBtn} ${activeTab === 'analytics' ? styles.activeTabBtn : ''}`}
               onClick={() => { setActiveTab('analytics'); loadAnalytics(); }}
             >
@@ -927,160 +925,6 @@ export default function LibraryDashboardPage() { // this means Create a React co
         )}
       </div>
 
-      {/* TAB 1: OVERVIEW (Librarian/Admin) */}
-      {!isPatronOnly && activeTab === 'overview' && stats && (
-        <>
-          <div className={styles.statsGrid}>
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrapper} style={{ background: '#e0e7ff', color: '#4338ca' }}>
-                <FaBook />
-              </div>
-              <div>
-                <div className={styles.statLabel}>Total Book Titles</div>
-                <div className={styles.statValue}>{stats.total_titles || 0}</div>
-                <div className={styles.statSubtext}>{stats.total_copies || 0} physical copies across shelves</div>
-              </div>
-            </div>
-
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrapper} style={{ background: '#dcfce7', color: '#15803d' }}>
-                <FaCheckCircle />
-              </div>
-              <div>
-                <div className={styles.statLabel}>Available Copies</div>
-                <div className={styles.statValue}>{stats.available_copies || 0}</div>
-                <div className={styles.statSubtext}>Ready for immediate loan</div>
-              </div>
-            </div>
-
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrapper} style={{ background: '#fef3c7', color: '#d97706' }}>
-                <FaHandHolding />
-              </div>
-              <div>
-                <div className={styles.statLabel}>Active Loans</div>
-                <div className={styles.statValue}>{stats.active_loans || 0}</div>
-                <div className={styles.statSubtext}>{stats.borrowed_copies || 0} copies in circulation</div>
-              </div>
-            </div>
-
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrapper} style={{ background: '#fee2e2', color: '#b91c1c' }}>
-                <FaExclamationTriangle />
-              </div>
-              <div>
-                <div className={styles.statLabel}>Overdue Loans</div>
-                <div className={styles.statValue} style={{ color: '#dc2626' }}>
-                  {stats.overdue_loans || 0}
-                </div>
-                <div className={styles.statSubtext}>Action required / fine accruing</div>
-              </div>
-            </div>
-
-            <div className={styles.statCard}>
-              <div className={styles.statIconWrapper} style={{ background: '#f3e8ff', color: '#7e22ce' }}>
-                <FaMoneyBillWave />
-              </div>
-              <div>
-                <div className={styles.statLabel}>Fines Collected</div>
-                <div className={styles.statValue}>${Number(stats.total_fines_collected || 0).toFixed(2)}</div>
-                <div className={styles.statSubtext}>Outstanding: ${Number(stats.outstanding_fines || 0).toFixed(2)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Top Borrowed Books & Recent Circulation Feed */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-            <div className={styles.tableContainer} style={{ padding: '1.25rem' }}>
-              <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FaChartBar color="#4f46e5" /> Most Popular Titles
-              </h3>
-              {stats.top_borrowed_books?.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {stats.top_borrowed_books.map((b, idx) => (
-                    <div
-                      key={b.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '0.75rem',
-                        background: '#f8fafc',
-                        borderRadius: '8px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontWeight: 800, color: '#4f46e5', width: '20px' }}>#{idx + 1}</span>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{b.title}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                            {b.category_name} • {b.subject_name || 'General'}
-                          </div>
-                        </div>
-                      </div>
-                      <span className={`${styles.badge} ${styles.badgePurple}`}>{b.borrow_count} checkouts</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No circulation history recorded yet.</p>
-              )}
-            </div>
-
-            <div className={styles.tableContainer} style={{ padding: '1.25rem' }}>
-              <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FaClock color="#059669" /> Quick Actions & Barcode Lookup
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
-                Scan or type any book barcode, accession number, or member card ID to quickly check status or process issues/returns.
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                <input
-                  type="text"
-                  placeholder="Scan accession/barcode (e.g. LIB-2026-00001)..."
-                  className={styles.formInput}
-                  style={{ flex: 1 }}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      try {
-                        const copy = await findCopyByBarcode(e.target.value.trim());
-                        if (copy) {
-                          alert(`Found Copy: ${copy.book_title} (${copy.accession_number})\nStatus: ${copy.status}\nShelf: ${copy.shelf_location || 'N/A'}`);
-                        }
-                      } catch (err) {
-                        showToast('Barcode not found: ' + err.message, 'error');
-                      }
-                    }
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button
-                  className={styles.outlineBtn}
-                  onClick={() => {
-                    setActiveTab('circulation');
-                  }}
-                >
-                  <FaHistory /> View Active Loans
-                </button>
-                <button
-                  className={styles.outlineBtn}
-                  onClick={() => {
-                    setActiveTab('members');
-                  }}
-                >
-                  <FaUsers /> Member Directory
-                </button>
-                <button className={styles.outlineBtn} onClick={handleSyncMembers}>
-                  <FaSync /> Sync All Users
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
       {!isPatronOnly && activeTab === 'analytics' && (
         <div className={styles.analyticsPanel}>
           <div className={styles.analyticsHero}>
@@ -1094,16 +938,52 @@ export default function LibraryDashboardPage() { // this means Create a React co
               <button className={styles.analyticsRefreshBtn} onClick={loadAnalytics}><FaSync /> Refresh report</button>
             </div>
           </div>
+          <div className={styles.reportMetricsGrid}>
+            {stats && (
+              <>
+                <div className={`${styles.analyticsKpi} ${styles.kpiBlue}`}><span>Total book titles</span><strong>{stats.total_titles || 0}</strong><small>{stats.total_copies || 0} physical copies across shelves</small><FaBook /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiMint}`}><span>Available copies</span><strong>{stats.available_copies || 0}</strong><small>ready for immediate loan</small><FaCheckCircle /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiGold}`}><span>Active loans</span><strong>{stats.active_loans || 0}</strong><small>{stats.borrowed_copies || 0} copies in circulation</small><FaHandHolding /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiCoral}`}><span>Overdue loans</span><strong>{stats.overdue_loans || 0}</strong><small>action required / fine accruing</small><FaExclamationTriangle /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiLavender}`}><span>Fines collected</span><strong>${Number(stats.total_fines_collected || 0).toFixed(2)}</strong><small>outstanding: ${Number(stats.outstanding_fines || 0).toFixed(2)}</small><FaMoneyBillWave /></div>
+              </>
+            )}
+            {analytics && (
+              <>
+                <div className={`${styles.analyticsKpi} ${styles.kpiInk}`}><span>Total circulation</span><strong>{analytics.overview.total_lifetime_loans || 0}</strong><small>lifetime loans</small><FaBookReader /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiMint}`}><span>On-time returns</span><strong>{analytics.overview.punctuality_rate || 0}%</strong><small>{analytics.overview.on_time_returns || 0} successful returns</small><FaCheckCircle /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiCoral}`}><span>Collection in use</span><strong>{analytics.overview.catalog_utilization || 0}%</strong><small>{analytics.overview.borrowed_copies || 0} copies out now</small><FaChartBar /></div>
+              </>
+            )}
+          </div>
+          {stats && (
+            <>
+              <div className={styles.tableContainer} style={{ padding: '1.25rem' }}>
+                <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FaClock color="#059669" /> Operations desk</h3>
+                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>Scan a copy, review active loans, manage members, or synchronize the library directory from the same report workspace.</p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                  <input type="text" placeholder="Scan accession/barcode (e.g. LIB-2026-00001)..." className={styles.formInput} style={{ flex: 1 }} onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      try {
+                        const copy = await findCopyByBarcode(e.target.value.trim());
+                        if (copy) alert(`Found Copy: ${copy.book_title} (${copy.accession_number})\nStatus: ${copy.status}\nShelf: ${copy.shelf_location || 'N/A'}`);
+                      } catch (err) {
+                        showToast('Barcode not found: ' + err.message, 'error');
+                      }
+                    }
+                  }} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button className={styles.outlineBtn} onClick={() => setActiveTab('circulation')}><FaHistory /> View Active Loans</button>
+                  <button className={styles.outlineBtn} onClick={() => setActiveTab('members')}><FaUsers /> Member Directory</button>
+                  <button className={styles.outlineBtn} onClick={handleSyncMembers}><FaSync /> Sync All Users</button>
+                </div>
+              </div>
+            </>
+          )}
           {analyticsLoading && <div className={styles.emptyStateText}>Loading analytics...</div>}
           {analytics && (
             <>
-              <div className={styles.analyticsKpis}>
-                <div className={`${styles.analyticsKpi} ${styles.kpiInk}`}><span>Total circulation</span><strong>{analytics.overview.total_lifetime_loans || 0}</strong><small>lifetime loans</small><FaBookReader /></div>
-                <div className={`${styles.analyticsKpi} ${styles.kpiMint}`}><span>On-time returns</span><strong>{analytics.overview.punctuality_rate || 0}%</strong><small>{analytics.overview.on_time_returns || 0} successful returns</small><FaCheckCircle /></div>
-                <div className={`${styles.analyticsKpi} ${styles.kpiGold}`}><span>Fine recovery</span><strong>{analytics.overview.fine_collection_rate || 0}%</strong><small>${Number(analytics.overview.total_fines_collected || 0).toFixed(2)} collected</small><FaMoneyBillWave /></div>
-                <div className={`${styles.analyticsKpi} ${styles.kpiCoral}`}><span>Collection in use</span><strong>{analytics.overview.catalog_utilization || 0}%</strong><small>{analytics.overview.borrowed_copies || 0} copies out now</small><FaChartBar /></div>
-              </div>
-
               <div className={styles.analyticsMainGrid}>
                 <section className={styles.analyticsCardLarge}>
                   <div className={styles.analyticsCardHeader}><div><span className={styles.cardKicker}>POPULARITY</span><h3>Most borrowed titles</h3></div><button className={styles.iconExportBtn} onClick={() => downloadCsv('library-top-books', analytics.top_books)} title="Export most borrowed titles"><FaDownload /></button></div>
