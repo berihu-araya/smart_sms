@@ -42,10 +42,11 @@ class AuthorizationService {
    * Verify that a teacher is assigned to teach a specific subject
    * @param {string} userId - Teacher user UUID
    * @param {string} subjectId - Subject UUID
+   * @param {string} sectionId - Section UUID (optional)
    * @param {string} academicYearId - Academic year UUID (optional)
    * @returns {Promise<boolean>}
    */
-  async canTeacherTeachSubject(userId, subjectId, academicYearId = null) {
+  async canTeacherTeachSubject(userId, subjectId, sectionId = null, academicYearId = null) {
     if (!userId || !subjectId) return false;
     let query = `
       SELECT 1
@@ -58,10 +59,48 @@ class AuthorizationService {
         AND t.deleted_at IS NULL
     `;
     const params = [userId, subjectId];
+    if (sectionId) {
+      params.push(sectionId);
+      query += ` AND ts.section_id = $${params.length}`;
+    }
     if (academicYearId) {
       params.push(academicYearId);
       query += ` AND ts.academic_year_id = $${params.length}`;
     }
+    const res = await this.db.query(query, params);
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Verify that a teacher can view a specific subject
+   * (either as assigned subject teacher or as class teacher of the section)
+   * @param {string} userId - Teacher user UUID
+   * @param {string} subjectId - Subject UUID
+   * @param {string} sectionId - Section UUID (optional)
+   * @returns {Promise<boolean>}
+   */
+  async canTeacherViewSubject(userId, subjectId, sectionId = null) {
+    if (!userId || !subjectId) return false;
+    let query = `
+      SELECT 1 FROM (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        INNER JOIN teachers t ON t.id = ts.teacher_id
+        WHERE t.user_id = $1 AND ts.subject_id = $2 AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL AND t.deleted_at IS NULL
+        ${sectionId ? 'AND ts.section_id = $3' : ''}
+        UNION
+        SELECT gs.subject_id
+        FROM class_teachers ct
+        INNER JOIN teachers t ON t.id = ct.teacher_id
+        INNER JOIN sections sec ON sec.id = ct.section_id
+        INNER JOIN grade_subjects gs ON gs.grade_id = sec.grade_id
+        WHERE t.user_id = $1 AND gs.subject_id = $2 AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL AND t.deleted_at IS NULL
+        ${sectionId ? 'AND ct.section_id = $3' : ''}
+      ) visible_subjects
+      LIMIT 1
+    `;
+    const params = [userId, subjectId];
+    if (sectionId) params.push(sectionId);
     const res = await this.db.query(query, params);
     return res.rows.length > 0;
   }
@@ -96,7 +135,32 @@ class AuthorizationService {
   }
 
   /**
-   * Verify that a teacher can access a specific student (student is in their section)
+   * Verify that a teacher is the homeroom/class teacher of a section
+   * @param {string} userId - Teacher user UUID
+   * @param {string} sectionId - Section UUID
+   * @returns {Promise<boolean>}
+   */
+  async isClassTeacherOfSection(userId, sectionId) {
+    if (!userId || !sectionId) return false;
+    const res = await this.db.query(
+      `
+      SELECT 1
+      FROM class_teachers ct
+      INNER JOIN teachers t ON t.id = ct.teacher_id
+      WHERE t.user_id = $1
+        AND ct.section_id = $2
+        AND ct.status = 'ACTIVE'
+        AND ct.deleted_at IS NULL
+        AND t.deleted_at IS NULL
+      LIMIT 1
+      `,
+      [userId, sectionId]
+    );
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Verify that a teacher can access a specific student (student is in their section or taught by them)
    * @param {string} teacherUserId - Teacher user UUID
    * @param {string} studentIdOrUserId - Student UUID or student user UUID
    * @returns {Promise<boolean>}
@@ -113,12 +177,12 @@ class AuthorizationService {
           SELECT ct.section_id
           FROM class_teachers ct
           INNER JOIN teachers t ON t.id = ct.teacher_id
-          WHERE t.user_id = $2 AND ct.deleted_at IS NULL AND t.deleted_at IS NULL
+          WHERE t.user_id = $2 AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL AND t.deleted_at IS NULL
           UNION
           SELECT ts.section_id
           FROM teacher_subjects ts
           INNER JOIN teachers t ON t.id = ts.teacher_id
-          WHERE t.user_id = $2 AND ts.deleted_at IS NULL AND t.deleted_at IS NULL
+          WHERE t.user_id = $2 AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL AND t.deleted_at IS NULL
         )
       LIMIT 1
       `,
@@ -152,7 +216,7 @@ class AuthorizationService {
   }
 
   /**
-   * Verify that a teacher can grade a student in a specific subject
+   * Verify that a teacher can grade a student in a specific subject (Must be assigned Subject Teacher)
    * @param {string} teacherUserId - Teacher user UUID
    * @param {string} studentId - Student UUID
    * @param {string} subjectId - Subject UUID
@@ -177,6 +241,43 @@ class AuthorizationService {
       `,
       [teacherUserId, studentId, subjectId]
     );
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Verify that a teacher can view marks for a student/subject
+   * (Allowed if teacher is the assigned Subject Teacher OR the Class Teacher for the student's section)
+   * @param {string} teacherUserId - Teacher user UUID
+   * @param {string} studentId - Student UUID
+   * @param {string} subjectId - Subject UUID (optional)
+   * @returns {Promise<boolean>}
+   */
+  async canTeacherViewMarks(teacherUserId, studentId, subjectId = null) {
+    if (!teacherUserId || !studentId) return false;
+    let query = `
+      SELECT 1 FROM (
+        -- Subject Teacher check
+        SELECT 1
+        FROM teacher_subjects ts
+        INNER JOIN teachers t ON t.id = ts.teacher_id
+        INNER JOIN students s ON s.section_id = ts.section_id
+        WHERE t.user_id = $1 AND (s.id = $2 OR s.user_id = $2)
+          ${subjectId ? 'AND ts.subject_id = $3' : ''}
+          AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL
+        UNION
+        -- Class Teacher check (can view all marks in homeroom section)
+        SELECT 1
+        FROM class_teachers ct
+        INNER JOIN teachers t ON t.id = ct.teacher_id
+        INNER JOIN students s ON s.section_id = ct.section_id
+        WHERE t.user_id = $1 AND (s.id = $2 OR s.user_id = $2)
+          AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL
+      ) visible_marks
+      LIMIT 1
+    `;
+    const params = [teacherUserId, studentId];
+    if (subjectId) params.push(subjectId);
+    const res = await this.db.query(query, params);
     return res.rows.length > 0;
   }
 

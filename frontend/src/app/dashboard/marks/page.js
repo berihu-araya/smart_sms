@@ -244,9 +244,11 @@ function MarksEntryContent() {
   }, [selectedExam, selectedSubject, selectedSection, loadMarksSheet]);
 
   const maxMarks = sheetData?.exam?.maxMarks || 100;
+  const isReadOnly = Boolean(sheetData?.isReadOnly);
 
   // Handle Score Input
   const handleScoreChange = (studentId, value) => {
+    if (isReadOnly) return;
     if (value === '') {
       setMarksList((prev) =>
         prev.map((item) => (item.studentId === studentId ? { ...item, score: '' } : item))
@@ -266,6 +268,7 @@ function MarksEntryContent() {
 
   // Absent Toggle (auto-clears score and disables input)
   const handleAbsentToggle = (studentId, isAbsent) => {
+    if (isReadOnly) return;
     setMarksList((prev) =>
       prev.map((item) =>
         item.studentId === studentId
@@ -276,6 +279,7 @@ function MarksEntryContent() {
   };
 
   const handleRemarksChange = (studentId, remarks) => {
+    if (isReadOnly) return;
     setMarksList((prev) =>
       prev.map((item) =>
         item.studentId === studentId ? { ...item, remarks } : item
@@ -304,6 +308,7 @@ function MarksEntryContent() {
 
   // Bulk Quick Actions
   const handleFillAllMax = () => {
+    if (isReadOnly) return;
     if (!confirm(`Set score to maximum (${maxMarks}) for all non-absent students?`)) return;
     setMarksList((prev) =>
       prev.map((item) => (item.isAbsent ? item : { ...item, score: maxMarks }))
@@ -311,6 +316,7 @@ function MarksEntryContent() {
   };
 
   const handleClearAllScores = () => {
+    if (isReadOnly) return;
     if (!confirm('Clear all entered scores for this class?')) return;
     setMarksList((prev) =>
       prev.map((item) => ({ ...item, score: '', isAbsent: false, remarks: '' }))
@@ -319,6 +325,7 @@ function MarksEntryContent() {
 
   // Save Batch Marks
   const handleSaveMarks = async () => {
+    if (isReadOnly) return;
     if (!selectedExam || !selectedSubject || !selectedSection || marksList.length === 0) return;
 
     const hasInvalidScore = marksList.some(
@@ -388,6 +395,25 @@ function MarksEntryContent() {
 
       {message && <div className={`${styles.alert} ${styles.alertSuccess}`}><HiCheck /> {message}</div>}
       {error && <div className={`${styles.alert} ${styles.alertError}`}><HiXMark /> {error}</div>}
+
+      {/* Class Teacher Read-Only Notice */}
+      {isReadOnly && (
+        <div className={styles.readOnlyBanner}>
+          <div className={styles.readOnlyBannerText}>
+            <HiAcademicCap size={24} style={{ color: '#2563eb', flexShrink: 0 }} />
+            <div>
+              <span className={styles.readOnlyBannerStrong}>Class Teacher Review Mode:</span> You have full read-only access to view and verify student scores for this subject in your homeroom class. Entering and editing marks is reserved for the assigned subject teacher.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.btnViewResults}
+            onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+          >
+            Compute Section Ranks ➔
+          </button>
+        </div>
+      )}
 
       {/* ================= CASCADING ACADEMIC SELECTOR ================= */}
       <div className={styles.cascadeCard}>
@@ -529,9 +555,10 @@ function MarksEntryContent() {
         <div className={styles.sheetHeader}>
           <div className={styles.sheetHeaderTitle}>
             Student Roster Score Sheet ({marksList.length} Students)
+            {isReadOnly && <span className={styles.readOnlyBadge}>Read-Only Review</span>}
           </div>
 
-          {marksList.length > 0 && (
+          {marksList.length > 0 && !isReadOnly && (
             <div className={styles.quickTools}>
               <span className={styles.keyboardHint}>
                 💡 <strong>Tip:</strong> Press <strong>Enter</strong> or <strong>↓/↑</strong> to jump between rows quickly!
@@ -560,6 +587,18 @@ function MarksEntryContent() {
               >
                 <HiCheckCircle size={18} />
                 {saving ? 'Saving Records...' : 'Save & Calculate Marks'}
+              </button>
+            </div>
+          )}
+
+          {marksList.length > 0 && isReadOnly && (
+            <div className={styles.quickTools}>
+              <button
+                type="button"
+                className={styles.btnViewResults}
+                onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+              >
+                Go to Section Results & Rankings ➔
               </button>
             </div>
           )}
@@ -611,6 +650,7 @@ function MarksEntryContent() {
                           <input
                             type="checkbox"
                             checked={row.isAbsent}
+                            disabled={isReadOnly}
                             onChange={(e) => handleAbsentToggle(row.studentId, e.target.checked)}
                           />
                           <span style={{ color: row.isAbsent ? '#dc2626' : '#64748b' }}>
@@ -626,7 +666,8 @@ function MarksEntryContent() {
                             step="0.5"
                             min="0"
                             max={maxMarks}
-                            disabled={row.isAbsent}
+                            disabled={row.isAbsent || isReadOnly}
+                            readOnly={isReadOnly}
                             className={`${styles.scoreInput} ${isInvalid ? styles.invalid : ''}`}
                             value={row.isAbsent ? '' : row.score}
                             placeholder={row.isAbsent ? 'ABS' : '0.0'}
@@ -644,9 +685,11 @@ function MarksEntryContent() {
                       <td>
                         <input
                           type="text"
-                          placeholder="Optional feedback..."
+                          placeholder={isReadOnly ? 'No feedback recorded' : 'Optional feedback...'}
                           className={styles.remarksInput}
                           value={row.remarks}
+                          disabled={isReadOnly}
+                          readOnly={isReadOnly}
                           onChange={(e) => handleRemarksChange(row.studentId, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, idx)}
                         />
@@ -662,16 +705,26 @@ function MarksEntryContent() {
         {marksList.length > 0 && (
           <div className={styles.footerActions}>
             <div style={{ fontSize: '0.88rem', color: '#64748b' }}>
-              Recording marks for <strong>{marksList.length}</strong> students.
+              Viewing marks for <strong>{marksList.length}</strong> students. {isReadOnly && '(Class Teacher Read-Only Mode)'}
             </div>
-            <button
-              className={styles.btnSave}
-              onClick={handleSaveMarks}
-              disabled={saving || loading}
-            >
-              <HiCheckCircle size={18} />
-              {saving ? 'Saving...' : 'Save & Calculate All Marks'}
-            </button>
+            {!isReadOnly ? (
+              <button
+                className={styles.btnSave}
+                onClick={handleSaveMarks}
+                disabled={saving || loading}
+              >
+                <HiCheckCircle size={18} />
+                {saving ? 'Saving...' : 'Save & Calculate All Marks'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.btnViewResults}
+                onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+              >
+                Compute Section Ranks & Results ➔
+              </button>
+            )}
           </div>
         )}
       </div>

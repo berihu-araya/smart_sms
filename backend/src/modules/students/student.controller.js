@@ -11,8 +11,11 @@ const studentService = new StudentService(new StudentRepository(db));
 
 async function listStudents(req, res, next) {
   try {
-    const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+    const role = (req.user?.role || '').toLowerCase().trim();
+    const isTeacher = role === 'teacher';
+    const isParent = role === 'parent';
     const parentId = isParent ? (req.parentScope?.parent_id || '00000000-0000-0000-0000-000000000000') : null;
+    const sectionIds = isTeacher ? req.teacherScope?.all_accessible_section_ids : null;
 
     const data = await studentService.listStudents({
       search: req.query.search || '',
@@ -20,6 +23,7 @@ async function listStudents(req, res, next) {
       gender: req.query.gender || '',
       gradeId: req.query.gradeId || req.query.grade_id || '',
       sectionId: req.query.sectionId || req.query.section_id || '',
+      sectionIds,
       status: req.query.status || '',
       studentId: req.studentScope?.student_id || null,
       parentId,
@@ -44,7 +48,10 @@ async function getStudentById(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
-  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
   if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
     return res.status(403).json({
       success: false,
@@ -55,6 +62,14 @@ async function getStudentById(req, res, next) {
 
   try {
     const data = await studentService.getStudentById(id);
+
+    if (isTeacher && !req.teacherScope?.canAccessStudent(data.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access students in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -187,7 +202,10 @@ async function getStudentProfile(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
-  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
   if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
     return res.status(403).json({
       success: false,
@@ -198,6 +216,14 @@ async function getStudentProfile(req, res, next) {
 
   try {
     const data = await studentService.getStudentProfile(id);
+
+    if (isTeacher && !req.teacherScope?.canAccessStudent(data.academicInfo?.sectionId || data.student?.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access student profiles in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -216,7 +242,10 @@ async function getStudentGuardian(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
-  const isParent = (req.user?.role || '').toLowerCase().trim() === 'parent';
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
   if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
     return res.status(403).json({
       success: false,
@@ -226,6 +255,15 @@ async function getStudentGuardian(req, res, next) {
   }
 
   try {
+    const rawStudent = await studentService.getStudentById(id);
+    if (isTeacher && !req.teacherScope?.canAccessStudent(rawStudent.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access student guardians in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
+
     const data = await studentService.getStudentGuardian(id);
 
     return res.status(200).json({

@@ -109,6 +109,18 @@ async function createAssignment(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const canEdit = req.teacherScope.canEditMarks(input.subjectId, input.sectionId);
+      if (!canEdit) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the assigned subject teacher can create assignments for this subject and class',
+          data: null,
+        });
+      }
+    }
+
     const scope = await assignmentService.resolveUserScope(req.user);
     const data = await assignmentService.createAssignment(input, req.user, scope.teacherId);
 
@@ -138,6 +150,20 @@ async function updateAssignment(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const existing = await assignmentService.getAssignmentById(id);
+      const isOwner = existing.teacher_id === req.teacherScope.teacher_id;
+      const canEdit = req.teacherScope.canEditMarks(existing.subject_id, existing.section_id);
+      if (!isOwner && !canEdit) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to modify this assignment',
+          data: null,
+        });
+      }
+    }
+
     const data = await assignmentService.updateAssignment(id, payload);
     return res.status(200).json({
       success: true,
@@ -165,6 +191,20 @@ async function toggleStatus(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const existing = await assignmentService.getAssignmentById(id);
+      const isOwner = existing.teacher_id === req.teacherScope.teacher_id;
+      const canEdit = req.teacherScope.canEditMarks(existing.subject_id, existing.section_id);
+      if (!isOwner && !canEdit) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to modify this assignment status',
+          data: null,
+        });
+      }
+    }
+
     const data = await assignmentService.toggleStatus(id, status);
     return res.status(200).json({
       success: true,
@@ -183,6 +223,20 @@ async function deleteAssignment(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const existing = await assignmentService.getAssignmentById(id);
+      const isOwner = existing.teacher_id === req.teacherScope.teacher_id;
+      const canEdit = req.teacherScope.canEditMarks(existing.subject_id, existing.section_id);
+      if (!isOwner && !canEdit) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to delete this assignment',
+          data: null,
+        });
+      }
+    }
+
     const data = await assignmentService.deleteAssignment(id);
     return res.status(200).json({
       success: true,
@@ -201,6 +255,19 @@ async function listSubmissions(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const assignment = await assignmentService.getAssignmentById(id);
+      const canView = req.teacherScope.canViewMarks(assignment.subject_id, assignment.section_id);
+      if (!canView) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to view submissions for this assignment',
+          data: null,
+        });
+      }
+    }
+
     const { sectionId, status, search } = req.query;
     const data = await assignmentService.listSubmissions(id, {
       sectionId: sectionId && isValidUUID(sectionId) ? sectionId : null,
@@ -303,6 +370,22 @@ async function gradeSubmission(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const submission = await assignmentService.repository.findSubmissionById(submissionId);
+      if (!submission) {
+        return res.status(404).json({ success: false, message: 'Submission not found', data: null });
+      }
+      const canGrade = req.teacherScope.canEditMarks(submission.subject_id, submission.section_id);
+      if (!canGrade) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the assigned subject teacher can grade submissions for this subject and class',
+          data: null,
+        });
+      }
+    }
+
     const scope = await assignmentService.resolveUserScope(req.user);
     const data = await assignmentService.gradeSubmission(
       submissionId,

@@ -15,11 +15,13 @@ const {
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
 const { attachParentScope } = require('../../middlewares/parent.scope');
+const { attachTeacherScope } = require('../../middlewares/teacher.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(attachParentScope);
+router.use(attachTeacherScope);
 
 // General & KPI Analytics
 router.get('/', listAssignments);

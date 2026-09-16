@@ -995,7 +995,7 @@ export default function LibraryDashboardPage() { // this means Create a React co
               <>
                 <div className={`${styles.analyticsKpi} ${styles.kpiInk}`}><span>Total circulation</span><strong>{analytics.overview.total_lifetime_loans || 0}</strong><small>lifetime loans</small><FaBookReader /></div>
                 <div className={`${styles.analyticsKpi} ${styles.kpiMint}`}><span>On-time returns</span><strong>{analytics.overview.punctuality_rate || 0}%</strong><small>{analytics.overview.on_time_returns || 0} successful returns</small><FaCheckCircle /></div>
-                <div className={`${styles.analyticsKpi} ${styles.kpiCoral}`}><span>Collection in use</span><strong>{analytics.overview.catalog_utilization || 0}%</strong><small>{analytics.overview.borrowed_copies || 0} copies out now</small><FaChartBar /></div>
+                <div className={`${styles.analyticsKpi} ${styles.kpiCora}`}><span>Collection in use</span><strong>{analytics.overview.catalog_utilization || 0}%</strong><small>{analytics.overview.borrowed_copies || 0} copies out now</small><FaChartBar /></div>
               </>
             )}
           </div>

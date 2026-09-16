@@ -2435,8 +2435,8 @@ class LibraryRepository {
           if (!targetUserId && (item.employee_id || item.employeeId || item.staff_id)) {
             const empId = String(item.employee_id || item.employeeId || item.staff_id).trim();
             const tRes = await client.query(
-              'SELECT user_id FROM teachers WHERE LOWER(employee_id) = LOWER($1) AND (school_id = $2 OR school_id IS NULL) LIMIT 1',
-              [empId, schoolId]
+              'SELECT user_id FROM teachers WHERE LOWER(employee_number) = LOWER($1) LIMIT 1',
+              [empId]
             );
             if (tRes.rows.length > 0) targetUserId = tRes.rows[0].user_id;
           }

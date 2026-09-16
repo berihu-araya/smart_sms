@@ -11,10 +11,17 @@ const sectionService = new SectionService(new SectionRepository(db));
 
 async function listSections(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    let sectionIds = null;
+    if (role === 'teacher' && req.teacherScope) {
+      sectionIds = req.teacherScope.all_accessible_section_ids || [];
+    }
+
     const data = await sectionService.listSections({
       search: req.query.search || '',
       gradeId: req.query.gradeId || req.query.grade_id || '',
       sectionId: req.studentScope?.section_id || null,
+      sectionIds,
       status: req.query.status || 'active',
       sortBy: req.query.sortBy || 'name',
       sortOrder: req.query.sortOrder || 'ASC',
@@ -40,6 +47,18 @@ async function getSectionById(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const canAccess = req.teacherScope.canAccessSection(id);
+      if (!canAccess) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to this class section as a subject teacher or class teacher',
+          data: null,
+        });
+      }
+    }
+
     const data = await sectionService.getSectionById(id);
 
     return res.status(200).json({

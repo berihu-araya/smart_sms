@@ -3,7 +3,7 @@ class ExamRepository {
     this.database = database;
   }
 
-  async findAll({ search = '', academicYearId = null, gradeId = null, gradeIds = null, teacherId = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
+  async findAll({ search = '', academicYearId = null, gradeId = null, gradeIds = null, teacherId = null, teacherScope = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
     const params = [`%${search.trim()}%`];
     let whereClause = `WHERE e.deleted_at IS NULL AND (LOWER(e.title) LIKE LOWER($1) OR LOWER(e.term_or_semester) LIKE LOWER($1))`;
     let index = 2;
@@ -18,17 +18,53 @@ class ExamRepository {
       index++;
     }
 
-    if (gradeIds && Array.isArray(gradeIds) && gradeIds.length > 0) {
-      whereClause += ` AND e.grade_id = ANY($${index}::uuid[])`;
-      params.push(gradeIds);
-      index++;
+    if (teacherScope) {
+      const homeroomGradeIds = teacherScope.homeroom_grade_ids || [];
+      const teacherIdVal = teacherScope.teacher_id;
+
+      if (!teacherIdVal) {
+        whereClause += ' AND 1 = 0';
+      } else if (homeroomGradeIds.length > 0) {
+        whereClause += ` AND (
+          e.grade_id = ANY($${index}::uuid[])
+          OR EXISTS (
+            SELECT 1 FROM teacher_subjects ts
+            WHERE ts.teacher_id = $${index + 1}
+              AND ts.deleted_at IS NULL
+              AND ts.grade_id = e.grade_id
+              AND ts.subject_id = e.subject_id
+          )
+        )`;
+        params.push(homeroomGradeIds, teacherIdVal);
+        index += 2;
+      } else {
+        whereClause += ` AND EXISTS (
+          SELECT 1 FROM teacher_subjects ts
+          WHERE ts.teacher_id = $${index}
+            AND ts.deleted_at IS NULL
+            AND ts.grade_id = e.grade_id
+            AND ts.subject_id = e.subject_id
+        )`;
+        params.push(teacherIdVal);
+        index++;
+      }
+    }
+
+    if (Array.isArray(gradeIds)) {
+      if (gradeIds.length === 0) {
+        whereClause += ' AND 1 = 0';
+      } else {
+        whereClause += ` AND e.grade_id = ANY($${index}::uuid[])`;
+        params.push(gradeIds);
+        index++;
+      }
     } else if (gradeId) {
       whereClause += ` AND e.grade_id = $${index}`;
       params.push(gradeId);
       index++;
     }
 
-    if (teacherId) {
+    if (teacherId && !teacherScope) {
       whereClause += ` AND EXISTS (
         SELECT 1 FROM teacher_subjects ts
         WHERE ts.teacher_id = $${index}

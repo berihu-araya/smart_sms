@@ -27,7 +27,10 @@ import {
 
 export default function SectionListPage() {
   const { user } = useAuth();
-  const isStudent = (user?.role || "").toLowerCase() === "student";
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isTeacher = role.includes("teacher") && !role.includes("admin");
+  const canManage = !isStudent && !isTeacher;
 
   const [sections, setSections] = useState([]);
   const [grades, setGrades] = useState([]);
@@ -280,10 +283,12 @@ export default function SectionListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>{isStudent ? "My Grade & Section" : "Section Management"}</h1>
+          <h1>{isStudent ? "My Grade & Section" : isTeacher ? "My Assigned Sections" : "Section Management"}</h1>
           <p>
             {isStudent
               ? "Your current enrolled grade level, class section, and room assignment."
+              : isTeacher
+              ? "View details and student rosters for your assigned homeroom and subject class sections."
               : "Organize classes into sections, assign rooms, and manage student capacity."}
           </p>
         </div>
@@ -327,22 +332,24 @@ export default function SectionListPage() {
 
           {!isStudent && (
             <>
-              <div className={styles.statusTabs}>
-                {[
-                  { label: "Active", value: "active" },
-                  { label: "Inactive", value: "inactive" },
-                  { label: "All", value: "all" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                    onClick={() => handleStatusChange(opt.value)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              {canManage && (
+                <div className={styles.statusTabs}>
+                  {[
+                    { label: "Active", value: "active" },
+                    { label: "Inactive", value: "inactive" },
+                    { label: "All", value: "all" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
+                      onClick={() => handleStatusChange(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <select
                 value={gradeFilter}
@@ -371,7 +378,7 @@ export default function SectionListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          {!isStudent && (
+          {canManage && (
             <button
               type="button"
               className={styles.btnPrimary}
@@ -473,17 +480,21 @@ export default function SectionListPage() {
                       <HiInbox className={styles.emptyIcon} />
                       <h3 className={styles.emptyTitle}>No sections found</h3>
                       <p className={styles.emptyText}>
-                        No class sections match your active filters. Click &ldquo;+ Add Section&rdquo; to create one.
+                        {isTeacher
+                          ? "You are not currently assigned as a Class Teacher or Subject Teacher to any active sections."
+                          : "No class sections match your active filters. Click \"+ Add Section\" to create one."}
                       </p>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        onClick={handleOpenAdd}
-                        style={{ marginTop: "8px" }}
-                      >
-                        <HiPlus size={18} />
-                        <span>+ Add Section</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          onClick={handleOpenAdd}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <HiPlus size={18} />
+                          <span>+ Add Section</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -536,7 +547,7 @@ export default function SectionListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        {!isStudent && (
+                        {canManage && (
                           <>
                             <button
                               type="button"

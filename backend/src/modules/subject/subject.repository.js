@@ -9,6 +9,7 @@ class SubjectRepository {
     sortBy = 'subject_name',
     sortOrder = 'ASC',
     gradeId = null,
+    subjectIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -29,6 +30,13 @@ class SubjectRepository {
       : '';
     if (gradeId) values.push(gradeId);
 
+    const subjectIdsClause = subjectIds !== null && Array.isArray(subjectIds)
+      ? (subjectIds.length === 0 ? 'AND 1 = 0' : `AND s.id = ANY($${values.length + 1}::uuid[])`)
+      : '';
+    if (subjectIds !== null && Array.isArray(subjectIds) && subjectIds.length > 0) {
+      values.push(subjectIds);
+    }
+
     const whereClause = `
       WHERE (
         LOWER(s.subject_name) LIKE LOWER($1)
@@ -37,6 +45,7 @@ class SubjectRepository {
       )
       ${statusClause}
       ${gradeClause}
+      ${subjectIdsClause}
     `;
 
     // 1. Total count

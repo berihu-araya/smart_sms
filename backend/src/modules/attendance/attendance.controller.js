@@ -11,7 +11,8 @@ const { db } = require('../../config/database');
 const attendanceService = new AttendanceService(new AttendanceRepository(db));
 
 async function getRosterSheet(req, res, next) {
-  if ((req.user?.role || '').toLowerCase() === 'student') {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  if (role === 'student') {
     return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
   }
 
@@ -23,6 +24,17 @@ async function getRosterSheet(req, res, next) {
       message: 'Validation failed',
       data: query.errors,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(query.sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -42,6 +54,7 @@ async function getRosterSheet(req, res, next) {
 }
 
 async function recordBulkAttendance(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
   const input = validateBulkAttendanceInput(req.body);
 
   if (Object.keys(input.errors).length > 0) {
@@ -50,6 +63,17 @@ async function recordBulkAttendance(req, res, next) {
       message: 'Validation failed',
       data: input.errors,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(input.sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -73,6 +97,7 @@ async function recordBulkAttendance(req, res, next) {
 }
 
 async function getDailySummary(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
   const date = req.query.date;
   const sectionId = req.query.sectionId;
 
@@ -82,6 +107,17 @@ async function getDailySummary(req, res, next) {
       message: 'Valid date (YYYY-MM-DD) is required',
       data: null,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope && sectionId) {
+    const canAccess = req.teacherScope.canAccessSection(sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -126,6 +162,18 @@ async function getMonthlyMatrix(req, res, next) {
       return res.status(403).json({
         success: false,
         message: "Access denied: You are only authorized to view attendance matrix for your children's class sections",
+        data: null,
+      });
+    }
+  }
+
+  // Teacher RBAC: Teacher can only view matrix for assigned sections
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
         data: null,
       });
     }
@@ -183,6 +231,21 @@ async function getStudentAttendance(req, res, next) {
   }
 
   try {
+    if (role === 'teacher' && req.teacherScope) {
+      const studentRes = await db.query(
+        `SELECT section_id FROM students WHERE (id = $1 OR user_id = $1) AND deleted_at IS NULL LIMIT 1`,
+        [studentId]
+      );
+      const student = studentRes.rows[0] || null;
+      if (student && !req.teacherScope.canAccessStudent(student.section_id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to view attendance for this student',
+          data: null,
+        });
+      }
+    }
+
     const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
 

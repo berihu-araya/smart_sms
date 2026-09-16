@@ -31,6 +31,7 @@ class GradeRepository {
     sortBy = 'name',
     sortOrder = 'ASC',
     gradeId = null,
+    gradeIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -46,7 +47,14 @@ class GradeRepository {
     }
     // if status === 'all', no deleted_at filter is added
 
-    if (gradeId) {
+    if (gradeIds !== null && Array.isArray(gradeIds)) {
+      if (gradeIds.length === 0) {
+        conditions.push('1 = 0');
+      } else {
+        conditions.push(`g.id = ANY($${values.length + 1}::uuid[])`);
+        values.push(gradeIds);
+      }
+    } else if (gradeId) {
       conditions.push(`g.id = $${values.length + 1}`);
       values.push(gradeId);
     }

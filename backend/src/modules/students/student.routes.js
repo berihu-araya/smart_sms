@@ -15,12 +15,14 @@ const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
 const { attachStudentScope, requireStudentOwnParam } = require('../../middlewares/student.scope');
 const { attachParentScope, requireParentOwnChild } = require('../../middlewares/parent.scope');
+const { attachTeacherScope } = require('../../middlewares/teacher.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(attachStudentScope);
 router.use(attachParentScope);
+router.use(attachTeacherScope);
 
 router.get('/', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Parent'), listStudents);
 router.post('/', authorizeRoles('School Admin', 'Admin', 'Staff'), createStudent);

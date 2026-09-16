@@ -25,6 +25,7 @@ class SubjectService {
     sortBy = 'subject_name',
     sortOrder = 'ASC',
     gradeId = null,
+    subjectIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -37,6 +38,7 @@ class SubjectService {
       sortBy,
       sortOrder,
       gradeId,
+      subjectIds,
       limit: parsedLimit,
       offset: parsedOffset,
     });

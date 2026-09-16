@@ -11,12 +11,19 @@ const gradeService = new GradeService(new GradeRepository(db));
 
 async function listGrades(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    let gradeIds = null;
+    if (role === 'teacher' && req.teacherScope) {
+      gradeIds = req.teacherScope.all_accessible_grade_ids || [];
+    }
+
     const data = await gradeService.listGrades({
       search: req.query.search || '',
       status: req.query.status || 'active',
       sortBy: req.query.sortBy || 'name',
       sortOrder: req.query.sortOrder || 'ASC',
       gradeId: req.studentScope?.grade_id || null,
+      gradeIds,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });
@@ -43,6 +50,18 @@ async function getGradeById(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const accessibleGrades = req.teacherScope.all_accessible_grade_ids || [];
+      if (!accessibleGrades.includes(id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to any sections or subjects in this grade level',
+          data: null,
+        });
+      }
+    }
+
     const data = await gradeService.getGradeById(id);
 
     return res.status(200).json({

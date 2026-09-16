@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import gradeService from "@/services/gradeService";
+import { useAuth } from "@/hooks/useAuth";
 import styles from "./page.module.css";
 import {
   HiAcademicCap,
@@ -25,6 +26,12 @@ import {
 } from "react-icons/hi2";
 
 export default function GradeListPage() {
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isTeacher = role.includes("teacher") && !role.includes("admin");
+  const canManage = !isStudent && !isTeacher;
+
   const [grades, setGrades] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -239,8 +246,12 @@ export default function GradeListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>Grade Management</h1>
-          <p>Create, configure, and manage academic grade levels and their curriculum linkages.</p>
+          <h1>{isTeacher ? "My Assigned Grades" : "Grade Management"}</h1>
+          <p>
+            {isTeacher
+              ? "Academic grade levels where you have assigned homeroom classes or teaching subjects."
+              : "Create, configure, and manage academic grade levels and their curriculum linkages."}
+          </p>
         </div>
       </div>
 
@@ -280,22 +291,24 @@ export default function GradeListPage() {
             )}
           </div>
 
-          <div className={styles.statusTabs}>
-            {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-              { label: "All", value: "all" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {canManage && (
+            <div className={styles.statusTabs}>
+              {[
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+                { label: "All", value: "all" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
+                  onClick={() => handleStatusChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.toolbarRight}>
@@ -308,14 +321,16 @@ export default function GradeListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleOpenAdd}
-          >
-            <HiPlus size={18} />
-            <span>+ Add Grade</span>
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleOpenAdd}
+            >
+              <HiPlus size={18} />
+              <span>+ Add Grade</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -383,17 +398,21 @@ export default function GradeListPage() {
                       <HiInbox className={styles.emptyIcon} />
                       <h3 className={styles.emptyTitle}>No grades found</h3>
                       <p className={styles.emptyText}>
-                        No grade levels match your active filters. Click &ldquo;+ Add Grade&rdquo; to create one.
+                        {isTeacher
+                          ? "You are not currently assigned to any active grade levels."
+                          : "No grade levels match your active filters. Click \"+ Add Grade\" to create one."}
                       </p>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        onClick={handleOpenAdd}
-                        style={{ marginTop: "8px" }}
-                      >
-                        <HiPlus size={18} />
-                        <span>+ Add Grade</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          onClick={handleOpenAdd}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <HiPlus size={18} />
+                          <span>+ Add Grade</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -463,32 +482,36 @@ export default function GradeListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() => handleOpenEdit(grade)}
-                          title="Edit Grade"
-                        >
-                          <HiPencilSquare size={15} />
-                        </button>
-                        {grade.status === "INACTIVE" || grade.deleted_at ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
-                            onClick={() => handleRestore(grade)}
-                            title="Restore / Reactivate Grade"
-                          >
-                            <HiArrowPath size={15} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                            onClick={() => handleInitiateDelete(grade)}
-                            title="Deactivate Grade"
-                          >
-                            <HiTrash size={15} />
-                          </button>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(grade)}
+                              title="Edit Grade"
+                            >
+                              <HiPencilSquare size={15} />
+                            </button>
+                            {grade.status === "INACTIVE" || grade.deleted_at ? (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                                onClick={() => handleRestore(grade)}
+                                title="Restore / Reactivate Grade"
+                              >
+                                <HiArrowPath size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                onClick={() => handleInitiateDelete(grade)}
+                                title="Deactivate Grade"
+                              >
+                                <HiTrash size={15} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

@@ -23,6 +23,7 @@ class SectionService {
     search = '',
     gradeId = '',
     sectionId = null,
+    sectionIds = null,
     status = 'active',
     sortBy = 'name',
     sortOrder = 'ASC',
@@ -42,6 +43,7 @@ class SectionService {
       offset: parsedOffset,
     };
     if (sectionId) repositoryOptions.sectionId = sectionId;
+    if (sectionIds !== null && Array.isArray(sectionIds)) repositoryOptions.sectionIds = sectionIds;
 
     const { items, total } = await this.repository.findAll(repositoryOptions);
 
@@ -74,8 +76,8 @@ class SectionService {
     };
   }
 
-  async getSectionsByGrade(gradeId) {
-    const sections = await this.repository.findByGradeId(gradeId);
+  async getSectionsByGrade(gradeId, sectionIds = null) {
+    const sections = await this.repository.findByGradeId(gradeId, sectionIds);
     return sections;
   }
 

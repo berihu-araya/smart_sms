@@ -7,6 +7,7 @@ class SectionRepository {
     search = '',
     gradeId = '',
     sectionId = null,
+    sectionIds = null,
     status = 'active', // 'active' | 'inactive' | 'all'
     sortBy = 'name',
     sortOrder = 'ASC',
@@ -21,6 +22,16 @@ class SectionRepository {
       conditions.push(`sec.id = $${index}`);
       values.push(sectionId);
       index += 1;
+    }
+
+    if (sectionIds !== null && Array.isArray(sectionIds)) {
+      if (sectionIds.length === 0) {
+        conditions.push('1 = 0');
+      } else {
+        conditions.push(`sec.id = ANY($${index}::uuid[])`);
+        values.push(sectionIds);
+        index += 1;
+      }
     }
 
     // Status filter
@@ -196,7 +207,19 @@ class SectionRepository {
     };
   }
 
-  async findByGradeId(gradeId) {
+  async findByGradeId(gradeId, sectionIds = null) {
+    const conditions = ['sec.grade_id = $1', 'sec.deleted_at IS NULL'];
+    const values = [gradeId];
+
+    if (sectionIds !== null && Array.isArray(sectionIds)) {
+      if (sectionIds.length === 0) {
+        conditions.push('1 = 0');
+      } else {
+        conditions.push(`sec.id = ANY($2::uuid[])`);
+        values.push(sectionIds);
+      }
+    }
+
     const result = await this.database.query(
       `
         SELECT
@@ -211,11 +234,10 @@ class SectionRepository {
           (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count
         FROM sections sec
         LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
-        WHERE sec.grade_id = $1
-          AND sec.deleted_at IS NULL
+        WHERE ${conditions.join(' AND ')}
         ORDER BY sec.name ASC
       `,
-      [gradeId]
+      values
     );
 
     return result.rows;

@@ -4,7 +4,7 @@ class MarkService {
     this.examRepository = examRepository;
   }
 
-  async getMarksSheet({ examId, subjectId, sectionId, teacherId = null }) {
+  async getMarksSheet({ examId, subjectId, sectionId, teacherId = null, isReadOnly = false }) {
     const exam = await this.examRepository.findById(examId);
     if (!exam) {
       const error = new Error('Exam not found');
@@ -13,16 +13,28 @@ class MarkService {
     }
 
     if (teacherId) {
-      const allowedAssignment = await this.repository.isTeacherAssignedToMarksScope({
-        teacherId,
-        subjectId,
-        sectionId,
-      });
+      if (isReadOnly) {
+        const isClassTeacher = await this.repository.isClassTeacherOfSection({
+          teacherId,
+          sectionId,
+        });
+        if (!isClassTeacher) {
+          const error = new Error('You are not assigned as class teacher or subject teacher for this class');
+          error.status = 403;
+          throw error;
+        }
+      } else {
+        const allowedAssignment = await this.repository.isTeacherAssignedToMarksScope({
+          teacherId,
+          subjectId,
+          sectionId,
+        });
 
-      if (!allowedAssignment) {
-        const error = new Error('You are not assigned to this class/subject exam');
-        error.status = 403;
-        throw error;
+        if (!allowedAssignment) {
+          const error = new Error('You are not assigned to teach this subject in this section');
+          error.status = 403;
+          throw error;
+        }
       }
     }
 
@@ -38,6 +50,7 @@ class MarkService {
       },
       subjectId,
       sectionId,
+      isReadOnly,
       totalStudents: students.length,
       students: students.map((s) => ({
         ...s,
