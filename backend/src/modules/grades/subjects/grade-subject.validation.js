@@ -72,10 +72,22 @@ function validateCreateGradeSubjectInput(input = {}) {
     }
   }
 
+  const teacher_id = (input.teacher_id || input.teacherId || '')?.trim() || null;
+  const section_id = (input.section_id || input.sectionId || '')?.trim() || null;
+
+  if (teacher_id && !validateUuid(teacher_id)) {
+    errors.teacher_id = 'Valid Teacher ID is required';
+  }
+  if (section_id && !validateUuid(section_id)) {
+    errors.section_id = 'Valid Section ID is required';
+  }
+
   return {
     grade_id,
     subject_id,
     academic_year_id,
+    teacher_id,
+    section_id,
     is_compulsory: input.is_compulsory !== undefined ? Boolean(input.is_compulsory) : true,
     weekly_periods:
       input.weekly_periods !== undefined && input.weekly_periods !== null && input.weekly_periods !== ''

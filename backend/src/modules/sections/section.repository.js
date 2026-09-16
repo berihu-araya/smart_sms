@@ -106,7 +106,21 @@ class SectionRepository {
           CASE WHEN sec.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
           g.name AS grade_name,
           (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count,
-          (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count
+          (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count,
+          (
+            SELECT json_build_object(
+              'id', ct.id,
+              'teacher_id', t.id,
+              'teacher_name', CONCAT(t.first_name, ' ', t.last_name),
+              'employee_number', t.employee_number,
+              'email', t.email
+            )
+            FROM class_teachers ct
+            JOIN teachers t ON t.id = ct.teacher_id AND t.deleted_at IS NULL
+            WHERE ct.section_id = sec.id AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL
+            ORDER BY ct.created_at DESC
+            LIMIT 1
+          ) AS class_teacher
         FROM sections sec
         LEFT JOIN grades g ON g.id = sec.grade_id
         ${whereClause}
@@ -138,7 +152,44 @@ class SectionRepository {
           g.name AS grade_name,
           g.description AS grade_description,
           (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count,
-          (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count
+          (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count,
+          (
+            SELECT json_build_object(
+              'id', ct.id,
+              'teacher_id', t.id,
+              'teacher_name', CONCAT(t.first_name, ' ', t.last_name),
+              'employee_number', t.employee_number,
+              'email', t.email
+            )
+            FROM class_teachers ct
+            JOIN teachers t ON t.id = ct.teacher_id AND t.deleted_at IS NULL
+            WHERE ct.section_id = sec.id AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL
+            ORDER BY ct.created_at DESC
+            LIMIT 1
+          ) AS class_teacher,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'grade_subject_id', gs.id,
+                'teacher_subject_id', ts.id,
+                'subject_id', sub.id,
+                'subject_name', sub.subject_name,
+                'subject_code', sub.subject_code,
+                'credit_hours', sub.credit_hours,
+                'pass_mark', COALESCE(gs.pass_marks, sub.pass_mark),
+                'max_mark', COALESCE(gs.total_marks, sub.max_mark),
+                'weekly_periods', gs.weekly_periods,
+                'is_compulsory', gs.is_compulsory,
+                'teacher_id', ts.teacher_id,
+                'teacher_name', CONCAT(t.first_name, ' ', t.last_name)
+              ) ORDER BY gs.display_order ASC, sub.subject_name ASC
+            )
+            FROM grade_subjects gs
+            JOIN subjects sub ON sub.id = gs.subject_id AND sub.deleted_at IS NULL
+            LEFT JOIN teacher_subjects ts ON ts.section_id = sec.id AND ts.subject_id = sub.id AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL
+            LEFT JOIN teachers t ON t.id = ts.teacher_id AND t.deleted_at IS NULL
+            WHERE gs.grade_id = sec.grade_id AND gs.status = 'ACTIVE' AND gs.deleted_at IS NULL
+          ) AS courses
         FROM sections sec
         LEFT JOIN grades g ON g.id = sec.grade_id
         WHERE sec.id = $1

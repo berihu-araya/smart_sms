@@ -147,7 +147,7 @@ const menuData = [
         title: "Grades",
         icon: FaLayerGroup,
         link: "/dashboard/grades",
-        roles: ["School Admin", "Admin", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Staff"],
       },
       {
         title: "Sections",
@@ -165,7 +165,7 @@ const menuData = [
         title: "Subject Allocation",
         icon: FaClipboardList,
         link: "/dashboard/grades/subjects",
-        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
+        roles: ["School Admin", "Admin", "Staff"],
       },
       {
         title: "Timetable",

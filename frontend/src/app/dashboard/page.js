@@ -413,6 +413,114 @@ function StudentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   );
 }
 
+function TeacherDashboardView({ data, refreshing, onRefresh, currentTime }) {
+  const teacher = data?.teacher || {};
+  const stats = data?.stats || {};
+  const assignments = data?.teachingAssignments || [];
+  const weeklySchedule = data?.weeklySchedule || [];
+  const [selectedDay, setSelectedDay] = useState(null);
+  const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+  const currentDay = data?.currentDayOfWeek || "MONDAY";
+  const activeDay = selectedDay || currentDay;
+  const daySchedule = weeklySchedule.filter((item) => item.dayOfWeek === activeDay);
+  const greeting = currentTime.getHours() < 12 ? "Good morning" : currentTime.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(currentTime);
+
+  return (
+    <div className={styles.dashboard}>
+      <header className={`${styles.hero} ${styles.teacherHero}`}>
+        <div>
+          <span className={styles.kicker}><span className={styles.liveDot} />Teacher Portal / {dateLabel}</span>
+          <h1>{greeting}, {teacher.name || "Faculty Member"}.</h1>
+          <p>Your daily teaching routine, term assignments, and class actions in one place.</p>
+          <div className={styles.studentMetaTags}>
+            {teacher.employeeNumber && <span className={styles.studentBadge}><HiIdentification /> Employee ID: <b>{teacher.employeeNumber}</b></span>}
+            {teacher.specialization && <span className={styles.studentBadge}><HiAcademicCap /> <b>{teacher.specialization}</b></span>}
+            {teacher.isClassTeacher && <span className={`${styles.studentBadge} ${styles.studentBadgeGold}`}><HiUserGroup /> Class Teacher</span>}
+          </div>
+        </div>
+        <div className={styles.heroActions}>
+          <span className={styles.termBadge}><HiCalendarDays />{data?.currentTerm || "Current Term"}</span>
+          <button className={styles.refreshButton} onClick={onRefresh} disabled={refreshing} title="Refresh dashboard">
+            <HiArrowPath className={refreshing ? styles.spinning : ""} /> <span>{refreshing ? "Refreshing" : "Refresh"}</span>
+          </button>
+        </div>
+      </header>
+
+      <section className={styles.metricsGrid} aria-label="Teacher key indicators">
+        <Metric icon={HiClock} label="Today's Classes" value={number(stats.todayClassesCount)} detail="scheduled lessons" tone="Teal" />
+        <Metric icon={HiCalendarDays} label="Weekly Periods" value={number(stats.totalWeeklyPeriods)} detail="published timetable" tone="Blue" />
+        <Metric icon={HiBookOpen} label="Assigned Classes" value={number(stats.totalAssignedClasses)} detail="term teaching roster" tone="Amber" />
+        <Metric icon={HiUserGroup} label="Students" value={number(stats.totalStudents)} detail="across assigned classes" tone="Rose" />
+      </section>
+
+      <main className={styles.teacherDashboardGrid}>
+        <section className={`${styles.panel} ${styles.teacherSchedulePanel}`}>
+          <PanelHeader eyebrow="Operational delivery" title="TODAY&apos;S TIMETABLE" action={<Link href="/dashboard/timetable/teacher" className={styles.textLink}>Full timetable <HiOutlineArrowUpRight /></Link>} />
+          <div className={styles.dayTabs} role="tablist" aria-label="Weekly teaching schedule">
+            {days.map((day) => (
+              <button key={day} type="button" role="tab" aria-selected={activeDay === day} className={`${styles.dayTab} ${activeDay === day ? styles.dayTabActive : ""}`} onClick={() => setSelectedDay(day)}>
+                {day.slice(0, 3)}<small>{day === currentDay ? "Today" : ""}</small>
+              </button>
+            ))}
+          </div>
+          <div className={styles.teacherScheduleList}>
+            {daySchedule.map((item) => (
+              <article className={styles.teacherScheduleItem} key={item.id}>
+                <div className={styles.periodBadge}>{item.periodName}</div>
+                <div className={styles.teacherScheduleMain}>
+                  <span className={styles.scheduleTimeLabel}>{item.timeSlot || "Time pending"}</span>
+                  <h3>{item.gradeSection}</h3>
+                  <p>{item.subjectName}</p>
+                </div>
+                <span className={styles.roomPill}>{item.roomName}</span>
+                <div className={styles.teacherScheduleActions}>
+                  <Link href={`/dashboard/attendance?sectionId=${item.sectionId}`} className={styles.scheduleAction}>Take Attendance</Link>
+                  <Link href={`/dashboard/grades?sectionId=${item.sectionId}&subjectId=${item.subjectId}`} className={styles.scheduleAction}>Enter Marks</Link>
+                  <Link href={`/dashboard/sections/${item.sectionId}`} className={styles.scheduleAction}>Class Roster</Link>
+                </div>
+              </article>
+            ))}
+            {!daySchedule.length && <p className={styles.emptyState}>No published lessons for {activeDay.toLowerCase()}.</p>}
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <PanelHeader eyebrow="Authoritative term roster" title="My Term Teaching Assignments" action={<Link href="/dashboard/teachers/subjects" className={styles.textLink}>Manage assignments <HiOutlineArrowUpRight /></Link>} />
+          <div className={styles.assignmentRoster}>
+            {assignments.map((assignment) => (
+              <div className={styles.assignmentRosterItem} key={assignment.id}>
+                <div><strong>{assignment.subjectName}</strong><span>{assignment.gradeSection}</span></div>
+                <span className={styles.assignmentStudentCount}>{number(assignment.studentCount)} students</span>
+                <span className={styles.statusTag}>{assignment.status}</span>
+              </div>
+            ))}
+            {!assignments.length && <p className={styles.emptyState}>No active term teaching assignments found.</p>}
+          </div>
+        </section>
+
+        {data?.homeroomClass && (
+          <section className={styles.panel}>
+            <PanelHeader eyebrow="Class teacher responsibility" title="My Homeroom Class" action={<Link href={`/dashboard/sections/${data.homeroomClass.sectionId}`} className={styles.textLink}>Open roster <HiOutlineArrowUpRight /></Link>} />
+            <div className={styles.homeroomCard}><strong>{data.homeroomClass.gradeSection}</strong><span>{number(data.homeroomClass.studentCount)} students · Room {data.homeroomClass.roomNumber || "—"}</span><small>{data.homeroomClass.courses?.length || 0} curriculum courses</small></div>
+          </section>
+        )}
+
+        <section className={`${styles.panel} ${styles.actionPanel}`}>
+          <PanelHeader eyebrow="Common workflows" title="Quick Actions" action={<HiClipboardDocumentList className={styles.panelIcon} />} />
+          <div className={styles.actionList}>
+            <Link href="/dashboard/attendance"><HiCheckCircle /><span>Attendance</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/grades"><HiChartBarSquare /><span>Marks</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/teachers/subjects"><HiBookOpen /><span>Teaching Assignments</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/timetable/teacher"><HiCalendarDays /><span>Full Timetable</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/results/broadsheet"><HiPresentationChartLine /><span>Broadsheet</span><HiOutlineArrowUpRight /></Link>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   const parent = data?.parent || {};
   const children = data?.children || [];
@@ -753,6 +861,17 @@ export default function Dashboard() {
   if (dashboard.isParent || (user?.role || "").toLowerCase() === "parent") {
     return (
       <ParentDashboardView
+        data={dashboard}
+        refreshing={refreshing}
+        onRefresh={() => fetchDashboardData(true)}
+        currentTime={currentTime}
+      />
+    );
+  }
+
+  if (dashboard.isTeacher || (user?.role || "").toLowerCase() === "teacher") {
+    return (
+      <TeacherDashboardView
         data={dashboard}
         refreshing={refreshing}
         onRefresh={() => fetchDashboardData(true)}

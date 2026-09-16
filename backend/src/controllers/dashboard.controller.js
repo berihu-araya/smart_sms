@@ -1,4 +1,4 @@
-const { buildDashboardPayload, buildStudentDashboardPayload, buildParentDashboardPayload } = require('../services/dashboard.service');
+const { buildDashboardPayload, buildStudentDashboardPayload, buildParentDashboardPayload, buildTeacherDashboardPayload } = require('../services/dashboard.service');
 const { db } = require('../config/database');
 
 async function getSchoolScope(user = {}) {
@@ -19,6 +19,16 @@ async function safeQuery(text, values = [], label) {
     console.warn(`Could not query ${label}:`, error.message);
     return [];
   }
+}
+
+async function getDatabaseCalendar(label) {
+  const rows = await safeQuery(
+    `SELECT CURRENT_DATE::text AS current_date,
+      UPPER(TRIM(TO_CHAR(CURRENT_DATE, 'Day'))) AS day_of_week`,
+    [],
+    label
+  );
+  return rows[0] || {};
 }
 
 async function getStudentDashboard(req, res) {
@@ -98,7 +108,8 @@ async function getStudentDashboard(req, res) {
       };
     }
 
-    const todayDayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()).toUpperCase();
+    const databaseCalendar = await getDatabaseCalendar('student database date');
+    const todayDayName = databaseCalendar.day_of_week;
 
     const [
       subjects,
@@ -292,6 +303,148 @@ async function getStudentDashboard(req, res) {
   }
 }
 
+async function getTeacherDashboard(req, res) {
+  try {
+    const userSub = req.user?.sub;
+    const userEmail = (req.user?.email || '').trim().toLowerCase();
+    const teacherRows = await safeQuery(
+      `SELECT t.*, sch.name AS school_name
+       FROM teachers t
+       LEFT JOIN schools sch ON sch.id = t.school_id AND sch.deleted_at IS NULL
+       WHERE (t.user_id = $1 OR (t.email IS NOT NULL AND LOWER(t.email) = LOWER($2)))
+         AND t.deleted_at IS NULL
+       ORDER BY (CASE WHEN t.user_id = $1 THEN 0 ELSE 1 END) ASC
+       LIMIT 1`,
+      [userSub, userEmail],
+      'teacher profile'
+    );
+    const teacher = teacherRows[0] || {
+      id: null,
+      first_name: req.user?.firstName || 'Faculty',
+      last_name: req.user?.lastName || 'Member',
+      email: req.user?.email,
+      status: 'ACTIVE',
+    };
+
+    const academicYearRows = await safeQuery(
+      `SELECT id, name FROM academic_years
+       WHERE is_active = TRUE AND status = 'ACTIVE' AND deleted_at IS NULL
+       ORDER BY start_date DESC LIMIT 1`,
+      [],
+      'active academic year'
+    );
+    const academicYear = academicYearRows[0] || {};
+    const databaseDate = await getDatabaseCalendar('database current date');
+    const todayDayName = databaseDate.day_of_week;
+    const timetableWhere = teacher.id && academicYear.id
+      ? `te.teacher_id = $1 AND tt.academic_year_id = $2 AND tt.is_active = TRUE AND tt.status = 'PUBLISHED'
+         AND tt.deleted_at IS NULL AND te.deleted_at IS NULL`
+      : 'FALSE';
+    const timetableValues = teacher.id && academicYear.id ? [teacher.id, academicYear.id] : [];
+    const timetableBase = `
+      SELECT te.id, te.day_of_week, te.section_id, sec.name AS section_name,
+        g.id AS grade_id, g.name AS grade_name, te.subject_id,
+        sub.subject_name, sub.subject_code, te.room_id, r.name AS room_name,
+        r.building AS room_building, p.name AS period_name,
+        TO_CHAR(p.start_time, 'HH24:MI') AS start_time,
+        TO_CHAR(p.end_time, 'HH24:MI') AS end_time, p.period_order,
+        p.is_break, p.period_type
+      FROM timetable_entries te
+      JOIN timetables tt ON tt.id = te.timetable_id
+      JOIN periods p ON p.id = te.period_id AND p.deleted_at IS NULL
+      JOIN sections sec ON sec.id = te.section_id AND sec.deleted_at IS NULL
+      LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
+      LEFT JOIN subjects sub ON sub.id = te.subject_id AND sub.deleted_at IS NULL
+      LEFT JOIN rooms r ON r.id = te.room_id AND r.deleted_at IS NULL
+      WHERE ${timetableWhere}`;
+
+    const [todayTimetable, weeklySchedule, teachingAssignments, homeroomRows, studentCountRows] = await Promise.all([
+      todayDayName ? safeQuery(`${timetableBase} AND te.day_of_week = $3 ORDER BY p.period_order ASC, p.start_time ASC`, [...timetableValues, todayDayName], 'teacher today timetable') : Promise.resolve([]),
+      safeQuery(`${timetableBase} ORDER BY CASE te.day_of_week WHEN 'MONDAY' THEN 1 WHEN 'TUESDAY' THEN 2 WHEN 'WEDNESDAY' THEN 3 WHEN 'THURSDAY' THEN 4 WHEN 'FRIDAY' THEN 5 WHEN 'SATURDAY' THEN 6 WHEN 'SUNDAY' THEN 7 END, p.period_order ASC, p.start_time ASC`, timetableValues, 'teacher weekly timetable'),
+      teacher.id && academicYear.id ? safeQuery(
+        `SELECT ts.id, ts.grade_id, g.name AS grade_name, ts.section_id, sec.name AS section_name,
+          ts.subject_id, sub.subject_name, sub.subject_code, ts.status,
+          sec.room_number AS section_default_room,
+          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = ts.section_id AND s.deleted_at IS NULL) AS student_count
+         FROM teacher_subjects ts
+         JOIN grades g ON g.id = ts.grade_id AND g.deleted_at IS NULL
+         JOIN sections sec ON sec.id = ts.section_id AND sec.deleted_at IS NULL
+         JOIN subjects sub ON sub.id = ts.subject_id AND sub.deleted_at IS NULL
+         WHERE ts.teacher_id = $1 AND ts.academic_year_id = $2 AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL
+         ORDER BY g.name, sec.name, sub.subject_name`,
+        [teacher.id, academicYear.id],
+        'teacher term assignments'
+      ) : Promise.resolve([]),
+      teacher.id && academicYear.id ? safeQuery(
+        `SELECT ct.id AS class_teacher_id, ct.section_id, sec.name AS section_name,
+          sec.grade_id, g.name AS grade_name, sec.room_number,
+          ay.name AS academic_year_name,
+          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count
+         FROM class_teachers ct
+         JOIN sections sec ON sec.id = ct.section_id AND sec.deleted_at IS NULL
+         JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
+         JOIN academic_years ay ON ay.id = ct.academic_year_id
+         WHERE ct.teacher_id = $1 AND ct.academic_year_id = $2 AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL
+         LIMIT 1`,
+        [teacher.id, academicYear.id],
+        'teacher homeroom'
+      ) : Promise.resolve([]),
+      teacher.id && academicYear.id ? safeQuery(
+        `SELECT COUNT(DISTINCT s.id)::int AS total_student_count
+         FROM students s
+         WHERE s.deleted_at IS NULL
+           AND (
+             EXISTS (
+               SELECT 1 FROM teacher_subjects ts
+               WHERE ts.teacher_id = $1 AND ts.academic_year_id = $2
+                 AND ts.section_id = s.section_id
+                 AND ts.status = 'ACTIVE' AND ts.deleted_at IS NULL
+             )
+             OR EXISTS (
+               SELECT 1 FROM class_teachers ct
+               WHERE ct.teacher_id = $1 AND ct.academic_year_id = $2
+                 AND ct.section_id = s.section_id
+                 AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL
+             )
+           )`,
+        [teacher.id, academicYear.id],
+        'teacher distinct student count'
+      ) : Promise.resolve([]),
+    ]);
+
+    const homeroomClass = homeroomRows[0] || null;
+    const homeroomCourses = homeroomClass ? await safeQuery(
+      `SELECT sub.id AS subject_id, sub.subject_name, sub.subject_code,
+        COALESCE(gs.pass_marks, sub.pass_mark) AS pass_mark,
+        COALESCE(gs.total_marks, sub.max_mark) AS max_mark,
+        gs.weekly_periods, gs.is_compulsory
+       FROM grade_subjects gs
+       JOIN subjects sub ON sub.id = gs.subject_id AND sub.deleted_at IS NULL
+       WHERE gs.grade_id = $1 AND gs.status = 'ACTIVE' AND gs.deleted_at IS NULL
+       ORDER BY gs.display_order ASC, sub.subject_name ASC`,
+      [homeroomClass.grade_id],
+      'homeroom courses'
+    ) : [];
+
+    const payload = buildTeacherDashboardPayload({
+      teacher,
+      todayTimetable,
+      weeklySchedule,
+      teachingAssignments,
+      homeroomClass,
+      homeroomCourses,
+      activeAcademicYear: academicYear.name,
+      currentDayOfWeek: todayDayName,
+      currentDate: databaseDate.current_date,
+      totalStudentCount: studentCountRows[0]?.total_student_count || 0,
+    });
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error('Teacher dashboard data fetch error:', error.message);
+    return res.status(500).json({ message: 'Unable to load teacher dashboard data', error: error.message });
+  }
+}
+
     async function getParentDashboard(req, res) {
       try {
         const userSub = req.user?.sub;
@@ -385,7 +538,8 @@ async function getStudentDashboard(req, res) {
           )
           : [];
 
-        const todayDayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()).toUpperCase();
+        const databaseCalendar = await getDatabaseCalendar('parent database date');
+        const todayDayName = databaseCalendar.day_of_week;
 
         // 3. For each child, load their detailed academic dataset in parallel
         const childrenData = await Promise.all(
@@ -641,6 +795,9 @@ async function getStudentDashboard(req, res) {
         }
         if (role === 'parent') {
           return await getParentDashboard(req, res);
+        }
+        if (role === 'teacher') {
+          return await getTeacherDashboard(req, res);
         }
         const scope = await getSchoolScope(req.user);
         const active = (table) => `${scope.clause} AND ${table}.deleted_at IS NULL`;

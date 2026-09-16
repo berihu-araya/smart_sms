@@ -36,6 +36,8 @@ export async function createGradeSubject(payload) {
       grade_id: payload.gradeId || payload.grade_id,
       subject_id: payload.subjectId || payload.subject_id,
       academic_year_id: payload.academicYearId || payload.academic_year_id,
+      teacher_id: payload.teacherId || payload.teacher_id || null,
+      section_id: payload.sectionId || payload.section_id || null,
       is_compulsory: payload.isCompulsory !== undefined ? payload.isCompulsory : payload.is_compulsory,
       weekly_periods: payload.weeklyPeriods !== undefined ? payload.weeklyPeriods : payload.weekly_periods,
       total_marks: payload.totalMarks !== undefined ? payload.totalMarks : payload.total_marks,

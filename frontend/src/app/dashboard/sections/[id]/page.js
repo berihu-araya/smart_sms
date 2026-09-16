@@ -82,10 +82,73 @@ export default function SectionDetailsPage() {
             <Field label="Enrolled Students" value={String(section.student_count || 0)} />
           </Section>
 
-          <Section title="🏫 Grade">
-            <Field label="Grade Name" value={section.grade_name || "—"} />
-            <Field label="Grade Description" value={section.grade_description || "—"} />
+          <Section title="🏫 Grade & Class Teacher">
+            <Field label="Grade Level" value={section.grade_name || "—"} />
+            <Field
+              label="Homeroom Class Teacher"
+              value={
+                section.class_teacher ? (
+                  <span style={{ fontWeight: 600, color: "#166534" }}>
+                    ⭐ {section.class_teacher.teacher_name} ({section.class_teacher.employee_number || section.class_teacher.email})
+                  </span>
+                ) : (
+                  <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Assigned</span>
+                )
+              }
+            />
           </Section>
+        </div>
+
+        {/* All Courses in this Section */}
+        <div style={{ padding: "24px 32px", borderTop: "1px solid #f0f1f3" }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "#101828" }}>
+            📚 All Curriculum Courses & Subject Teachers
+          </h3>
+          {section.courses && section.courses.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", textAlign: "left", color: "#475467", fontSize: 12, textTransform: "uppercase" }}>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid #eaecf0" }}>Subject</th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid #eaecf0" }}>Code</th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid #eaecf0" }}>Assigned Teacher</th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid #eaecf0" }}>Periods/Wk</th>
+                    <th style={{ padding: "10px 12px", borderBottom: "1px solid #eaecf0" }}>Pass / Max</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.courses.map((c, i) => (
+                    <tr
+                      key={`${c.grade_subject_id || c.subject_id || "course"}:${c.teacher_subject_id || "unassigned"}:${i}`}
+                      style={{ borderBottom: "1px solid #f1f5f9" }}
+                    >
+                      <td style={{ padding: "10px 12px", fontWeight: 600, color: "#101828" }}>
+                        {c.subject_name}
+                      </td>
+                      <td style={{ padding: "10px 12px", color: "#64748b" }}>{c.subject_code}</td>
+                      <td style={{ padding: "10px 12px" }}>
+                        {c.teacher_name ? (
+                          <span style={{ fontWeight: 600, color: "#1e40af" }}>
+                            👨‍🏫 {c.teacher_name}
+                          </span>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Assigned</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "10px 12px" }}>{c.weekly_periods || "—"}</td>
+                      <td style={{ padding: "10px 12px" }}>
+                        {c.pass_mark || 50} / {c.max_mark || 100}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p style={{ color: "#667085", fontSize: 14, margin: 0 }}>
+              No subjects mapped to this grade yet.
+            </p>
+          )}
         </div>
 
         {/* Back Link */}
@@ -122,7 +185,7 @@ function Field({ label, value }) {
       <span style={{ fontSize: 12, fontWeight: 600, color: "#667085", textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {label}
       </span>
-      <p style={{ margin: "2px 0 0", fontSize: 14, color: "#101828" }}>{value}</p>
+      <div style={{ margin: "2px 0 0", fontSize: 14, color: "#101828" }}>{value}</div>
     </div>
   );
 }

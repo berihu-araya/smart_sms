@@ -544,6 +544,14 @@ export default function GradeSubjectListPage() {
                 </div>
               </div>
 
+              {/* Teacher Info */}
+              <div style={{ padding: "8px 14px", background: "#f8fafc", borderRadius: "8px", margin: "0 14px 10px", fontSize: "13px" }}>
+                <span style={{ color: "#64748b", fontWeight: 500 }}>Assigned Teacher: </span>
+                <strong style={{ color: item.teacher_name ? "#1e40af" : "#94a3b8" }}>
+                  {item.teacher_name ? `👨‍🏫 ${item.teacher_name}` : "Not Assigned"}
+                </strong>
+              </div>
+
               {/* Footer & Actions */}
               <div className={styles.cardFooter}>
                 <button
@@ -598,6 +606,7 @@ export default function GradeSubjectListPage() {
                   <th>Order</th>
                   <th>Grade</th>
                   <th>Subject Code & Name</th>
+                  <th>Assigned Teacher</th>
                   <th>Academic Session</th>
                   <th>Type</th>
                   <th>Weekly Periods</th>
@@ -622,6 +631,17 @@ export default function GradeSubjectListPage() {
                           ({item.subject_code})
                         </span>
                       </div>
+                    </td>
+                    <td>
+                      {item.teacher_name ? (
+                        <span style={{ fontWeight: 600, color: "#1e40af", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          👨‍🏫 {item.teacher_name}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "13px" }}>
+                          Not Assigned
+                        </span>
+                      )}
                     </td>
                     <td>
                       {item.academic_year_name}

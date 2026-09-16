@@ -98,7 +98,35 @@ class GradeSubjectRepository {
         gs.display_order,
         gs.status,
         gs.created_at,
-        gs.updated_at
+        gs.updated_at,
+        (
+          SELECT string_agg(DISTINCT CONCAT(t.first_name, ' ', t.last_name), ', ')
+          FROM teacher_subjects ts
+          JOIN teachers t ON t.id = ts.teacher_id AND t.deleted_at IS NULL
+          WHERE ts.grade_id = gs.grade_id
+            AND ts.subject_id = gs.subject_id
+            AND ts.academic_year_id = gs.academic_year_id
+            AND ts.status = 'ACTIVE'
+            AND ts.deleted_at IS NULL
+        ) AS teacher_name,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'teacher_id', t.id,
+              'teacher_name', CONCAT(t.first_name, ' ', t.last_name),
+              'section_id', ts.section_id,
+              'section_name', sec.name
+            )
+          )
+          FROM teacher_subjects ts
+          JOIN teachers t ON t.id = ts.teacher_id AND t.deleted_at IS NULL
+          LEFT JOIN sections sec ON sec.id = ts.section_id
+          WHERE ts.grade_id = gs.grade_id
+            AND ts.subject_id = gs.subject_id
+            AND ts.academic_year_id = gs.academic_year_id
+            AND ts.status = 'ACTIVE'
+            AND ts.deleted_at IS NULL
+        ) AS assigned_teachers
       FROM grade_subjects gs
       INNER JOIN grades g ON g.id = gs.grade_id
       INNER JOIN subjects s ON s.id = gs.subject_id
@@ -129,7 +157,35 @@ class GradeSubjectRepository {
         s.subject_code,
         s.short_name AS subject_short_name,
         ay.name AS academic_year_name,
-        ay.is_active AS is_active_year
+        ay.is_active AS is_active_year,
+        (
+          SELECT string_agg(DISTINCT CONCAT(t.first_name, ' ', t.last_name), ', ')
+          FROM teacher_subjects ts
+          JOIN teachers t ON t.id = ts.teacher_id AND t.deleted_at IS NULL
+          WHERE ts.grade_id = gs.grade_id
+            AND ts.subject_id = gs.subject_id
+            AND ts.academic_year_id = gs.academic_year_id
+            AND ts.status = 'ACTIVE'
+            AND ts.deleted_at IS NULL
+        ) AS teacher_name,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'teacher_id', t.id,
+              'teacher_name', CONCAT(t.first_name, ' ', t.last_name),
+              'section_id', ts.section_id,
+              'section_name', sec.name
+            )
+          )
+          FROM teacher_subjects ts
+          JOIN teachers t ON t.id = ts.teacher_id AND t.deleted_at IS NULL
+          LEFT JOIN sections sec ON sec.id = ts.section_id
+          WHERE ts.grade_id = gs.grade_id
+            AND ts.subject_id = gs.subject_id
+            AND ts.academic_year_id = gs.academic_year_id
+            AND ts.status = 'ACTIVE'
+            AND ts.deleted_at IS NULL
+        ) AS assigned_teachers
       FROM grade_subjects gs
       INNER JOIN grades g ON g.id = gs.grade_id
       INNER JOIN subjects s ON s.id = gs.subject_id
@@ -188,6 +244,41 @@ class GradeSubjectRepository {
         payload.status || 'ACTIVE',
       ]
     );
+
+    // If a teacher is specified, automatically link teacher to this subject for section(s)
+    if (payload.teacher_id) {
+      try {
+        if (payload.section_id) {
+          await this.database.query(
+            `INSERT INTO teacher_subjects (
+               teacher_id, subject_id, grade_id, section_id, academic_year_id, status
+             )
+             VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+             ON CONFLICT DO NOTHING`,
+            [payload.teacher_id, payload.subject_id, payload.grade_id, payload.section_id, payload.academic_year_id]
+          );
+        } else {
+          const sectionsRes = await this.database.query(
+            `SELECT id FROM sections WHERE grade_id = $1 AND deleted_at IS NULL`,
+            [payload.grade_id]
+          );
+          if (sectionsRes.rows.length > 0) {
+            for (const sec of sectionsRes.rows) {
+              await this.database.query(
+                `INSERT INTO teacher_subjects (
+                   teacher_id, subject_id, grade_id, section_id, academic_year_id, status
+                 )
+                 VALUES ($1, $2, $3, $4, $5, 'ACTIVE')
+                 ON CONFLICT DO NOTHING`,
+                [payload.teacher_id, payload.subject_id, payload.grade_id, sec.id, payload.academic_year_id]
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to link teacher_subjects on grade_subject create:', err.message);
+      }
+    }
 
     return result.rows[0];
   }

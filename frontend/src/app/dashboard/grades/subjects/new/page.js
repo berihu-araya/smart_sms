@@ -7,6 +7,8 @@ import gradeSubjectService from "@/services/gradeSubjectService";
 import gradeService from "@/services/gradeService";
 import subjectService from "@/services/subjectService";
 import academicYearService from "@/services/academicYearService";
+import teacherService from "@/services/teacherService";
+import sectionService from "@/services/sectionService";
 import styles from "./new.module.css";
 
 export default function NewGradeSubjectPage() {
@@ -15,6 +17,8 @@ export default function NewGradeSubjectPage() {
     gradeId: "",
     subjectId: "",
     academicYearId: "",
+    teacherId: "",
+    sectionId: "",
     isCompulsory: true,
     weeklyPeriods: "",
     totalMarks: "",
@@ -24,6 +28,8 @@ export default function NewGradeSubjectPage() {
   const [grades, setGrades] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [sections, setSections] = useState([]);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -31,14 +37,16 @@ export default function NewGradeSubjectPage() {
   useEffect(() => {
     async function loadSelects() {
       try {
-        const [gradesData, subjectsData, academicYearsData, activeYear] = await Promise.all([
+        const [gradesData, subjectsData, academicYearsData, teachersData, activeYear] = await Promise.all([
           gradeService.listGrades({ limit: 100 }),
           subjectService.listSubjects({ limit: 100, offset: 0 }),
           academicYearService.listAcademicYears({ limit: 100 }),
+          teacherService.listTeachers({ limit: 200 }).catch(() => ({ items: [] })),
           academicYearService.getActiveAcademicYear().catch(() => null),
         ]);
         setGrades(gradesData.items || []);
         setSubjects(subjectsData.items || []);
+        setTeachers(teachersData.items || []);
         const years = academicYearsData.items || [];
         setAcademicYears(years);
         // Auto-select active academic year if available
@@ -51,6 +59,22 @@ export default function NewGradeSubjectPage() {
     }
     loadSelects();
   }, []);
+
+  useEffect(() => {
+    async function loadSections() {
+      if (!form.gradeId) {
+        setSections([]);
+        return;
+      }
+      try {
+        const data = await sectionService.listSections({ gradeId: form.gradeId, limit: 100 });
+        setSections(data.items || []);
+      } catch (err) {
+        setSections([]);
+      }
+    }
+    loadSections();
+  }, [form.gradeId]);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -112,6 +136,8 @@ export default function NewGradeSubjectPage() {
         gradeId: form.gradeId,
         subjectId: form.subjectId,
         academicYearId: form.academicYearId,
+        teacherId: form.teacherId || null,
+        sectionId: form.sectionId || null,
         isCompulsory: form.isCompulsory,
         weeklyPeriods: form.weeklyPeriods || null,
         totalMarks: form.totalMarks || null,
@@ -312,6 +338,60 @@ export default function NewGradeSubjectPage() {
                 {errors.passMarks && (
                   <span className={styles.fieldError}><span>✕</span> {errors.passMarks}</span>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Teacher Assignment */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionIcon}>👨‍🏫</div>
+              <div>
+                <h3 className={styles.sectionTitle}>Teacher Assignment (Optional)</h3>
+                <p className={styles.sectionSubtitle}>Assign the teacher who teaches this course</p>
+              </div>
+            </div>
+
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label className={styles.label}>Subject Teacher</label>
+                <select
+                  name="teacherId"
+                  value={form.teacherId}
+                  onChange={handleChange}
+                  className={styles.select}
+                >
+                  <option value="">Select Teacher (Optional)</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.first_name} {teacher.last_name} {teacher.department ? `(${teacher.department})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "12px", color: "#667085", marginTop: "4px" }}>
+                  Selected teacher will be automatically assigned to teach this subject in this grade.
+                </span>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Section</label>
+                <select
+                  name="sectionId"
+                  value={form.sectionId}
+                  onChange={handleChange}
+                  disabled={!form.gradeId}
+                  className={styles.select}
+                >
+                  <option value="">All Sections in this Grade</option>
+                  {sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name} {section.room_number ? `(Room ${section.room_number})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "12px", color: "#667085", marginTop: "4px" }}>
+                  Leave as &quot;All Sections&quot; to assign the teacher to all class sections in this grade.
+                </span>
               </div>
             </div>
           </div>

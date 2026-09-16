@@ -74,8 +74,14 @@ export async function deleteTeacherSubject(id) {
   return response.data;
 }
 
+export async function getMyOverview() {
+  const response = await request('/api/v1/teachers/subjects/my-overview');
+  return response.data;
+}
+
 const teacherSubjectService = {
   listTeacherSubjects,
+  getMyOverview,
   getTeacherSubjectById,
   createTeacherSubject,
   updateTeacherSubject,

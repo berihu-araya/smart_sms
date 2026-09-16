@@ -224,8 +224,128 @@ function buildParentDashboardPayload(data = {}) {
   };
 }
 
+function buildTeacherDashboardPayload(data = {}) {
+  const teacher = data.teacher || {};
+  const todayTimetable = data.todayTimetable || [];
+  const weeklySchedule = data.weeklySchedule || [];
+  const teachingAssignments = data.teachingAssignments || [];
+  const homeroomClass = data.homeroomClass || null;
+  const homeroomCourses = data.homeroomCourses || [];
+  const recentMarks = data.recentMarks || [];
+  const activeAcademicYear = data.activeAcademicYear || 'Current Term';
+
+  const totalAssignedClasses = teachingAssignments.length;
+  const totalStudents = Number(data.totalStudentCount ?? teachingAssignments.reduce((acc, a) => acc + (Number(a.student_count) || 0), 0));
+  const totalWeeklyPeriods = weeklySchedule.filter((w) => !w.is_break).length;
+  const todayLessonsCount = todayTimetable.filter((t) => !t.is_break).length;
+
+  const sortTimetable = (items) => [...items].sort((a, b) => {
+    const dayOrder = { MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6, SUNDAY: 7 };
+    return (dayOrder[a.day_of_week] || 99) - (dayOrder[b.day_of_week] || 99)
+      || (Number(a.period_order ?? a.period_number) || 0) - (Number(b.period_order ?? b.period_number) || 0)
+      || String(a.start_time || '').localeCompare(String(b.start_time || ''));
+  });
+
+  const mapTimetableItem = (item) => ({
+    id: item.id,
+    dayOfWeek: item.day_of_week,
+    periodName: item.period_name || `Period ${item.period_order || ''}`.trim(),
+    periodOrder: item.period_order ?? item.period_number,
+    startTime: item.start_time || '',
+    endTime: item.end_time || '',
+    timeSlot: item.start_time && item.end_time ? `${item.start_time} - ${item.end_time}` : '',
+    isBreak: !!item.is_break,
+    periodType: item.period_type || 'LESSON',
+    gradeId: item.grade_id,
+    gradeName: item.grade_name,
+    sectionId: item.section_id,
+    sectionName: item.section_name,
+    gradeSection: item.grade_name && item.section_name
+      ? (item.section_name.toLowerCase().startsWith(item.grade_name.toLowerCase())
+          ? item.section_name
+          : `${item.grade_name}-${item.section_name}`)
+      : (item.section_name || item.grade_name || 'Class'),
+    subjectId: item.subject_id,
+    subjectName: item.subject_name || 'Unassigned Subject',
+    subjectCode: item.subject_code || '',
+    roomId: item.room_id,
+    roomName: item.room_name || (item.room_number ? `Room ${item.room_number}` : 'Unassigned Room'),
+    roomNumber: item.room_number || item.room_name || '',
+    building: item.room_building || '',
+  });
+
+  return {
+    isTeacher: true,
+    isStudent: false,
+    isParent: false,
+    teacher: {
+      id: teacher.id,
+      name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim() || 'Faculty Member',
+      firstName: teacher.first_name,
+      lastName: teacher.last_name,
+      email: teacher.email,
+      phone: teacher.phone,
+      employeeNumber: teacher.employee_number,
+      qualification: teacher.qualification,
+      specialization: teacher.specialization,
+      status: teacher.status || 'ACTIVE',
+      schoolName: teacher.school_name || 'Academic Institution',
+      isClassTeacher: !!homeroomClass,
+    },
+    stats: {
+      todayClassesCount: todayLessonsCount,
+      totalAssignedClasses,
+      totalStudents,
+      totalWeeklyPeriods,
+      homeroomStudentsCount: homeroomClass ? (Number(homeroomClass.student_count) || 0) : 0,
+      activeCurriculumCount: teachingAssignments.length,
+    },
+    todayTimetable: sortTimetable(todayTimetable).map(mapTimetableItem),
+    weeklySchedule: sortTimetable(weeklySchedule).map(mapTimetableItem),
+    teachingAssignments: teachingAssignments.map((a) => ({
+      id: a.id,
+      gradeId: a.grade_id,
+      gradeName: a.grade_name,
+      sectionId: a.section_id,
+      sectionName: a.section_name,
+      gradeSection: a.grade_name && a.section_name
+        ? (a.section_name.toLowerCase().startsWith(a.grade_name.toLowerCase())
+            ? a.section_name
+            : `${a.grade_name}-${a.section_name}`)
+        : (a.section_name || 'Class'),
+      subjectId: a.subject_id,
+      subjectName: a.subject_name,
+      subjectCode: a.subject_code,
+      studentCount: Number(a.student_count) || 0,
+      defaultRoom: a.section_default_room,
+      status: a.status || 'ACTIVE',
+    })),
+    homeroomClass: homeroomClass ? {
+      classTeacherId: homeroomClass.class_teacher_id,
+      sectionId: homeroomClass.section_id,
+      sectionName: homeroomClass.section_name,
+      gradeId: homeroomClass.grade_id,
+      gradeName: homeroomClass.grade_name,
+      gradeSection: homeroomClass.grade_name && homeroomClass.section_name
+        ? (homeroomClass.section_name.toLowerCase().startsWith(homeroomClass.grade_name.toLowerCase())
+            ? homeroomClass.section_name
+            : `${homeroomClass.grade_name}-${homeroomClass.section_name}`)
+        : (homeroomClass.section_name || 'Class'),
+      roomNumber: homeroomClass.room_number,
+      academicYearName: homeroomClass.academic_year_name,
+      studentCount: Number(homeroomClass.student_count) || 0,
+      courses: homeroomCourses,
+    } : null,
+    recentMarks,
+    currentTerm: activeAcademicYear,
+    currentDayOfWeek: data.currentDayOfWeek || null,
+    currentDate: data.currentDate || null,
+  };
+}
+
 module.exports = {
   buildDashboardPayload,
   buildStudentDashboardPayload,
   buildParentDashboardPayload,
+  buildTeacherDashboardPayload,
 };

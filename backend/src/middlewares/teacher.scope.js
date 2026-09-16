@@ -155,6 +155,21 @@ async function attachTeacherScope(req, res, next) {
     const homeroomSectionIds = [...new Set(classTeacherAssignments.map((a) => a.section_id).filter(Boolean))];
     const homeroomGradeIds = [...new Set(classTeacherAssignments.map((a) => a.grade_id).filter(Boolean))];
 
+    // 5. Query all curriculum courses taught in homeroom grades
+    let homeroomSubjectIds = [];
+    if (homeroomGradeIds.length > 0) {
+      const homeroomSubsRes = await db.query(
+        `SELECT DISTINCT gs.subject_id
+         FROM grade_subjects gs
+         WHERE gs.grade_id = ANY($1::uuid[])
+           AND gs.status = 'ACTIVE'
+           AND gs.deleted_at IS NULL`,
+        [homeroomGradeIds]
+      );
+      homeroomSubjectIds = homeroomSubsRes.rows.map((r) => r.subject_id);
+    }
+
+    const allAccessibleSubjectIds = [...new Set([...assignedSubjectIds, ...homeroomSubjectIds])];
     const allAccessibleSectionIds = [...new Set([...assignedSectionIds, ...homeroomSectionIds])];
     const allAccessibleGradeIds = [...new Set([...assignedGradeIds, ...homeroomGradeIds])];
 
@@ -170,7 +185,10 @@ async function attachTeacherScope(req, res, next) {
       isHybrid,
       homeroom_section_ids: homeroomSectionIds,
       homeroom_grade_ids: homeroomGradeIds,
+      homeroom_subject_ids: homeroomSubjectIds,
       assigned_subject_ids: assignedSubjectIds,
+      all_accessible_subject_ids: allAccessibleSubjectIds,
+      major_subject_ids: majorSubjectIds,
       assigned_section_ids: assignedSectionIds,
       assigned_grade_ids: assignedGradeIds,
       all_accessible_section_ids: allAccessibleSectionIds,

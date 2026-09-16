@@ -231,6 +231,232 @@
   gap: 1rem;
 }
 
+.teacherHero {
+  align-items: flex-start;
+}
+
+.teacherDashboardGrid {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+}
+
+.teacherSchedulePanel {
+  grid-row: span 2;
+}
+
+.dayTabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.dayTab {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 66px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.dayTab small {
+  min-height: 0.8rem;
+  color: #16827b;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.dayTabActive {
+  border-color: #9bcac5;
+  background: #eef8f5;
+  color: #0c5f5a;
+}
+
+.teacherScheduleList {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.teacherScheduleItem {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdfb;
+}
+
+.periodBadge {
+  min-width: 70px;
+  padding: 0.45rem 0.55rem;
+  border-radius: 7px;
+  background: #e8f3f0;
+  color: #0c5f5a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.teacherScheduleMain h3,
+.teacherScheduleMain p {
+  margin: 0;
+}
+
+.teacherScheduleMain h3 {
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+.teacherScheduleMain p {
+  margin-top: 0.2rem;
+  color: #16827b;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.scheduleTimeLabel {
+  display: block;
+  margin-bottom: 0.18rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.roomPill,
+.assignmentStudentCount {
+  white-space: nowrap;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: #fff4dd;
+  color: #9a6418;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.teacherScheduleActions {
+  display: flex;
+  grid-column: 2 / -1;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.scheduleAction {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #cfe1dd;
+  border-radius: 6px;
+  color: #0c5f5a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.scheduleAction:hover {
+  background: #eef8f5;
+}
+
+.assignmentRoster {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.assignmentRosterItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.assignmentRosterItem > div {
+  min-width: 0;
+}
+
+.assignmentRosterItem strong,
+.assignmentRosterItem span {
+  display: block;
+}
+
+.assignmentRosterItem strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignmentRosterItem div span {
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.assignmentRosterItem .statusTag {
+  grid-column: 2;
+  grid-row: 2;
+  color: #16827b;
+  font-size: 0.62rem;
+}
+
+.homeroomCard {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem;
+  border-left: 4px solid #d97745;
+  background: #fff8ed;
+}
+
+.homeroomCard strong {
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.homeroomCard span,
+.homeroomCard small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .teacherDashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacherSchedulePanel {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .teacherScheduleItem {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .roomPill {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .teacherScheduleActions {
+    grid-column: 1 / -1;
+  }
+}
+
 .panel {
   min-width: 0;
   padding: 1.35rem;

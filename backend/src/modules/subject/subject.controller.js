@@ -15,7 +15,7 @@ async function listSubjects(req, res, next) {
     let subjectIds = null;
 
     if (role === 'teacher' && req.teacherScope) {
-      subjectIds = req.teacherScope.assigned_subject_ids || [];
+      subjectIds = req.teacherScope.all_accessible_subject_ids || req.teacherScope.assigned_subject_ids || [];
     }
 
     const data = await subjectService.listSubjects({
@@ -53,7 +53,8 @@ async function getSubjectById(req, res, next) {
   try {
     const role = (req.user?.role || '').toLowerCase().trim();
     if (role === 'teacher' && req.teacherScope) {
-      const isAssigned = (req.teacherScope.assigned_subject_ids || []).includes(id);
+      const allowedIds = req.teacherScope.all_accessible_subject_ids || req.teacherScope.assigned_subject_ids || [];
+      const isAssigned = allowedIds.includes(id);
 
       if (!isAssigned) {
         return res.status(403).json({

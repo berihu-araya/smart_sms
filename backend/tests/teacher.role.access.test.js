@@ -499,6 +499,29 @@ describe('Teacher Role Assignment-Based Permission & Access Model', () => {
       assert.deepEqual(capturedOptions.teacherScope, mockTeacherScope);
       assert.equal(result.length, 1);
     });
+
+    test('GradeSubject validation accepts optional teacher_id and section_id', () => {
+      const { validateCreateGradeSubjectInput } = require('../src/modules/grades/subjects/grade-subject.validation');
+      const validUuid1 = '550e8400-e29b-41d4-a716-446655440001';
+      const validUuid2 = '550e8400-e29b-41d4-a716-446655440002';
+      const validUuid3 = '550e8400-e29b-41d4-a716-446655440003';
+      const validTeacherId = '550e8400-e29b-41d4-a716-446655440004';
+      const validSectionId = '550e8400-e29b-41d4-a716-446655440005';
+
+      const res = validateCreateGradeSubjectInput({
+        grade_id: validUuid1,
+        subject_id: validUuid2,
+        academic_year_id: validUuid3,
+        teacher_id: validTeacherId,
+        section_id: validSectionId,
+        is_compulsory: true,
+        weekly_periods: 4,
+      });
+
+      assert.equal(Object.keys(res.errors).length, 0);
+      assert.equal(res.teacher_id, validTeacherId);
+      assert.equal(res.section_id, validSectionId);
+    });
   });
 });
 
