@@ -15,20 +15,7 @@ async function listSubjects(req, res, next) {
     let subjectIds = null;
 
     if (role === 'teacher' && req.teacherScope) {
-      const assignedSubjectIds = req.teacherScope.assigned_subject_ids || [];
-      const homeroomGradeIds = req.teacherScope.homeroom_grade_ids || [];
-
-      let homeroomSubjectIds = [];
-      if (homeroomGradeIds.length > 0) {
-        const gsRes = await db.query(
-          `SELECT DISTINCT subject_id FROM grade_subjects WHERE grade_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
-          [homeroomGradeIds]
-        );
-        homeroomSubjectIds = gsRes.rows.map((r) => r.subject_id);
-      }
-
-      const visibleSubjectIds = [...new Set([...assignedSubjectIds, ...homeroomSubjectIds])];
-      subjectIds = visibleSubjectIds;
+      subjectIds = req.teacherScope.assigned_subject_ids || [];
     }
 
     const data = await subjectService.listSubjects({
@@ -67,16 +54,8 @@ async function getSubjectById(req, res, next) {
     const role = (req.user?.role || '').toLowerCase().trim();
     if (role === 'teacher' && req.teacherScope) {
       const isAssigned = (req.teacherScope.assigned_subject_ids || []).includes(id);
-      let isHomeroomSubject = false;
-      if (!isAssigned && (req.teacherScope.homeroom_grade_ids || []).length > 0) {
-        const gsRes = await db.query(
-          `SELECT 1 FROM grade_subjects WHERE subject_id = $1 AND grade_id = ANY($2::uuid[]) AND deleted_at IS NULL LIMIT 1`,
-          [id, req.teacherScope.homeroom_grade_ids]
-        );
-        isHomeroomSubject = gsRes.rows.length > 0;
-      }
 
-      if (!isAssigned && !isHomeroomSubject) {
+      if (!isAssigned) {
         return res.status(403).json({
           success: false,
           message: 'You do not have access to view this subject',

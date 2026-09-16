@@ -27,7 +27,10 @@ import {
 
 export default function SubjectListPage() {
   const { user } = useAuth();
-  const isStudent = (user?.role || "").toLowerCase() === "student";
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isTeacher = role.includes("teacher") && !role.includes("admin");
+  const canManage = !isStudent && !isTeacher;
 
   const [subjects, setSubjects] = useState([]);
   const [total, setTotal] = useState(0);
@@ -292,10 +295,12 @@ export default function SubjectListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>{isStudent ? "My Enrolled Subjects" : "Subject Management"}</h1>
+          <h1>{isStudent ? "My Enrolled Subjects" : isTeacher ? "My Assigned Subjects" : "Subject Management"}</h1>
           <p>
             {isStudent
               ? "Your enrolled academic subjects, credit weighting, pass criteria, and course syllabus."
+              : isTeacher
+              ? "Curriculum and course parameters for your assigned teaching subjects."
               : "Define academic subjects, credit weighting, passing benchmarks, and classification."}
           </p>
         </div>
@@ -337,7 +342,7 @@ export default function SubjectListPage() {
             )}
           </div>
 
-          {!isStudent && (
+          {canManage && (
             <div className={styles.statusTabs}>
               {[
                 { label: "Active", value: "active" },
@@ -367,7 +372,7 @@ export default function SubjectListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          {!isStudent && (
+          {canManage && (
             <button
               type="button"
               className={styles.btnPrimary}
@@ -458,17 +463,21 @@ export default function SubjectListPage() {
                       <HiInbox className={styles.emptyIcon} />
                       <h3 className={styles.emptyTitle}>No subjects found</h3>
                       <p className={styles.emptyText}>
-                        No subjects match your active filters. Click &ldquo;+ Add Subject&rdquo; to create one.
+                        {isTeacher
+                          ? "You do not have any assigned teaching subjects yet."
+                          : "No subjects match your active filters. Click \"+ Add Subject\" to create one."}
                       </p>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        onClick={handleOpenAdd}
-                        style={{ marginTop: "8px" }}
-                      >
-                        <HiPlus size={18} />
-                        <span>+ Add Subject</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          onClick={handleOpenAdd}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <HiPlus size={18} />
+                          <span>+ Add Subject</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -516,22 +525,38 @@ export default function SubjectListPage() {
                         : "—"}
                     </td>
                     <td className={styles.td} style={{ textAlign: "center" }}>
-                      <Link
-                        href={`/dashboard/grades/subjects?subject_id=${sub.id}`}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          fontSize: "12px",
-                          color: "#2563eb",
-                          textDecoration: "none",
-                          fontWeight: 600,
-                        }}
-                        title="View grades teaching this subject"
-                      >
-                        <HiAcademicCap size={14} />
-                        <span>{sub.grade_count || 0} grades</span>
-                      </Link>
+                      {canManage ? (
+                        <Link
+                          href={`/dashboard/grades/subjects?subject_id=${sub.id}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            color: "#2563eb",
+                            textDecoration: "none",
+                            fontWeight: 600,
+                          }}
+                          title="View grades teaching this subject"
+                        >
+                          <HiAcademicCap size={14} />
+                          <span>{sub.grade_count || 0} grades</span>
+                        </Link>
+                      ) : (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            color: "#64748b",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <HiAcademicCap size={14} />
+                          <span>{sub.grade_count || 0} grades</span>
+                        </span>
+                      )}
                     </td>
                     <td className={styles.td}>
                       <span
@@ -552,7 +577,7 @@ export default function SubjectListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        {!isStudent && (
+                        {canManage && (
                           <>
                             <button
                               type="button"

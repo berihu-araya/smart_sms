@@ -8,6 +8,8 @@ class GradeSubjectRepository {
     academic_year_id,
     status,
     is_compulsory,
+    subject_id,
+    subject_ids,
     search = '',
     limit = 20,
     offset = 0,
@@ -19,6 +21,18 @@ class GradeSubjectRepository {
     if (grade_id) {
       values.push(grade_id);
       conditions.push(`gs.grade_id = $${values.length}`);
+    }
+
+    if (subject_ids !== undefined && subject_ids !== null) {
+      if (Array.isArray(subject_ids) && subject_ids.length === 0) {
+        conditions.push('1 = 0');
+      } else if (Array.isArray(subject_ids)) {
+        values.push(subject_ids);
+        conditions.push(`gs.subject_id = ANY($${values.length}::uuid[])`);
+      }
+    } else if (subject_id) {
+      values.push(subject_id);
+      conditions.push(`gs.subject_id = $${values.length}`);
     }
 
     if (academic_year_id) {

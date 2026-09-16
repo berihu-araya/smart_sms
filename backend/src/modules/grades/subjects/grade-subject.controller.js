@@ -15,8 +15,17 @@ const gradeSubjectService = new GradeSubjectService(
 
 async function listGradeSubjects(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    let subjectIds = undefined;
+
+    if (role === 'teacher' && req.teacherScope) {
+      subjectIds = req.teacherScope.assigned_subject_ids || [];
+    }
+
     const data = await gradeSubjectService.listGradeSubjects({
       grade_id: req.studentScope?.grade_id || req.query.grade_id,
+      subject_id: req.query.subject_id,
+      subject_ids: subjectIds,
       academic_year_id: req.query.academic_year_id,
       status: req.query.status,
       is_compulsory: req.query.is_compulsory,
@@ -48,6 +57,19 @@ async function getGradeSubjectById(req, res, next) {
 
   try {
     const data = await gradeSubjectService.getGradeSubjectById(id);
+    const role = (req.user?.role || '').toLowerCase().trim();
+
+    if (role === 'teacher' && req.teacherScope) {
+      const isAssigned = (req.teacherScope.assigned_subject_ids || []).includes(data.subject_id);
+      if (!isAssigned) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to view this grade subject mapping',
+          data: null,
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Grade subject loaded successfully.',

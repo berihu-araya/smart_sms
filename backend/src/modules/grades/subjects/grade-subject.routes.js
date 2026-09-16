@@ -14,12 +14,14 @@ const {
 const authMiddleware = require('../../../middlewares/auth.middleware');
 const authorizeRoles = require('../../../middlewares/role.middleware');
 const { attachStudentScope, requireStudentRelatedRecord } = require('../../../middlewares/student.scope');
+const { attachTeacherScope } = require('../../../middlewares/teacher.scope');
 
 const router = express.Router();
 
 // Protect all grade-subject routes
 router.use(authMiddleware);
 router.use(attachStudentScope);
+router.use(attachTeacherScope);
 
 // GET stats & metrics
 router.get('/stats', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher'), getCurriculumStats);
