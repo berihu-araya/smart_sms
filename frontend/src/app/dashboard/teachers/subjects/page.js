@@ -334,8 +334,10 @@ export default function TeacherSubjectListPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {(homeroom.courses || []).map((course) => (
-                            <tr key={course.subject_id || course.grade_subject_id}>
+                          {(homeroom.courses || []).map((course, index) => (
+                            <tr
+                              key={`${course.grade_subject_id || course.subject_id || "course"}:${course.teacher_subject_id || course.teacher_id || "unassigned"}:${index}`}
+                            >
                               <td>
                                 <strong>{course.subject_name}</strong>
                               </td>

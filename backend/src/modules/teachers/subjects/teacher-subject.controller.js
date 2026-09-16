@@ -143,6 +143,7 @@ async function getMyOverview(req, res, next) {
            COALESCE(gs.total_marks, sub.max_mark) AS max_mark,
            gs.weekly_periods,
            gs.is_compulsory,
+           ts.id AS teacher_subject_id,
            ts.teacher_id,
            CONCAT(t.first_name, ' ', t.last_name) AS teacher_name,
            t.email AS teacher_email,
