@@ -274,95 +274,95 @@ export default function TransportDashboardPage() {
         item
           ? { ...item }
           : {
-              vehicle_number: '',
-              vehicle_model: '',
-              seating_capacity: 30,
-              fuel_type: 'Diesel',
-              registration_number: '',
-              ownership_type: 'OWNED',
-              status: 'ACTIVE',
-              insurance_expiry_date: '',
-              fitness_certificate_expiry: '',
-              notes: '',
-            }
+            vehicle_number: '',
+            vehicle_model: '',
+            seating_capacity: 30,
+            fuel_type: 'Diesel',
+            registration_number: '',
+            ownership_type: 'OWNED',
+            status: 'ACTIVE',
+            insurance_expiry_date: '',
+            fitness_certificate_expiry: '',
+            notes: '',
+          }
       );
     } else if (type === 'driver') {
       setFormData(
         item
           ? { ...item }
           : {
-              user_id: staffUsers[0]?.id || '',
-              license_number: '',
-              license_type: 'Commercial',
-              license_expiry_date: '',
-              emergency_contact: '',
-              status: 'ACTIVE',
-              notes: '',
-            }
+            user_id: staffUsers[0]?.id || '',
+            license_number: '',
+            license_type: 'Commercial',
+            license_expiry_date: '',
+            emergency_contact: '',
+            status: 'ACTIVE',
+            notes: '',
+          }
       );
     } else if (type === 'route') {
       setFormData(
         item
           ? { ...item }
           : {
-              route_name: '',
-              route_code: '',
-              start_location: '',
-              end_location: '',
-              default_vehicle_id: '',
-              default_driver_id: '',
-              distance_km: 10,
-              estimated_duration_minutes: 40,
-              fare_amount: 0,
-              status: 'ACTIVE',
-              description: '',
-            }
+            route_name: '',
+            route_code: '',
+            start_location: '',
+            end_location: '',
+            default_vehicle_id: '',
+            default_driver_id: '',
+            distance_km: 10,
+            estimated_duration_minutes: 40,
+            fare_amount: 0,
+            status: 'ACTIVE',
+            description: '',
+          }
       );
     } else if (type === 'stop') {
       setFormData(
         item
           ? { ...item }
           : {
-              route_id: activeRouteForStop?.id || routes[0]?.id || '',
-              stop_name: '',
-              stop_order: (activeRouteForStop?.stops?.length || 0) + 1,
-              pickup_time: '07:15',
-              dropoff_time: '15:45',
-              landmark: '',
-              fare_amount: 0,
-              status: 'ACTIVE',
-            }
+            route_id: activeRouteForStop?.id || routes[0]?.id || '',
+            stop_name: '',
+            stop_order: (activeRouteForStop?.stops?.length || 0) + 1,
+            pickup_time: '07:15',
+            dropoff_time: '15:45',
+            landmark: '',
+            fare_amount: 0,
+            status: 'ACTIVE',
+          }
       );
     } else if (type === 'allocation') {
       setFormData(
         item
           ? { ...item }
           : {
-              student_id: students[0]?.id || '',
-              route_id: routes[0]?.id || '',
-              pickup_stop_id: '',
-              dropoff_stop_id: '',
-              assigned_vehicle_id: '',
-              trip_type: 'BOTH',
-              seat_number: '',
-              status: 'ACTIVE',
-            }
+            student_id: students[0]?.id || '',
+            route_id: routes[0]?.id || '',
+            pickup_stop_id: '',
+            dropoff_stop_id: '',
+            assigned_vehicle_id: '',
+            trip_type: 'BOTH',
+            seat_number: '',
+            status: 'ACTIVE',
+          }
       );
     } else if (type === 'trip') {
       setFormData(
         item
           ? { ...item }
           : {
-              route_id: routes[0]?.id || '',
-              vehicle_id: vehicles[0]?.id || '',
-              driver_id: drivers[0]?.id || '',
-              trip_date: new Date().toISOString().split('T')[0],
-              trip_type: 'PICKUP',
-              scheduled_start_time: '07:00',
-              scheduled_end_time: '07:45',
-              status: 'SCHEDULED',
-              notes: '',
-            }
+            route_id: routes[0]?.id || '',
+            vehicle_id: vehicles[0]?.id || '',
+            driver_id: drivers[0]?.id || '',
+            trip_date: new Date().toISOString().split('T')[0],
+            trip_type: 'PICKUP',
+            scheduled_start_time: '07:00',
+            scheduled_end_time: '07:45',
+            status: 'SCHEDULED',
+            notes: '',
+          }
       );
     }
   };
@@ -700,13 +700,12 @@ export default function TransportDashboardPage() {
                 <p>Allocated Passengers</p>
                 <div className={styles.capacityBarContainer}>
                   <div
-                    className={`${styles.capacityBarFill} ${
-                      (stats?.capacity_utilization_rate || 0) > 90
-                        ? styles.capacityDanger
-                        : (stats?.capacity_utilization_rate || 0) > 75
+                    className={`${styles.capacityBarFill} ${(stats?.capacity_utilization_rate || 0) > 90
+                      ? styles.capacityDanger
+                      : (stats?.capacity_utilization_rate || 0) > 75
                         ? styles.capacityWarning
                         : styles.capacityNormal
-                    }`}
+                      }`}
                     style={{ width: `${Math.min(stats?.capacity_utilization_rate || 0, 100)}%` }}
                   />
                 </div>
@@ -785,15 +784,14 @@ export default function TransportDashboardPage() {
                         </td>
                         <td>
                           <span
-                            className={`${styles.statusBadge} ${
-                              t.status === 'COMPLETED'
-                                ? styles.statusActive
-                                : t.status === 'IN_PROGRESS'
+                            className={`${styles.statusBadge} ${t.status === 'COMPLETED'
+                              ? styles.statusActive
+                              : t.status === 'IN_PROGRESS'
                                 ? styles.statusBoarded
                                 : t.status === 'CANCELLED'
-                                ? styles.statusDanger
-                                : styles.statusMaintenance
-                            }`}
+                                  ? styles.statusDanger
+                                  : styles.statusMaintenance
+                              }`}
                           >
                             {t.status}
                           </span>
@@ -906,13 +904,12 @@ export default function TransportDashboardPage() {
                             </div>
                             <div className={styles.capacityBarContainer}>
                               <div
-                                className={`${styles.capacityBarFill} ${
-                                  pct > 95
-                                    ? styles.capacityDanger
-                                    : pct > 80
+                                className={`${styles.capacityBarFill} ${pct > 95
+                                  ? styles.capacityDanger
+                                  : pct > 80
                                     ? styles.capacityWarning
                                     : styles.capacityNormal
-                                }`}
+                                  }`}
                                 style={{ width: `${Math.min(pct, 100)}%` }}
                               />
                             </div>
@@ -925,13 +922,12 @@ export default function TransportDashboardPage() {
                         <td>{v.ownership_type}</td>
                         <td>
                           <span
-                            className={`${styles.statusBadge} ${
-                              v.status === 'ACTIVE'
-                                ? styles.statusActive
-                                : v.status === 'MAINTENANCE'
+                            className={`${styles.statusBadge} ${v.status === 'ACTIVE'
+                              ? styles.statusActive
+                              : v.status === 'MAINTENANCE'
                                 ? styles.statusMaintenance
                                 : styles.statusInactive
-                            }`}
+                              }`}
                           >
                             {v.status}
                           </span>
@@ -1022,9 +1018,8 @@ export default function TransportDashboardPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${
-                            d.status === 'ACTIVE' || d.status === 'ON_DUTY' ? styles.statusActive : styles.statusInactive
-                          }`}
+                          className={`${styles.statusBadge} ${d.status === 'ACTIVE' || d.status === 'ON_DUTY' ? styles.statusActive : styles.statusInactive
+                            }`}
                         >
                           {d.status}
                         </span>
@@ -1269,9 +1264,8 @@ export default function TransportDashboardPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${
-                            a.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive
-                          }`}
+                          className={`${styles.statusBadge} ${a.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive
+                            }`}
                         >
                           {a.status}
                         </span>
@@ -1376,15 +1370,14 @@ export default function TransportDashboardPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${
-                            t.status === 'COMPLETED'
-                              ? styles.statusActive
-                              : t.status === 'IN_PROGRESS'
+                          className={`${styles.statusBadge} ${t.status === 'COMPLETED'
+                            ? styles.statusActive
+                            : t.status === 'IN_PROGRESS'
                               ? styles.statusBoarded
                               : t.status === 'CANCELLED'
-                              ? styles.statusDanger
-                              : styles.statusMaintenance
-                          }`}
+                                ? styles.statusDanger
+                                : styles.statusMaintenance
+                            }`}
                         >
                           {t.status}
                         </span>
@@ -1510,8 +1503,8 @@ export default function TransportDashboardPage() {
                               ? 'YES'
                               : 'NO'
                             : val !== null && val !== undefined
-                            ? String(val)
-                            : '-'}
+                              ? String(val)
+                              : '-'}
                         </td>
                       ))}
                     </tr>

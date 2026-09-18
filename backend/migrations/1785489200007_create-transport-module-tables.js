@@ -14,7 +14,7 @@
  *
  * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
  */
-const shorthands = undefined;
+const shorthands = undefined;// this is required for the migration to run
 
 const up = async (pgm) => {
   // 1. Seed 'Driver' role if not exists
