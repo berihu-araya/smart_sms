@@ -46,9 +46,9 @@ import {
   FaSlidersH,
 } from "react-icons/fa";
 
-const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff", "Librarian"];
+const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff", "Librarian", "Driver"];
 const ADMIN_ONLY = ["School Admin", "Admin"];
-const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff", "Librarian"];
+const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff", "Librarian", "Driver"];
 const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff", "Librarian"];
 
 export function roleIsAllowed(allowedRoles = [], role) {
@@ -259,7 +259,7 @@ const menuData = [
         title: "Transport",
         icon: FaBus,
         link: "/dashboard/transport",
-        roles: ADMIN_AND_STAFF,
+        roles: ALL_ROLES,
       },
     ],
   },
