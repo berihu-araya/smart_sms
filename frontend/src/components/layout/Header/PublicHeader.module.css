@@ -1,21 +1,23 @@
 .publicHeader {
   width: 100%;
-  background: #0F2747;
+  background: rgba(11, 25, 44, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   position: sticky;
   top: 0;
   z-index: 999;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .container {
-  max-width: 1250px;
-  margin: auto;
-  height: 75px;
+  max-width: 1280px;
+  margin: 0 auto;
+  height: 76px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 25px;
+  padding: 0 24px;
 }
 
 .leftGroup {
@@ -36,11 +38,17 @@
   height: 44px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid #D4AF37;
+  border: 1.5px solid #d4af37;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2px;
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.logo:hover .logoBadge {
+  transform: scale(1.05);
 }
 
 .logoImg {
@@ -55,9 +63,10 @@
 
 .schoolName {
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.5px;
-  color: #D4AF37;
+  color: #d4af37;
+  line-height: 1.2;
 }
 
 .schoolSub {
@@ -69,22 +78,45 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 28px;
 }
 
-.nav a,
+.navLink,
 .dropbtn {
-  color: #FFFFFF;
+  color: #cbd5e1;
   text-decoration: none;
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
 }
 
-.nav a:hover,
+.navLink:hover,
 .dropbtn:hover {
-  color: #D4AF37;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.activeLink {
+  color: #d4af37 !important;
+  background: rgba(212, 175, 55, 0.12) !important;
+  font-weight: 600;
+}
+
+.chevronIcon {
+  font-size: 0.9rem;
+  transition: transform 0.2s ease;
+}
+
+.dropdown:hover .chevronIcon {
+  transform: rotate(180deg);
 }
 
 .dropdown {
@@ -93,91 +125,160 @@
 
 .dropdownContent {
   position: absolute;
-  top: 40px;
-  left: -120px;
-  width: 580px;
-  background: #0F2747;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  width: 620px;
+  background: #0d1b2e;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 18px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 12px;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(10px);
-  transition: all 0.25s ease;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
 }
 
 .dropdown:hover .dropdownContent {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 .appCard {
   display: flex;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
 }
 
 .appCard:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(212, 175, 55, 0.3);
   transform: translateY(-2px);
 }
 
-.icon {
-  width: 44px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.1);
+.iconWrap {
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 22px;
+  font-size: 1.25rem;
   flex-shrink: 0;
 }
 
+.adminIconBg {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.teacherIconBg {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.parentIconBg {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.smsIconBg {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
 .appCard h4 {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
-  color: #D4AF37;
+  margin: 0 0 3px;
+  font-size: 0.92rem;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.appCard:hover h4 {
+  color: #d4af37;
 }
 
 .appCard p {
   margin: 0;
-  color: #cbd5e1;
-  font-size: 0.78rem;
+  color: #94a3b8;
+  font-size: 0.77rem;
   line-height: 1.4;
 }
 
 .rightGroup {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.demoBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.demoBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #d4af37;
+}
+
+.demoIcon {
+  color: #fbbf24;
 }
 
 .loginBtn {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
   text-decoration: none;
   padding: 9px 20px;
   border-radius: 10px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .loginBtn:hover {
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+}
+
+.loginArrow {
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.loginBtn:hover .loginArrow {
+  transform: translateX(3px);
 }
 
 .mobileToggleBtn {
@@ -186,8 +287,8 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #ffffff;
   font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
   cursor: pointer;
   align-items: center;
@@ -198,24 +299,27 @@
   display: none;
 }
 
-@media (max-width: 868px) {
+@media (max-width: 960px) {
   .mobileToggleBtn {
     display: flex;
   }
 
   .nav {
     position: fixed;
-    top: 75px;
+    top: 76px;
     left: 0;
     width: 100%;
-    background: #0F2747;
+    max-height: calc(100vh - 76px);
+    overflow-y: auto;
+    background: #0b192c;
     flex-direction: column;
     align-items: stretch;
     padding: 24px;
-    gap: 18px;
+    gap: 12px;
     transform: translateY(-120%);
-    transition: transform 0.3s ease;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .navOpen {
@@ -230,17 +334,23 @@
     width: 100%;
     grid-template-columns: 1fr;
     box-shadow: none;
-    background: rgba(0, 0, 0, 0.2);
-    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 6px;
   }
 
+  .demoBtn,
   .loginBtn {
     display: none;
   }
 
   .mobileActionGroup {
-    display: block;
-    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .mobileLoginBtn {
@@ -251,5 +361,18 @@
     padding: 12px;
     border-radius: 10px;
     font-weight: 700;
+    text-decoration: none;
+  }
+
+  .mobileDemoBtn {
+    display: block;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.08);
+    color: #d4af37;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
   }
 }
