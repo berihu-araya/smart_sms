@@ -140,7 +140,11 @@ export default function GradeSubjectListPage() {
   }, [selectedGrade, selectedAcademicYear, compulsoryFilter, search]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   // Show Toast Notification
@@ -558,9 +562,8 @@ export default function GradeSubjectListPage() {
                   type="button"
                   onClick={() => handleToggleCompulsory(item)}
                   disabled={actionLoading}
-                  className={`${styles.compulsoryBadge} ${
-                    item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
-                  }`}
+                  className={`${styles.compulsoryBadge} ${item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
+                    }`}
                   style={{ border: "none", cursor: "pointer" }}
                   title="Click to toggle Compulsory / Elective"
                 >
@@ -662,9 +665,8 @@ export default function GradeSubjectListPage() {
                     </td>
                     <td>
                       <span
-                        className={`${styles.compulsoryBadge} ${
-                          item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
-                        }`}
+                        className={`${styles.compulsoryBadge} ${item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
+                          }`}
                       >
                         {item.is_compulsory ? "Compulsory" : "Elective"}
                       </span>
@@ -841,16 +843,15 @@ export default function GradeSubjectListPage() {
                       return (
                         <div
                           key={sub.id}
-                          className={`${styles.subjectCheckItem} ${
-                            isSelected ? styles.subjectCheckItemActive : ""
-                          }`}
+                          className={`${styles.subjectCheckItem} ${isSelected ? styles.subjectCheckItemActive : ""
+                            }`}
                           onClick={() => handleToggleSubjectSelection(sub.id)}
                         >
                           <div className={styles.checkLeft}>
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => {}}
+                              onChange={() => { }}
                               className={styles.checkbox}
                             />
                             <div>
