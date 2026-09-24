@@ -12,6 +12,7 @@
   justify-content: space-between;
   padding: 0 24px;
   box-sizing: border-box;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ================= LEFT SECTION ================= */

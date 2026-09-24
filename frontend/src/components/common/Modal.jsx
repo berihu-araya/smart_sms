@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { HiXMark } from "react-icons/hi2";
 import styles from "./Modal.module.css";
 
@@ -26,13 +27,19 @@ export default function Modal({
   preventBackdropClose = false,
 }) {
   const modalRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Lock body scroll and listen for Escape key
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll, listen for Escape key, and dim background header, sidebar & page
   useEffect(() => {
     if (!isOpen) return;
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open-dimmed");
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -44,11 +51,12 @@ export default function Modal({
 
     return () => {
       document.body.style.overflow = originalOverflow;
+      document.body.classList.remove("modal-open-dimmed");
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const resolvedMaxWidth =
     maxWidth !== undefined
@@ -64,7 +72,7 @@ export default function Modal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className={styles.overlay}
       onClick={handleBackdropClick}
@@ -105,7 +113,8 @@ export default function Modal({
         {/* Body */}
         <div className={styles.body}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

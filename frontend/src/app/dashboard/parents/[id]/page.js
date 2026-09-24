@@ -3,8 +3,18 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { FaUserTie, FaUserGraduate, FaPhoneAlt, FaEnvelope, FaBriefcase, FaMapMarkerAlt, FaEdit, FaArrowLeft } from "react-icons/fa";
+import {
+  FaUserGraduate,
+  FaPhoneAlt,
+  FaEnvelope,
+  FaBriefcase,
+  FaMapMarkerAlt,
+  FaEdit,
+  FaArrowLeft,
+  FaCheckCircle,
+} from "react-icons/fa";
 import parentService from "@/services/parentService";
+import ParentFormModal from "@/components/parents/ParentFormModal";
 import styles from "./details.module.css";
 
 export default function ParentDetailsPage() {
@@ -14,6 +24,8 @@ export default function ParentDetailsPage() {
   const [parent, setParent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
 
   useEffect(() => {
     if (!parentId) return;
@@ -33,6 +45,29 @@ export default function ParentDetailsPage() {
     loadParent();
   }, [parentId]);
 
+  const handleEditSuccess = async (updatedData) => {
+    try {
+      const refreshed = await parentService.getParentById(parentId);
+      setParent(refreshed);
+    } catch {
+      if (updatedData) {
+        setParent((prev) => ({
+          ...prev,
+          full_name: updatedData.fullName || updatedData.full_name || prev.full_name,
+          relationship: updatedData.relationship || prev.relationship,
+          phone: updatedData.phone || prev.phone,
+          email: updatedData.email || prev.email,
+          occupation: updatedData.occupation || prev.occupation,
+          address: updatedData.address || prev.address,
+        }));
+      }
+    }
+    setToastMessage("Guardian details updated successfully!");
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
   if (loading) {
     return <div className={styles.loading}>Loading parent details...</div>;
   }
@@ -40,7 +75,14 @@ export default function ParentDetailsPage() {
   if (error || !parent) {
     return (
       <div className={styles.page}>
-        <div style={{ color: "#dc2626", background: "#fef2f2", padding: "1rem", borderRadius: "0.5rem" }}>
+        <div
+          style={{
+            color: "#dc2626",
+            background: "#fef2f2",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+          }}
+        >
           {error || "Parent not found"}
         </div>
         <div style={{ marginTop: "1rem" }}>
@@ -54,14 +96,41 @@ export default function ParentDetailsPage() {
 
   return (
     <div className={styles.page}>
-      {/* Breadcrumb */}
-      <nav className={styles.breadcrumb}>
-        <Link href="/dashboard">Dashboard</Link>
-        <span className={styles.breadcrumbSeparator}>/</span>
-        <Link href="/dashboard/parents">Parents</Link>
-        <span className={styles.breadcrumbSeparator}>/</span>
-        <span style={{ color: "#111827", fontWeight: 500 }}>{parent.full_name}</span>
-      </nav>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#0f172a",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            fontSize: "0.88rem",
+            fontWeight: 600,
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
+            zIndex: 1100,
+          }}
+        >
+          <FaCheckCircle color="#34d399" size={18} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Main Content (Dimmed when edit modal is open) */}
+      <div className={`${styles.pageMain} ${isEditModalOpen ? styles.pageDimmed : ""}`}>
+        {/* Breadcrumb */}
+        <nav className={styles.breadcrumb}>
+          <Link href="/dashboard">Dashboard</Link>
+          <span className={styles.breadcrumbSeparator}>/</span>
+          <Link href="/dashboard/parents">Parents</Link>
+          <span className={styles.breadcrumbSeparator}>/</span>
+          <span style={{ color: "#111827", fontWeight: 500 }}>{parent.full_name}</span>
+        </nav>
 
       {/* Header */}
       <div className={styles.headerRow}>
@@ -71,9 +140,14 @@ export default function ParentDetailsPage() {
         </div>
 
         <div className={styles.headerActions}>
-          <Link href={`/dashboard/parents/${parent.id}/edit`} className={styles.editButton}>
+          <button
+            type="button"
+            onClick={() => setIsEditModalOpen(true)}
+            className={styles.editButton}
+            style={{ cursor: "pointer", border: "none" }}
+          >
             <FaEdit /> Edit Guardian
-          </Link>
+          </button>
           <Link href="/dashboard/parents" className={styles.backButton}>
             <FaArrowLeft /> Back
           </Link>
@@ -187,6 +261,15 @@ export default function ParentDetailsPage() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Edit Parent Modal */}
+      <ParentFormModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={handleEditSuccess}
+        initialData={parent}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import studentService from "@/services/studentService";
@@ -42,7 +43,10 @@ const GROUP_ICONS = {
   WITHDRAWN: FaBan,
 };
 
-export default function StudentListPage() {
+function StudentListContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const { user } = useAuth();
   const role = (user?.role || "").toLowerCase();
   const canEdit = ["school admin", "admin", "staff"].includes(role);
@@ -64,6 +68,20 @@ export default function StudentListPage() {
   // Modal dialog states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState(null);
+
+  // Check URL query parameters (e.g. /dashboard/students?action=new or ?edit=123)
+  useEffect(() => {
+    const action = searchParams?.get("action") || searchParams?.get("add");
+    const editId = searchParams?.get("edit");
+
+    if (action === "new" || action === "true") {
+      setEditingStudentId(null);
+      setIsModalOpen(true);
+    } else if (editId) {
+      setEditingStudentId(editId);
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadFilterOptions() {
@@ -189,6 +207,14 @@ export default function StudentListPage() {
     setIsModalOpen(true);
   };
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingStudentId(null);
+    if (searchParams?.get("action") || searchParams?.get("edit")) {
+      router.replace("/dashboard/students", { scroll: false });
+    }
+  };
+
   const handleStudentSaved = (savedStudent) => {
     const sName = savedStudent?.first_name
       ? `${savedStudent.first_name} ${savedStudent.last_name}`
@@ -311,8 +337,8 @@ export default function StudentListPage() {
                       <group.icon />
                     </span>
                     <span>
-                    <strong>{group.label}</strong>
-                    {group.detail ? <small>{group.detail}</small> : null}
+                      <strong>{group.label}</strong>
+                      {group.detail ? <small>{group.detail}</small> : null}
                     </span>
                   </span>
                   <span className={styles.groupMeta}>
@@ -400,11 +426,19 @@ export default function StudentListPage() {
       {/* Reusable Student Form Modal (Create & Edit) */}
       <StudentFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         studentId={editingStudentId}
         onSuccess={handleStudentSaved}
       />
     </div>
+  );
+}
+
+export default function StudentListPage() {
+  return (
+    <Suspense fallback={<div className={styles.loading}>Loading students...</div>}>
+      <StudentListContent />
+    </Suspense>
   );
 }
 

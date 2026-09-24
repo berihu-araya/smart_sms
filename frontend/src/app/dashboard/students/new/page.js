@@ -1,29 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import StudentFormModal from "@/components/students/StudentFormModal";
-import StudentListPage from "../page";
 
 export default function NewStudentPage() {
   const router = useRouter();
 
-  const handleClose = () => {
-    router.push("/dashboard/students");
-  };
-
-  const handleSuccess = () => {
-    router.push("/dashboard/students");
-  };
+  useEffect(() => {
+    router.replace("/dashboard/students?action=new");
+  }, [router]);
 
   return (
-    <>
-      <StudentListPage />
-      <StudentFormModal
-        isOpen={true}
-        onClose={handleClose}
-        studentId={null}
-        onSuccess={handleSuccess}
-      />
-    </>
+    <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+      <span>Opening student enrollment modal...</span>
+    </div>
   );
 }

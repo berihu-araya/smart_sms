@@ -56,3 +56,25 @@ h1, h2, h3, h4, h5, h6 {
 p {
   margin-bottom: 1rem;
 }
+
+/* =========================================================================
+   MODAL BACKGROUND DIMMING & OPACITY (HEADER, SIDEBAR & MAIN PAGE CONTENT)
+   ========================================================================= */
+header,
+aside,
+main,
+footer {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, filter;
+}
+
+body.modal-open-dimmed header,
+body.modal-open-dimmed aside,
+body.modal-open-dimmed main,
+body.modal-open-dimmed footer {
+  opacity: 0.35 !important;
+  filter: blur(3px) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}

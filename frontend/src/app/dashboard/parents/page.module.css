@@ -2,6 +2,20 @@
   padding: 1.5rem;
   max-width: 1400px;
   margin: 0 auto;
+  position: relative;
+}
+
+.pageMain {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, filter, transform;
+}
+
+.pageDimmed {
+  opacity: 0.35;
+  filter: blur(3px);
+  pointer-events: none;
+  user-select: none;
+  transform: scale(0.995);
 }
 
 .breadcrumb {
@@ -294,4 +308,40 @@
   border-radius: 0.5rem;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1100;
+  animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toastSuccessIcon {
+  color: #34d399;
+  font-size: 1.25rem;
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
