@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import gradeSubjectService from "@/services/gradeSubjectService";
 import gradeService from "@/services/gradeService";
@@ -25,6 +26,51 @@ import {
   HiEye,
   HiOutlineCheck,
 } from "react-icons/hi2";
+
+function GradeSubjectModalPortal({ isOpen, onClose, children }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open-dimmed");
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.classList.remove("modal-open-dimmed");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 export default function GradeSubjectListPage() {
   const [assignments, setAssignments] = useState([]);
@@ -720,34 +766,206 @@ export default function GradeSubjectListPage() {
       )}
 
       {/* ================= BULK ALLOCATOR MODAL ================= */}
-      {isBulkOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsBulkOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h2>⚡ Batch Subject Allocator</h2>
-                <p>Select multiple subjects to map to a grade level in a single transaction.</p>
+      <GradeSubjectModalPortal isOpen={isBulkOpen} onClose={() => setIsBulkOpen(false)}>
+        <div className={styles.modalContent}>
+          <div className={styles.modalHeader}>
+            <div>
+              <h2>⚡ Batch Subject Allocator</h2>
+              <p>Select multiple subjects to map to a grade level in a single transaction.</p>
+            </div>
+            <button
+              type="button"
+              className={styles.modalCloseBtn}
+              onClick={() => setIsBulkOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveBulkAllocation}>
+            <div className={styles.modalBody}>
+              {/* Target Grade & Year */}
+              <div className={styles.formGrid2}>
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Target Grade *</label>
+                  <select
+                    value={bulkGradeId}
+                    onChange={(e) => setBulkGradeId(e.target.value)}
+                    className={styles.select}
+                    required
+                  >
+                    {grades.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Academic Year *</label>
+                  <select
+                    value={bulkYearId}
+                    onChange={(e) => setBulkYearId(e.target.value)}
+                    className={styles.select}
+                    required
+                  >
+                    {academicYears.map((y) => (
+                      <option key={y.id} value={y.id}>
+                        {y.name} {y.is_active ? "★ (Active)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsBulkOpen(false)}
-              >
-                ✕
-              </button>
+
+              {/* Default Curriculum Parameters */}
+              <div className={styles.formGrid2} style={{ background: "#f8fafc", padding: "12px", borderRadius: "10px" }}>
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Weekly Periods</label>
+                  <input
+                    type="number"
+                    value={bulkDefaultPeriods}
+                    onChange={(e) => setBulkDefaultPeriods(e.target.value)}
+                    placeholder="e.g. 4"
+                    className={styles.searchInput}
+                    style={{ paddingLeft: "12px" }}
+                  />
+                </div>
+
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Total / Pass Marks</label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <input
+                      type="number"
+                      value={bulkDefaultTotalMarks}
+                      onChange={(e) => setBulkDefaultTotalMarks(e.target.value)}
+                      placeholder="Max 100"
+                      className={styles.searchInput}
+                      style={{ paddingLeft: "12px" }}
+                    />
+                    <input
+                      type="number"
+                      value={bulkDefaultPassMarks}
+                      onChange={(e) => setBulkDefaultPassMarks(e.target.value)}
+                      placeholder="Pass 40"
+                      className={styles.searchInput}
+                      style={{ paddingLeft: "12px" }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Subject Selector Checklist */}
+              <div className={styles.formField}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label className={styles.fieldLabel}>
+                    Select Subjects ({selectedSubjectIds.size} selected) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Filter subjects..."
+                    value={bulkSearch}
+                    onChange={(e) => setBulkSearch(e.target.value)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "12px",
+                      borderRadius: "6px",
+                      border: "1px solid #cbd5e1",
+                    }}
+                  />
+                </div>
+
+                <div className={styles.subjectsChecklist}>
+                  {filteredBulkSubjects.map((sub) => {
+                    const isSelected = selectedSubjectIds.has(sub.id);
+                    const isAlreadyMapped = alreadyMappedSubjectIds.has(sub.id);
+
+                    return (
+                      <div
+                        key={sub.id}
+                        className={`${styles.subjectCheckItem} ${isSelected ? styles.subjectCheckItemActive : ""
+                          }`}
+                        onClick={() => handleToggleSubjectSelection(sub.id)}
+                      >
+                        <div className={styles.checkLeft}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => { }}
+                            className={styles.checkbox}
+                          />
+                          <div>
+                            <strong style={{ fontSize: "14px", color: "#0f172a" }}>
+                              {sub.subject_name}
+                            </strong>
+                            <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "6px" }}>
+                              ({sub.subject_code})
+                            </span>
+                          </div>
+                        </div>
+
+                        {isAlreadyMapped && (
+                          <span className={styles.alreadyMappedTag}>Already Mapped</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveBulkAllocation}>
-              <div className={styles.modalBody}>
-                {/* Target Grade & Year */}
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setIsBulkOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading || selectedSubjectIds.size === 0}
+                className={styles.btnPrimary}
+              >
+                {actionLoading ? "Saving..." : `Allocate ${selectedSubjectIds.size} Subjects`}
+              </button>
+            </div>
+          </form>
+        </div>
+      </GradeSubjectModalPortal>
+
+      {/* ================= CLONE CURRICULUM MODAL ================= */}
+      <GradeSubjectModalPortal isOpen={isCloneOpen} onClose={() => setIsCloneOpen(false)}>
+        <div className={styles.modalContent}>
+          <div className={styles.modalHeader}>
+            <div>
+              <h2>📋 Replicate Curriculum Structure</h2>
+              <p>Copy all mapped subjects, periods, and mark configurations from one grade to another.</p>
+            </div>
+            <button
+              type="button"
+              className={styles.modalCloseBtn}
+              onClick={() => setIsCloneOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveClone}>
+            <div className={styles.modalBody}>
+              {/* Source */}
+              <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "12px" }}>
+                <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#0f172a" }}>
+                  Source Curriculum (Copy From):
+                </h4>
                 <div className={styles.formGrid2}>
                   <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Target Grade *</label>
+                    <label className={styles.fieldLabel}>Source Grade</label>
                     <select
-                      value={bulkGradeId}
-                      onChange={(e) => setBulkGradeId(e.target.value)}
+                      value={cloneSourceGrade}
+                      onChange={(e) => setCloneSourceGrade(e.target.value)}
                       className={styles.select}
-                      required
                     >
                       {grades.map((g) => (
                         <option key={g.id} value={g.id}>
@@ -758,12 +976,49 @@ export default function GradeSubjectListPage() {
                   </div>
 
                   <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Academic Year *</label>
+                    <label className={styles.fieldLabel}>Source Academic Year</label>
                     <select
-                      value={bulkYearId}
-                      onChange={(e) => setBulkYearId(e.target.value)}
+                      value={cloneSourceYear}
+                      onChange={(e) => setCloneSourceYear(e.target.value)}
                       className={styles.select}
-                      required
+                    >
+                      {academicYears.map((y) => (
+                        <option key={y.id} value={y.id}>
+                          {y.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Target */}
+              <div style={{ background: "#eff6ff", padding: "16px", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
+                <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#1e3a8a" }}>
+                  Target Curriculum (Paste To):
+                </h4>
+                <div className={styles.formGrid2}>
+                  <div className={styles.formField}>
+                    <label className={styles.fieldLabel}>Target Grade</label>
+                    <select
+                      value={cloneTargetGrade}
+                      onChange={(e) => setCloneTargetGrade(e.target.value)}
+                      className={styles.select}
+                    >
+                      {grades.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formField}>
+                    <label className={styles.fieldLabel}>Target Academic Year</label>
+                    <select
+                      value={cloneTargetYear}
+                      onChange={(e) => setCloneTargetYear(e.target.value)}
+                      className={styles.select}
                     >
                       {academicYears.map((y) => (
                         <option key={y.id} value={y.id}>
@@ -773,241 +1028,28 @@ export default function GradeSubjectListPage() {
                     </select>
                   </div>
                 </div>
-
-                {/* Default Curriculum Parameters */}
-                <div className={styles.formGrid2} style={{ background: "#f8fafc", padding: "12px", borderRadius: "10px" }}>
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Weekly Periods</label>
-                    <input
-                      type="number"
-                      value={bulkDefaultPeriods}
-                      onChange={(e) => setBulkDefaultPeriods(e.target.value)}
-                      placeholder="e.g. 4"
-                      className={styles.searchInput}
-                      style={{ paddingLeft: "12px" }}
-                    />
-                  </div>
-
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Total / Pass Marks</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="number"
-                        value={bulkDefaultTotalMarks}
-                        onChange={(e) => setBulkDefaultTotalMarks(e.target.value)}
-                        placeholder="Max 100"
-                        className={styles.searchInput}
-                        style={{ paddingLeft: "12px" }}
-                      />
-                      <input
-                        type="number"
-                        value={bulkDefaultPassMarks}
-                        onChange={(e) => setBulkDefaultPassMarks(e.target.value)}
-                        placeholder="Pass 40"
-                        className={styles.searchInput}
-                        style={{ paddingLeft: "12px" }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subject Selector Checklist */}
-                <div className={styles.formField}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <label className={styles.fieldLabel}>
-                      Select Subjects ({selectedSubjectIds.size} selected) *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Filter subjects..."
-                      value={bulkSearch}
-                      onChange={(e) => setBulkSearch(e.target.value)}
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: "12px",
-                        borderRadius: "6px",
-                        border: "1px solid #cbd5e1",
-                      }}
-                    />
-                  </div>
-
-                  <div className={styles.subjectsChecklist}>
-                    {filteredBulkSubjects.map((sub) => {
-                      const isSelected = selectedSubjectIds.has(sub.id);
-                      const isAlreadyMapped = alreadyMappedSubjectIds.has(sub.id);
-
-                      return (
-                        <div
-                          key={sub.id}
-                          className={`${styles.subjectCheckItem} ${isSelected ? styles.subjectCheckItemActive : ""
-                            }`}
-                          onClick={() => handleToggleSubjectSelection(sub.id)}
-                        >
-                          <div className={styles.checkLeft}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => { }}
-                              className={styles.checkbox}
-                            />
-                            <div>
-                              <strong style={{ fontSize: "14px", color: "#0f172a" }}>
-                                {sub.subject_name}
-                              </strong>
-                              <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "6px" }}>
-                                ({sub.subject_code})
-                              </span>
-                            </div>
-                          </div>
-
-                          {isAlreadyMapped && (
-                            <span className={styles.alreadyMappedTag}>Already Mapped</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsBulkOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading || selectedSubjectIds.size === 0}
-                  className={styles.btnPrimary}
-                >
-                  {actionLoading ? "Saving..." : `Allocate ${selectedSubjectIds.size} Subjects`}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= CLONE CURRICULUM MODAL ================= */}
-      {isCloneOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsCloneOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h2>📋 Replicate Curriculum Structure</h2>
-                <p>Copy all mapped subjects, periods, and mark configurations from one grade to another.</p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsCloneOpen(false)}
-              >
-                ✕
-              </button>
             </div>
 
-            <form onSubmit={handleSaveClone}>
-              <div className={styles.modalBody}>
-                {/* Source */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "12px" }}>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#0f172a" }}>
-                    Source Curriculum (Copy From):
-                  </h4>
-                  <div className={styles.formGrid2}>
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Source Grade</label>
-                      <select
-                        value={cloneSourceGrade}
-                        onChange={(e) => setCloneSourceGrade(e.target.value)}
-                        className={styles.select}
-                      >
-                        {grades.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Source Academic Year</label>
-                      <select
-                        value={cloneSourceYear}
-                        onChange={(e) => setCloneSourceYear(e.target.value)}
-                        className={styles.select}
-                      >
-                        {academicYears.map((y) => (
-                          <option key={y.id} value={y.id}>
-                            {y.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Target */}
-                <div style={{ background: "#eff6ff", padding: "16px", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#1e3a8a" }}>
-                    Target Curriculum (Paste To):
-                  </h4>
-                  <div className={styles.formGrid2}>
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Target Grade</label>
-                      <select
-                        value={cloneTargetGrade}
-                        onChange={(e) => setCloneTargetGrade(e.target.value)}
-                        className={styles.select}
-                      >
-                        {grades.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Target Academic Year</label>
-                      <select
-                        value={cloneTargetYear}
-                        onChange={(e) => setCloneTargetYear(e.target.value)}
-                        className={styles.select}
-                      >
-                        {academicYears.map((y) => (
-                          <option key={y.id} value={y.id}>
-                            {y.name} {y.is_active ? "★ (Active)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsCloneOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className={styles.btnPrimary}
-                >
-                  {actionLoading ? "Cloning..." : "Execute Curriculum Clone"}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setIsCloneOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className={styles.btnPrimary}
+              >
+                {actionLoading ? "Cloning..." : "Execute Curriculum Clone"}
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </GradeSubjectModalPortal>
     </div>
   );
 }
