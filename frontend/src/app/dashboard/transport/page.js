@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './page.module.css';
 import * as transportApi from '@/services/transportService';
 import { listStudents } from '@/services/studentService';
@@ -45,6 +46,51 @@ import {
   HiOutlineClipboardDocumentCheck,
   HiOutlineArrowPath,
 } from 'react-icons/hi2';
+
+function TransportModalPortal({ isOpen, onClose, children }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open-dimmed');
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.classList.remove('modal-open-dimmed');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 export default function TransportDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -2112,823 +2158,809 @@ export default function TransportDashboardPage() {
         {/* ========================================================= */}
 
         {/* MODAL 1: VEHICLE MODAL */}
-        {modalType === 'vehicle' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Vehicle' : 'Add Vehicle to Fleet'}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    <div className={styles.formGroup}>
-                      <label>Vehicle / Plate Number *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. BUS-101"
-                        value={formData.vehicle_number || ''}
-                        onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
-                      />
-                    </div>
+        <TransportModalPortal isOpen={modalType === 'vehicle'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Vehicle' : 'Add Vehicle to Fleet'}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Vehicle / Plate Number *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. BUS-101"
+                      value={formData.vehicle_number || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
+                    />
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Vehicle Model *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. Mercedes Sprinter"
-                        value={formData.vehicle_model || ''}
-                        onChange={(e) => setFormData({ ...formData, vehicle_model: e.target.value })}
-                      />
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Vehicle Model *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. Mercedes Sprinter"
+                      value={formData.vehicle_model || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicle_model: e.target.value })}
+                    />
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Seating Capacity *</label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        max={200}
-                        className={styles.formInput}
-                        value={formData.seating_capacity || 30}
-                        onChange={(e) => setFormData({ ...formData, seating_capacity: e.target.value })}
-                      />
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Seating Capacity *</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={200}
+                      className={styles.formInput}
+                      value={formData.seating_capacity || 30}
+                      onChange={(e) => setFormData({ ...formData, seating_capacity: e.target.value })}
+                    />
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Fuel Type</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.fuel_type || 'Diesel'}
-                        onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
-                      >
-                        <option value="Diesel">Diesel</option>
-                        <option value="Petrol">Petrol</option>
-                        <option value="Electric">Electric</option>
-                        <option value="Hybrid">Hybrid</option>
-                        <option value="CNG">CNG</option>
-                      </select>
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Fuel Type</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.fuel_type || 'Diesel'}
+                      onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
+                    >
+                      <option value="Diesel">Diesel</option>
+                      <option value="Petrol">Petrol</option>
+                      <option value="Electric">Electric</option>
+                      <option value="Hybrid">Hybrid</option>
+                      <option value="CNG">CNG</option>
+                    </select>
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Registration / Chassis Number</label>
-                      <input
-                        type="text"
-                        className={styles.formInput}
-                        value={formData.registration_number || ''}
-                        onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
-                      />
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Registration / Chassis Number</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      value={formData.registration_number || ''}
+                      onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
+                    />
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Status</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.status || 'ACTIVE'}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      >
-                        <option value="ACTIVE">Active</option>
-                        <option value="MAINTENANCE">Under Maintenance</option>
-                        <option value="OUT_OF_SERVICE">Out of Service</option>
-                        <option value="RETIRED">Retired</option>
-                      </select>
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Status</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.status || 'ACTIVE'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="MAINTENANCE">Under Maintenance</option>
+                      <option value="OUT_OF_SERVICE">Out of Service</option>
+                      <option value="RETIRED">Retired</option>
+                    </select>
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Insurance Expiry Date</label>
-                      <input
-                        type="date"
-                        className={styles.formInput}
-                        value={formData.insurance_expiry_date?.split('T')[0] || ''}
-                        onChange={(e) => setFormData({ ...formData, insurance_expiry_date: e.target.value })}
-                      />
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Insurance Expiry Date</label>
+                    <input
+                      type="date"
+                      className={styles.formInput}
+                      value={formData.insurance_expiry_date?.split('T')[0] || ''}
+                      onChange={(e) => setFormData({ ...formData, insurance_expiry_date: e.target.value })}
+                    />
+                  </div>
 
-                    <div className={styles.formGroup}>
-                      <label>Fitness / Inspection Expiry</label>
-                      <input
-                        type="date"
-                        className={styles.formInput}
-                        value={formData.fitness_certificate_expiry?.split('T')[0] || ''}
-                        onChange={(e) => setFormData({ ...formData, fitness_certificate_expiry: e.target.value })}
-                      />
-                    </div>
+                  <div className={styles.formGroup}>
+                    <label>Fitness / Inspection Expiry</label>
+                    <input
+                      type="date"
+                      className={styles.formInput}
+                      value={formData.fitness_certificate_expiry?.split('T')[0] || ''}
+                      onChange={(e) => setFormData({ ...formData, fitness_certificate_expiry: e.target.value })}
+                    />
                   </div>
                 </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Vehicle'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Vehicle'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
+        </TransportModalPortal>
 
         {/* MODAL 2: DRIVER MODAL (LINKED TO EXISTING STAFF/USERS) */}
-        {modalType === 'driver' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Driver Profile' : 'Onboard Transport Driver'}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    {!editingItem && (
-                      <div className={styles.formGroupFull}>
-                        <label>Select Staff Member / User Account *</label>
-                        <select
-                          required
-                          className={styles.formSelect}
-                          value={formData.user_id || ''}
-                          onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                        >
-                          <option value="">-- Select Staff Account --</option>
-                          {(Array.isArray(staffUsers) ? staffUsers : []).map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.first_name} {u.last_name} ({u.email})
-                            </option>
-                          ))}
-                        </select>
-                        <small style={{ color: '#64748b' }}>
-                          Reuses the existing staff record to prevent duplicate person entities.
-                        </small>
-                      </div>
-                    )}
-
-                    <div className={styles.formGroup}>
-                      <label>Driver License Number *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. DL-987654"
-                        value={formData.license_number || ''}
-                        onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>License Type</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.license_type || 'Commercial'}
-                        onChange={(e) => setFormData({ ...formData, license_type: e.target.value })}
-                      >
-                        <option value="Commercial">Commercial Heavy</option>
-                        <option value="Passenger Bus">Passenger Bus</option>
-                        <option value="Standard">Standard</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Emergency Contact Phone</label>
-                      <input
-                        type="text"
-                        className={styles.formInput}
-                        value={formData.emergency_contact || ''}
-                        onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>License Expiry Date</label>
-                      <input
-                        type="date"
-                        className={styles.formInput}
-                        value={formData.license_expiry_date?.split('T')[0] || ''}
-                        onChange={(e) => setFormData({ ...formData, license_expiry_date: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Status</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.status || 'ACTIVE'}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      >
-                        <option value="ACTIVE">Active</option>
-                        <option value="ON_DUTY">On Duty</option>
-                        <option value="INACTIVE">Inactive</option>
-                        <option value="SUSPENDED">Suspended</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Driver'}
-                  </button>
-                </div>
-              </form>
+        <TransportModalPortal isOpen={modalType === 'driver'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Driver Profile' : 'Onboard Transport Driver'}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
             </div>
-          </div>
-        )}
-
-        {/* MODAL 3: ROUTE MODAL */}
-        {modalType === 'route' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Route' : 'Create Transportation Route'}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    <div className={styles.formGroup}>
-                      <label>Route Name *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. North Highland - Campus"
-                        value={formData.route_name || ''}
-                        onChange={(e) => setFormData({ ...formData, route_name: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Route Code *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. R-101-N"
-                        value={formData.route_code || ''}
-                        onChange={(e) => setFormData({ ...formData, route_code: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Start Location *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. Highland Square"
-                        value={formData.start_location || ''}
-                        onChange={(e) => setFormData({ ...formData, start_location: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>End Location *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. Main School Gate"
-                        value={formData.end_location || ''}
-                        onChange={(e) => setFormData({ ...formData, end_location: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Default Vehicle</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.default_vehicle_id || ''}
-                        onChange={(e) => setFormData({ ...formData, default_vehicle_id: e.target.value })}
-                      >
-                        <option value="">-- None --</option>
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.vehicle_number} ({v.vehicle_model} - {v.seating_capacity} seats)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Default Driver</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.default_driver_id || ''}
-                        onChange={(e) => setFormData({ ...formData, default_driver_id: e.target.value })}
-                      >
-                        <option value="">-- None --</option>
-                        {drivers.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.first_name} {d.last_name} ({d.license_number})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Distance (km)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        className={styles.formInput}
-                        value={formData.distance_km || 0}
-                        onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Est. Duration (minutes)</label>
-                      <input
-                        type="number"
-                        className={styles.formInput}
-                        value={formData.estimated_duration_minutes || 45}
-                        onChange={(e) => setFormData({ ...formData, estimated_duration_minutes: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Route'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 4: STOP MODAL */}
-        {modalType === 'stop' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Stop' : `Add Stop to ${activeRouteForStop?.route_name || 'Route'}`}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    <div className={styles.formGroup}>
-                      <label>Stop Name *</label>
-                      <input
-                        type="text"
-                        required
-                        className={styles.formInput}
-                        placeholder="e.g. Oakridge Crossing"
-                        value={formData.stop_name || ''}
-                        onChange={(e) => setFormData({ ...formData, stop_name: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Stop Sequence Order *</label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        className={styles.formInput}
-                        value={formData.stop_order || 1}
-                        onChange={(e) => setFormData({ ...formData, stop_order: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Pickup Time</label>
-                      <input
-                        type="time"
-                        className={styles.formInput}
-                        value={formData.pickup_time || '07:15'}
-                        onChange={(e) => setFormData({ ...formData, pickup_time: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Drop-off Time</label>
-                      <input
-                        type="time"
-                        className={styles.formInput}
-                        value={formData.dropoff_time || '15:45'}
-                        onChange={(e) => setFormData({ ...formData, dropoff_time: e.target.value })}
-                      />
-                    </div>
-
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  {!editingItem && (
                     <div className={styles.formGroupFull}>
-                      <label>Landmark / Description</label>
-                      <input
-                        type="text"
-                        className={styles.formInput}
-                        placeholder="e.g. Opposite Post Office"
-                        value={formData.landmark || ''}
-                        onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Stop'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 5: STUDENT ALLOCATION MODAL (CAPACITY ENFORCEMENT) */}
-        {modalType === 'allocation' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Student Allocation' : 'Allocate Student to Transport'}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    {!editingItem && (
-                      <div className={styles.formGroupFull}>
-                        <label>Select Student *</label>
-                        <select
-                          required
-                          className={styles.formSelect}
-                          value={formData.student_id || ''}
-                          onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
-                        >
-                          <option value="">-- Choose Student --</option>
-                          {(Array.isArray(students) ? students : []).map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.first_name} {s.last_name} (Adm: {s.admission_number || s.id?.slice(0, 8)})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className={styles.formGroupFull}>
-                      <label>Transportation Route *</label>
+                      <label>Select Staff Member / User Account *</label>
                       <select
                         required
                         className={styles.formSelect}
-                        value={formData.route_id || ''}
-                        onChange={(e) => setFormData({ ...formData, route_id: e.target.value })}
+                        value={formData.user_id || ''}
+                        onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
                       >
-                        <option value="">-- Select Route --</option>
-                        {(Array.isArray(routes) ? routes : []).map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.route_name} ({r.route_code})
+                        <option value="">-- Select Staff Account --</option>
+                        {(Array.isArray(staffUsers) ? staffUsers : []).map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.first_name} {u.last_name} ({u.email})
                           </option>
                         ))}
                       </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Pickup Stop</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.pickup_stop_id || ''}
-                        onChange={(e) => setFormData({ ...formData, pickup_stop_id: e.target.value })}
-                      >
-                        <option value="">-- Route Default / Start --</option>
-                        {routes
-                          .find((r) => r.id === formData.route_id)
-                          ?.stops?.map((st) => (
-                            <option key={st.id} value={st.id}>
-                              {st.stop_order}. {st.stop_name} ({st.pickup_time || '--:--'})
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Drop-off Stop</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.dropoff_stop_id || ''}
-                        onChange={(e) => setFormData({ ...formData, dropoff_stop_id: e.target.value })}
-                      >
-                        <option value="">-- Route Default / End --</option>
-                        {routes
-                          .find((r) => r.id === formData.route_id)
-                          ?.stops?.map((st) => (
-                            <option key={st.id} value={st.id}>
-                              {st.stop_order}. {st.stop_name} ({st.dropoff_time || '--:--'})
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Trip Type</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.trip_type || 'BOTH'}
-                        onChange={(e) => setFormData({ ...formData, trip_type: e.target.value })}
-                      >
-                        <option value="BOTH">Both (Pickup & Drop-off)</option>
-                        <option value="PICKUP_ONLY">Morning Pickup Only</option>
-                        <option value="DROPOFF_ONLY">Afternoon Drop-off Only</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Seat Number</label>
-                      <input
-                        type="text"
-                        className={styles.formInput}
-                        placeholder="e.g. 4B"
-                        value={formData.seat_number || ''}
-                        onChange={(e) => setFormData({ ...formData, seat_number: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Allocation'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 6: SCHEDULE TRIP MODAL */}
-        {modalType === 'trip' && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox}>
-              <div className={styles.modalHeader}>
-                <h2>{editingItem ? 'Edit Trip Schedule' : 'Schedule Transport Trip'}</h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div className={styles.formGrid}>
-                    <div className={styles.formGroupFull}>
-                      <label>Route *</label>
-                      <select
-                        required
-                        className={styles.formSelect}
-                        value={formData.route_id || ''}
-                        onChange={(e) => {
-                          const selR = routes.find((r) => r.id === e.target.value);
-                          setFormData({
-                            ...formData,
-                            route_id: e.target.value,
-                            vehicle_id: selR?.default_vehicle_id || formData.vehicle_id,
-                            driver_id: selR?.default_driver_id || formData.driver_id,
-                          });
-                        }}
-                      >
-                        <option value="">-- Choose Route --</option>
-                        {routes.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.route_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Assign Vehicle *</label>
-                      <select
-                        required
-                        className={styles.formSelect}
-                        value={formData.vehicle_id || ''}
-                        onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
-                      >
-                        <option value="">-- Select Bus --</option>
-                        {vehicles.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.vehicle_number} ({v.seating_capacity} seats)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Assign Driver *</label>
-                      <select
-                        required
-                        className={styles.formSelect}
-                        value={formData.driver_id || ''}
-                        onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
-                      >
-                        <option value="">-- Select Driver --</option>
-                        {drivers.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.first_name} {d.last_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Trip Date *</label>
-                      <input
-                        type="date"
-                        required
-                        className={styles.formInput}
-                        value={formData.trip_date?.split('T')[0] || ''}
-                        onChange={(e) => setFormData({ ...formData, trip_date: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Trip Type</label>
-                      <select
-                        className={styles.formSelect}
-                        value={formData.trip_type || 'PICKUP'}
-                        onChange={(e) => setFormData({ ...formData, trip_type: e.target.value })}
-                      >
-                        <option value="PICKUP">Morning Pickup</option>
-                        <option value="DROPOFF">Afternoon Drop-off</option>
-                        <option value="SPECIAL">Special / Excursion</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Scheduled Start Time</label>
-                      <input
-                        type="time"
-                        className={styles.formInput}
-                        value={formData.scheduled_start_time || '07:00'}
-                        onChange={(e) => setFormData({ ...formData, scheduled_start_time: e.target.value })}
-                      />
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <label>Scheduled End Time</label>
-                      <input
-                        type="time"
-                        className={styles.formInput}
-                        value={formData.scheduled_end_time || '07:45'}
-                        onChange={(e) => setFormData({ ...formData, scheduled_end_time: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Trip'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 7: BOARDING ATTENDANCE SHEET */}
-        {modalType === 'attendance' && activeTripForAttendance && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modalBox} style={{ maxWidth: 800 }}>
-              <div className={styles.modalHeader}>
-                <h2>
-                  <HiOutlineClipboardDocumentCheck /> Passenger Boarding Sheet - {activeTripForAttendance.route_name}
-                </h2>
-                <button className={styles.closeBtn} onClick={closeModal}>
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSave}>
-                <div className={styles.modalBody}>
-                  <div style={{ marginBottom: '1rem', display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
-                    <span>
-                      <strong>Date:</strong> {activeTripForAttendance.trip_date?.split('T')[0]}
-                    </span>
-                    <span>
-                      <strong>Type:</strong> {activeTripForAttendance.trip_type}
-                    </span>
-                    <span>
-                      <strong>Bus:</strong> {activeTripForAttendance.vehicle_number}
-                    </span>
-                    <span>
-                      <strong>Driver:</strong> {activeTripForAttendance.driver_first_name}{' '}
-                      {activeTripForAttendance.driver_last_name}
-                    </span>
-                  </div>
-
-                  {tripRoster.length === 0 ? (
-                    <div className={styles.emptyState}>
-                      <h4>No allocated students on this route</h4>
-                      <p>Allocate students to this route in the &quot;Student Allocations&quot; tab.</p>
-                    </div>
-                  ) : (
-                    <div className={styles.tableWrapper}>
-                      <table className={styles.dataTable}>
-                        <thead>
-                          <tr>
-                            <th>Passenger</th>
-                            <th>Stop</th>
-                            <th>Seat</th>
-                            <th>Boarding Status</th>
-                            <th>Remarks</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tripRoster.map((p) => {
-                            const currentRec = attendanceRecords[p.student_id] || { status: 'BOARDED' };
-                            return (
-                              <tr key={p.student_id}>
-                                <td>
-                                  <strong>
-                                    {p.student_first_name} {p.student_last_name}
-                                  </strong>
-                                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Adm: {p.admission_number}</div>
-                                </td>
-                                <td>
-                                  {activeTripForAttendance.trip_type === 'DROPOFF'
-                                    ? p.dropoff_stop_name || 'End Terminal'
-                                    : p.pickup_stop_name || 'Start Terminal'}
-                                </td>
-                                <td>{p.seat_number || '-'}</td>
-                                <td>
-                                  <select
-                                    className={styles.formSelect}
-                                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
-                                    value={currentRec.status}
-                                    onChange={(e) =>
-                                      setAttendanceRecords({
-                                        ...attendanceRecords,
-                                        [p.student_id]: {
-                                          ...currentRec,
-                                          status: e.target.value,
-                                        },
-                                      })
-                                    }
-                                  >
-                                    <option value="BOARDED">Boarded</option>
-                                    <option value="DROPPED_OFF">Dropped Off</option>
-                                    <option value="ABSENT">Absent</option>
-                                    <option value="EXCUSED">Excused</option>
-                                    <option value="SKIPPED">Skipped</option>
-                                  </select>
-                                </td>
-                                <td>
-                                  <input
-                                    type="text"
-                                    className={styles.formInput}
-                                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
-                                    placeholder="Notes..."
-                                    value={currentRec.remarks || ''}
-                                    onChange={(e) =>
-                                      setAttendanceRecords({
-                                        ...attendanceRecords,
-                                        [p.student_id]: {
-                                          ...currentRec,
-                                          remarks: e.target.value,
-                                        },
-                                      })
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                      <small style={{ color: '#64748b' }}>
+                        Reuses the existing staff record to prevent duplicate person entities.
+                      </small>
                     </div>
                   )}
+
+                  <div className={styles.formGroup}>
+                    <label>Driver License Number *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. DL-987654"
+                      value={formData.license_number || ''}
+                      onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>License Type</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.license_type || 'Commercial'}
+                      onChange={(e) => setFormData({ ...formData, license_type: e.target.value })}
+                    >
+                      <option value="Commercial">Commercial Heavy</option>
+                      <option value="Passenger Bus">Passenger Bus</option>
+                      <option value="Standard">Standard</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Emergency Contact Phone</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      value={formData.emergency_contact || ''}
+                      onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>License Expiry Date</label>
+                    <input
+                      type="date"
+                      className={styles.formInput}
+                      value={formData.license_expiry_date?.split('T')[0] || ''}
+                      onChange={(e) => setFormData({ ...formData, license_expiry_date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Status</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.status || 'ACTIVE'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="ON_DUTY">On Duty</option>
+                      <option value="INACTIVE">Inactive</option>
+                      <option value="SUSPENDED">Suspended</option>
+                    </select>
+                  </div>
                 </div>
-                <div className={styles.modalFooter}>
-                  <button type="button" className={styles.outlineBtn} onClick={closeModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.primaryBtn} disabled={loading || tripRoster.length === 0}>
-                    {loading ? 'Saving...' : 'Submit Attendance Sheet'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Driver'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
+        </TransportModalPortal>
+
+        {/* MODAL 3: ROUTE MODAL */}
+        <TransportModalPortal isOpen={modalType === 'route'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Route' : 'Create Transportation Route'}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Route Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. North Highland - Campus"
+                      value={formData.route_name || ''}
+                      onChange={(e) => setFormData({ ...formData, route_name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Route Code *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. R-101-N"
+                      value={formData.route_code || ''}
+                      onChange={(e) => setFormData({ ...formData, route_code: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Start Location *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. Highland Square"
+                      value={formData.start_location || ''}
+                      onChange={(e) => setFormData({ ...formData, start_location: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>End Location *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. Main School Gate"
+                      value={formData.end_location || ''}
+                      onChange={(e) => setFormData({ ...formData, end_location: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Default Vehicle</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.default_vehicle_id || ''}
+                      onChange={(e) => setFormData({ ...formData, default_vehicle_id: e.target.value })}
+                    >
+                      <option value="">-- None --</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.vehicle_number} ({v.vehicle_model} - {v.seating_capacity} seats)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Default Driver</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.default_driver_id || ''}
+                      onChange={(e) => setFormData({ ...formData, default_driver_id: e.target.value })}
+                    >
+                      <option value="">-- None --</option>
+                      {drivers.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.first_name} {d.last_name} ({d.license_number})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Distance (km)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className={styles.formInput}
+                      value={formData.distance_km || 0}
+                      onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Est. Duration (minutes)</label>
+                    <input
+                      type="number"
+                      className={styles.formInput}
+                      value={formData.estimated_duration_minutes || 45}
+                      onChange={(e) => setFormData({ ...formData, estimated_duration_minutes: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Route'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TransportModalPortal>
+
+        {/* MODAL 4: STOP MODAL */}
+        <TransportModalPortal isOpen={modalType === 'stop'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Stop' : `Add Stop to ${activeRouteForStop?.route_name || 'Route'}`}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>Stop Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.formInput}
+                      placeholder="e.g. Oakridge Crossing"
+                      value={formData.stop_name || ''}
+                      onChange={(e) => setFormData({ ...formData, stop_name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Stop Sequence Order *</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      className={styles.formInput}
+                      value={formData.stop_order || 1}
+                      onChange={(e) => setFormData({ ...formData, stop_order: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Pickup Time</label>
+                    <input
+                      type="time"
+                      className={styles.formInput}
+                      value={formData.pickup_time || '07:15'}
+                      onChange={(e) => setFormData({ ...formData, pickup_time: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Drop-off Time</label>
+                    <input
+                      type="time"
+                      className={styles.formInput}
+                      value={formData.dropoff_time || '15:45'}
+                      onChange={(e) => setFormData({ ...formData, dropoff_time: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroupFull}>
+                    <label>Landmark / Description</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. Opposite Post Office"
+                      value={formData.landmark || ''}
+                      onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Stop'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TransportModalPortal>
+
+        {/* MODAL 5: STUDENT ALLOCATION MODAL (CAPACITY ENFORCEMENT) */}
+        <TransportModalPortal isOpen={modalType === 'allocation'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Student Allocation' : 'Allocate Student to Transport'}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  {!editingItem && (
+                    <div className={styles.formGroupFull}>
+                      <label>Select Student *</label>
+                      <select
+                        required
+                        className={styles.formSelect}
+                        value={formData.student_id || ''}
+                        onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
+                      >
+                        <option value="">-- Choose Student --</option>
+                        {(Array.isArray(students) ? students : []).map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.first_name} {s.last_name} (Adm: {s.admission_number || s.id?.slice(0, 8)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className={styles.formGroupFull}>
+                    <label>Transportation Route *</label>
+                    <select
+                      required
+                      className={styles.formSelect}
+                      value={formData.route_id || ''}
+                      onChange={(e) => setFormData({ ...formData, route_id: e.target.value })}
+                    >
+                      <option value="">-- Select Route --</option>
+                      {(Array.isArray(routes) ? routes : []).map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.route_name} ({r.route_code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Pickup Stop</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.pickup_stop_id || ''}
+                      onChange={(e) => setFormData({ ...formData, pickup_stop_id: e.target.value })}
+                    >
+                      <option value="">-- Route Default / Start --</option>
+                      {routes
+                        .find((r) => r.id === formData.route_id)
+                        ?.stops?.map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.stop_order}. {st.stop_name} ({st.pickup_time || '--:--'})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Drop-off Stop</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.dropoff_stop_id || ''}
+                      onChange={(e) => setFormData({ ...formData, dropoff_stop_id: e.target.value })}
+                    >
+                      <option value="">-- Route Default / End --</option>
+                      {routes
+                        .find((r) => r.id === formData.route_id)
+                        ?.stops?.map((st) => (
+                          <option key={st.id} value={st.id}>
+                            {st.stop_order}. {st.stop_name} ({st.dropoff_time || '--:--'})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Trip Type</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.trip_type || 'BOTH'}
+                      onChange={(e) => setFormData({ ...formData, trip_type: e.target.value })}
+                    >
+                      <option value="BOTH">Both (Pickup & Drop-off)</option>
+                      <option value="PICKUP_ONLY">Morning Pickup Only</option>
+                      <option value="DROPOFF_ONLY">Afternoon Drop-off Only</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Seat Number</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="e.g. 4B"
+                      value={formData.seat_number || ''}
+                      onChange={(e) => setFormData({ ...formData, seat_number: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Allocation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TransportModalPortal>
+
+        {/* MODAL 6: SCHEDULE TRIP MODAL */}
+        <TransportModalPortal isOpen={modalType === 'trip'} onClose={closeModal}>
+          <div className={styles.modalBox}>
+            <div className={styles.modalHeader}>
+              <h2>{editingItem ? 'Edit Trip Schedule' : 'Schedule Transport Trip'}</h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroupFull}>
+                    <label>Route *</label>
+                    <select
+                      required
+                      className={styles.formSelect}
+                      value={formData.route_id || ''}
+                      onChange={(e) => {
+                        const selR = routes.find((r) => r.id === e.target.value);
+                        setFormData({
+                          ...formData,
+                          route_id: e.target.value,
+                          vehicle_id: selR?.default_vehicle_id || formData.vehicle_id,
+                          driver_id: selR?.default_driver_id || formData.driver_id,
+                        });
+                      }}
+                    >
+                      <option value="">-- Choose Route --</option>
+                      {routes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.route_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Assign Vehicle *</label>
+                    <select
+                      required
+                      className={styles.formSelect}
+                      value={formData.vehicle_id || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
+                    >
+                      <option value="">-- Select Bus --</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.vehicle_number} ({v.seating_capacity} seats)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Assign Driver *</label>
+                    <select
+                      required
+                      className={styles.formSelect}
+                      value={formData.driver_id || ''}
+                      onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
+                    >
+                      <option value="">-- Select Driver --</option>
+                      {drivers.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.first_name} {d.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Trip Date *</label>
+                    <input
+                      type="date"
+                      required
+                      className={styles.formInput}
+                      value={formData.trip_date?.split('T')[0] || ''}
+                      onChange={(e) => setFormData({ ...formData, trip_date: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Trip Type</label>
+                    <select
+                      className={styles.formSelect}
+                      value={formData.trip_type || 'PICKUP'}
+                      onChange={(e) => setFormData({ ...formData, trip_type: e.target.value })}
+                    >
+                      <option value="PICKUP">Morning Pickup</option>
+                      <option value="DROPOFF">Afternoon Drop-off</option>
+                      <option value="SPECIAL">Special / Excursion</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Scheduled Start Time</label>
+                    <input
+                      type="time"
+                      className={styles.formInput}
+                      value={formData.scheduled_start_time || '07:00'}
+                      onChange={(e) => setFormData({ ...formData, scheduled_start_time: e.target.value })}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>Scheduled End Time</label>
+                    <input
+                      type="time"
+                      className={styles.formInput}
+                      value={formData.scheduled_end_time || '07:45'}
+                      onChange={(e) => setFormData({ ...formData, scheduled_end_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Trip'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TransportModalPortal>
+
+        {/* MODAL 7: BOARDING ATTENDANCE SHEET */}
+        <TransportModalPortal isOpen={modalType === 'attendance' && !!activeTripForAttendance} onClose={closeModal}>
+          <div className={styles.modalBox} style={{ maxWidth: 800 }}>
+            <div className={styles.modalHeader}>
+              <h2>
+                <HiOutlineClipboardDocumentCheck /> Passenger Boarding Sheet - {activeTripForAttendance?.route_name}
+              </h2>
+              <button className={styles.closeBtn} onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className={styles.modalBody}>
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
+                  <span>
+                    <strong>Date:</strong> {activeTripForAttendance?.trip_date?.split('T')[0]}
+                  </span>
+                  <span>
+                    <strong>Type:</strong> {activeTripForAttendance?.trip_type}
+                  </span>
+                  <span>
+                    <strong>Bus:</strong> {activeTripForAttendance?.vehicle_number}
+                  </span>
+                  <span>
+                    <strong>Driver:</strong> {activeTripForAttendance?.driver_first_name}{' '}
+                    {activeTripForAttendance?.driver_last_name}
+                  </span>
+                </div>
+
+                {tripRoster.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <h4>No allocated students on this route</h4>
+                    <p>Allocate students to this route in the &quot;Student Allocations&quot; tab.</p>
+                  </div>
+                ) : (
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.dataTable}>
+                      <thead>
+                        <tr>
+                          <th>Passenger</th>
+                          <th>Stop</th>
+                          <th>Seat</th>
+                          <th>Boarding Status</th>
+                          <th>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tripRoster.map((p) => {
+                          const currentRec = attendanceRecords[p.student_id] || { status: 'BOARDED' };
+                          return (
+                            <tr key={p.student_id}>
+                              <td>
+                                <strong>
+                                  {p.student_first_name} {p.student_last_name}
+                                </strong>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Adm: {p.admission_number}</div>
+                              </td>
+                              <td>
+                                {activeTripForAttendance?.trip_type === 'DROPOFF'
+                                  ? p.dropoff_stop_name || 'End Terminal'
+                                  : p.pickup_stop_name || 'Start Terminal'}
+                              </td>
+                              <td>{p.seat_number || '-'}</td>
+                              <td>
+                                <select
+                                  className={styles.formSelect}
+                                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                                  value={currentRec.status}
+                                  onChange={(e) =>
+                                    setAttendanceRecords({
+                                      ...attendanceRecords,
+                                      [p.student_id]: {
+                                        ...currentRec,
+                                        status: e.target.value,
+                                      },
+                                    })
+                                  }
+                                >
+                                  <option value="BOARDED">Boarded</option>
+                                  <option value="DROPPED_OFF">Dropped Off</option>
+                                  <option value="ABSENT">Absent</option>
+                                  <option value="EXCUSED">Excused</option>
+                                  <option value="SKIPPED">Skipped</option>
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  className={styles.formInput}
+                                  style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                                  placeholder="Notes..."
+                                  value={currentRec.remarks || ''}
+                                  onChange={(e) =>
+                                    setAttendanceRecords({
+                                      ...attendanceRecords,
+                                      [p.student_id]: {
+                                        ...currentRec,
+                                        remarks: e.target.value,
+                                      },
+                                    })
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.outlineBtn} onClick={closeModal}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.primaryBtn} disabled={loading || tripRoster.length === 0}>
+                  {loading ? 'Saving...' : 'Submit Attendance Sheet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TransportModalPortal>
       </div>
     );
 }

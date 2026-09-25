@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './page.module.css';
 import { AuthContext } from '@/context/AuthContext';
 import {
@@ -95,6 +96,51 @@ import {
   FaUpload,
   FaDownload,
 } from 'react-icons/fa';
+
+function LibraryModalPortal({ isOpen, onClose, children }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open-dimmed');
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.classList.remove('modal-open-dimmed');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 export default function LibraryDashboardPage() { // this means Create a React component called LibraryDashboardPage.
   const { user } = useContext(AuthContext);
@@ -2226,280 +2272,277 @@ export default function LibraryDashboardPage() { // this means Create a React co
       )}
 
       {/* MODAL 1: ADD / EDIT BOOK */}
-      {isBookModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={`${styles.modalContent} ${styles.bookModal}`}>
-            <div className={`${styles.modalHeader} ${styles.bookModalHeader}`}>
-              <div className={styles.modalTitleGroup}>
-                <span className={styles.modalEyebrow}>{editingBook ? 'CATALOG EDITOR' : 'LIBRARY CATALOG'}</span>
-                <h2>{editingBook ? <FaEdit /> : <FaPlus />} {editingBook ? 'Edit Book Catalog Item' : 'Register New Book'}</h2>
-                <p>{editingBook ? 'Keep the catalog record accurate and easy to find.' : 'Add a title, classify it, and prepare its first copies.'}</p>
-              </div>
-              <button className={styles.closeModalBtn} onClick={() => setIsBookModalOpen(false)}>
-                <FaTimes />
-              </button>
+      <LibraryModalPortal isOpen={isBookModalOpen} onClose={() => setIsBookModalOpen(false)}>
+        <div className={`${styles.modalContent} ${styles.bookModal}`}>
+          <div className={`${styles.modalHeader} ${styles.bookModalHeader}`}>
+            <div className={styles.modalTitleGroup}>
+              <span className={styles.modalEyebrow}>{editingBook ? 'CATALOG EDITOR' : 'LIBRARY CATALOG'}</span>
+              <h2>{editingBook ? <FaEdit /> : <FaPlus />} {editingBook ? 'Edit Book Catalog Item' : 'Register New Book'}</h2>
+              <p>{editingBook ? 'Keep the catalog record accurate and easy to find.' : 'Add a title, classify it, and prepare its first copies.'}</p>
             </div>
+            <button className={styles.closeModalBtn} onClick={() => setIsBookModalOpen(false)}>
+              <FaTimes />
+            </button>
+          </div>
 
-            <form onSubmit={handleSaveBook}>
-              <div className={styles.modalBody}>
-                <section className={styles.modalSection}>
-                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>01</span><div><h3>Book identity</h3><p>Start with the details patrons will search for.</p></div></div>
+          <form onSubmit={handleSaveBook}>
+            <div className={styles.modalBody}>
+              <section className={styles.modalSection}>
+                <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>01</span><div><h3>Book identity</h3><p>Start with the details patrons will search for.</p></div></div>
+                <div className={styles.formGroup}>
+                  <label>Book Title *</label>
+                  <input
+                    type="text"
+                    required
+                    className={styles.formInput}
+                    value={bookFormData.title}
+                    onChange={(e) => setBookFormData({ ...bookFormData, title: e.target.value })}
+                  />
+                </div>
+
+                <div className={styles.formRow}>
                   <div className={styles.formGroup}>
-                    <label>Book Title *</label>
-                    <input
-                      type="text"
-                      required
-                      className={styles.formInput}
-                      value={bookFormData.title}
-                      onChange={(e) => setBookFormData({ ...bookFormData, title: e.target.value })}
-                    />
+                    <label>ISBN</label>
+                    <input type="text" className={styles.formInput} value={bookFormData.isbn} onChange={(e) => setBookFormData({ ...bookFormData, isbn: e.target.value })} />
                   </div>
+                  <div className={styles.formGroup}>
+                    <label>Edition</label>
+                    <input type="text" className={styles.formInput} value={bookFormData.edition} onChange={(e) => setBookFormData({ ...bookFormData, edition: e.target.value })} />
+                  </div>
+                </div>
+              </section>
 
+              <section className={styles.modalSection}>
+                <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>02</span><div><h3>Cover and appearance</h3><p>Use ISBN lookup or add a cover from your device.</p></div></div>
+                <div className={styles.formGroup}>
+                  <label>Cover image</label>
+                  <div className={styles.coverTools}>
+                    <button type="button" className={styles.outlineBtn} onClick={fetchBookByIsbn}><FaSearch /> Auto-fetch by ISBN</button>
+                    <label className={styles.outlineBtn} htmlFor="library-cover-upload"><FaUpload /> Upload image</label>
+                    <input id="library-cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} hidden />
+                  </div>
+                  {bookFormData.cover_image && <img src={bookFormData.cover_image} alt="Book cover preview" className={styles.coverPreview} />}
+                </div>
+              </section>
+
+              <section className={styles.modalSection}>
+                <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>03</span><div><h3>Classification</h3><p>Organize the book for fast catalog discovery.</p></div></div>
+                <div className={styles.formRow3}>
+                <div className={styles.formGroup}>
+                  <label>Category</label>
+                  <select
+                    className={styles.formSelect}
+                    value={bookFormData.category_id}
+                    onChange={(e) => setBookFormData({ ...bookFormData, category_id: e.target.value })}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Subject</label>
+                  <select
+                    className={styles.formSelect}
+                    value={bookFormData.subject_id}
+                    onChange={(e) => setBookFormData({ ...bookFormData, subject_id: e.target.value })}
+                  >
+                    <option value="">Select Subject</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Publisher</label>
+                  <select
+                    className={styles.formSelect}
+                    value={bookFormData.publisher_id}
+                    onChange={(e) => setBookFormData({ ...bookFormData, publisher_id: e.target.value })}
+                  >
+                    <option value="">Select Publisher</option>
+                    {publishers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                </div>
+
+                <div className={styles.formRow3}>
+                <div className={styles.formGroup}>
+                  <label>Shelf Location</label>
+                  <select
+                    className={styles.formInput}
+                    value={bookFormData.shelf_location}
+                    onChange={(e) => setBookFormData({ ...bookFormData, shelf_location: e.target.value })}
+                  >
+                    <option value="">Select shelf location</option>
+                    {shelfLocations.map((shelf) => (
+                      <option key={shelf.code} value={shelf.code}>{shelf.code} - {shelf.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Dewey (DDC)</label>
+                  <select
+                    className={styles.formInput}
+                    value={bookFormData.ddc_number}
+                    onChange={(e) => setBookFormData({ ...bookFormData, ddc_number: e.target.value })}
+                  >
+                    <option value="">Select DDC classification</option>
+                    {ddcClassifications.map((classification) => (
+                      <option key={classification.code} value={classification.code}>{classification.code} - {classification.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Publication Year</label>
+                  <input
+                    type="number"
+                    className={styles.formInput}
+                    value={bookFormData.publication_year}
+                    onChange={(e) => setBookFormData({ ...bookFormData, publication_year: e.target.value })}
+                  />
+                </div>
+                </div>
+              </section>
+
+              <section className={styles.modalSection}>
+                <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>04</span><div><h3>Contributors</h3><p>Link one or more authors to this catalog record.</p></div></div>
+                <div className={styles.formGroup}>
+                  <label>Authors</label>
+                  <select multiple className={styles.formSelect} style={{ height: '90px' }} value={bookFormData.author_ids} onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                    setBookFormData({ ...bookFormData, author_ids: selected });
+                  }}>
+                    {authors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <span className={styles.fieldHint}>Select multiple authors when needed.</span>
+                </div>
+              </section>
+
+              {!editingBook && (
+                <section className={styles.modalSection}>
+                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>05</span><div><h3>Initial inventory</h3><p>Generate the first physical copies now.</p></div></div>
                   <div className={styles.formRow}>
-                    <div className={styles.formGroup}>
-                      <label>ISBN</label>
-                      <input type="text" className={styles.formInput} value={bookFormData.isbn} onChange={(e) => setBookFormData({ ...bookFormData, isbn: e.target.value })} />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label>Edition</label>
-                      <input type="text" className={styles.formInput} value={bookFormData.edition} onChange={(e) => setBookFormData({ ...bookFormData, edition: e.target.value })} />
-                    </div>
-                  </div>
-                </section>
-
-                <section className={styles.modalSection}>
-                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>02</span><div><h3>Cover and appearance</h3><p>Use ISBN lookup or add a cover from your device.</p></div></div>
                   <div className={styles.formGroup}>
-                    <label>Cover image</label>
-                    <div className={styles.coverTools}>
-                      <button type="button" className={styles.outlineBtn} onClick={fetchBookByIsbn}><FaSearch /> Auto-fetch by ISBN</button>
-                      <label className={styles.outlineBtn} htmlFor="library-cover-upload"><FaUpload /> Upload image</label>
-                      <input id="library-cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} hidden />
-                    </div>
-                    {bookFormData.cover_image && <img src={bookFormData.cover_image} alt="Book cover preview" className={styles.coverPreview} />}
-                  </div>
-                </section>
-
-                <section className={styles.modalSection}>
-                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>03</span><div><h3>Classification</h3><p>Organize the book for fast catalog discovery.</p></div></div>
-                  <div className={styles.formRow3}>
-                  <div className={styles.formGroup}>
-                    <label>Category</label>
-                    <select
-                      className={styles.formSelect}
-                      value={bookFormData.category_id}
-                      onChange={(e) => setBookFormData({ ...bookFormData, category_id: e.target.value })}
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>Subject</label>
-                    <select
-                      className={styles.formSelect}
-                      value={bookFormData.subject_id}
-                      onChange={(e) => setBookFormData({ ...bookFormData, subject_id: e.target.value })}
-                    >
-                      <option value="">Select Subject</option>
-                      {subjects.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>Publisher</label>
-                    <select
-                      className={styles.formSelect}
-                      value={bookFormData.publisher_id}
-                      onChange={(e) => setBookFormData({ ...bookFormData, publisher_id: e.target.value })}
-                    >
-                      <option value="">Select Publisher</option>
-                      {publishers.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  </div>
-
-                  <div className={styles.formRow3}>
-                  <div className={styles.formGroup}>
-                    <label>Shelf Location</label>
-                    <select
-                      className={styles.formInput}
-                      value={bookFormData.shelf_location}
-                      onChange={(e) => setBookFormData({ ...bookFormData, shelf_location: e.target.value })}
-                    >
-                      <option value="">Select shelf location</option>
-                      {shelfLocations.map((shelf) => (
-                        <option key={shelf.code} value={shelf.code}>{shelf.code} - {shelf.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Dewey (DDC)</label>
-                    <select
-                      className={styles.formInput}
-                      value={bookFormData.ddc_number}
-                      onChange={(e) => setBookFormData({ ...bookFormData, ddc_number: e.target.value })}
-                    >
-                      <option value="">Select DDC classification</option>
-                      {ddcClassifications.map((classification) => (
-                        <option key={classification.code} value={classification.code}>{classification.code} - {classification.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Publication Year</label>
+                    <label>Initial Physical Copies Count</label>
                     <input
                       type="number"
+                      min="1"
+                      max="50"
                       className={styles.formInput}
-                      value={bookFormData.publication_year}
-                      onChange={(e) => setBookFormData({ ...bookFormData, publication_year: e.target.value })}
+                      value={bookFormData.initial_copies}
+                      onChange={(e) => setBookFormData({ ...bookFormData, initial_copies: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Barcode Prefix</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      value={bookFormData.accession_prefix}
+                      onChange={(e) => setBookFormData({ ...bookFormData, accession_prefix: e.target.value })}
                     />
                   </div>
                   </div>
                 </section>
-
-                <section className={styles.modalSection}>
-                  <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>04</span><div><h3>Contributors</h3><p>Link one or more authors to this catalog record.</p></div></div>
-                  <div className={styles.formGroup}>
-                    <label>Authors</label>
-                    <select multiple className={styles.formSelect} style={{ height: '90px' }} value={bookFormData.author_ids} onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-                      setBookFormData({ ...bookFormData, author_ids: selected });
-                    }}>
-                      {authors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                    <span className={styles.fieldHint}>Select multiple authors when needed.</span>
-                  </div>
-                </section>
-
-                {!editingBook && (
-                  <section className={styles.modalSection}>
-                    <div className={styles.modalSectionHeader}><span className={styles.modalSectionNumber}>05</span><div><h3>Initial inventory</h3><p>Generate the first physical copies now.</p></div></div>
-                    <div className={styles.formRow}>
-                    <div className={styles.formGroup}>
-                      <label>Initial Physical Copies Count</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        className={styles.formInput}
-                        value={bookFormData.initial_copies}
-                        onChange={(e) => setBookFormData({ ...bookFormData, initial_copies: e.target.value })}
-                      />
-                    </div>
-                    <div className={styles.formGroup}>
-                      <label>Barcode Prefix</label>
-                      <input
-                        type="text"
-                        className={styles.formInput}
-                        value={bookFormData.accession_prefix}
-                        onChange={(e) => setBookFormData({ ...bookFormData, accession_prefix: e.target.value })}
-                      />
-                    </div>
-                    </div>
-                  </section>
-                )}
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button type="button" className={styles.outlineBtn} onClick={() => setIsBookModalOpen(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className={styles.primaryBtn}>
-                  <FaCheckCircle /> Save Book
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isImportModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <div className={styles.modalHeader}>
-              <h2><FaUpload /> Bulk Import Center</h2>
-              <button className={styles.closeModalBtn} onClick={() => setIsImportModalOpen(false)}><FaTimes /></button>
+              )}
             </div>
-            <div className={styles.modalBody}>
-              <div className={styles.importTabs}>
-                {Object.entries(importDefinitions).map(([key, definition]) => <button key={key} className={`${styles.outlineBtn} ${importType === key ? styles.activeTabBtn : ''}`} onClick={() => { setImportType(key); setImportRows([]); setImportErrors([]); }}>{definition.label}</button>)}
-              </div>
-              <div className={styles.importActions}>
-                <button className={styles.outlineBtn} onClick={downloadImportTemplate}><FaDownload /> Download template</button>
-                <label className={styles.primaryBtn} htmlFor="library-csv-upload"><FaUpload /> Choose CSV</label>
-                <input id="library-csv-upload" type="file" accept=".csv,text/csv" onChange={handleImportFile} hidden />
-              </div>
-              {importErrors.length > 0 && <div className={styles.importErrorList}>{importErrors.map((item) => <div key={`${item.row}-${item.error}`}><FaExclamationTriangle /> Row {item.row}: {item.error}</div>)}</div>}
-              {importRows.length > 0 && <div className={styles.importPreview}><strong>{importRows.length} rows ready for review</strong><div className={styles.tableWrapper}><table className={styles.customTable}><thead><tr>{importDefinitions[importType].columns.slice(0, 5).map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{importRows.slice(0, 8).map((row) => <tr key={row._row}>{importDefinitions[importType].columns.slice(0, 5).map((column) => <td key={column}>{row[column] || '-'}</td>)}</tr>)}</tbody></table></div></div>}
-            </div>
+
             <div className={styles.modalFooter}>
-              <button className={styles.outlineBtn} onClick={() => setIsImportModalOpen(false)}>Cancel</button>
-              <button className={styles.primaryBtn} disabled={!importRows.length || importErrors.length > 0 || importing} onClick={handleImportSubmit}>{importing ? 'Importing...' : `Confirm ${importRows.length} rows`}</button>
+              <button type="button" className={styles.outlineBtn} onClick={() => setIsBookModalOpen(false)}>
+                Cancel
+              </button>
+              <button type="submit" className={styles.primaryBtn}>
+                <FaCheckCircle /> Save Book
+              </button>
             </div>
+          </form>
+        </div>
+      </LibraryModalPortal>
+
+      {/* MODAL 2: BULK IMPORT */}
+      <LibraryModalPortal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)}>
+        <div className={styles.modalContent}>
+          <div className={styles.modalHeader}>
+            <h2><FaUpload /> Bulk Import Center</h2>
+            <button className={styles.closeModalBtn} onClick={() => setIsImportModalOpen(false)}><FaTimes /></button>
+          </div>
+          <div className={styles.modalBody}>
+            <div className={styles.importTabs}>
+              {Object.entries(importDefinitions).map(([key, definition]) => <button key={key} className={`${styles.outlineBtn} ${importType === key ? styles.activeTabBtn : ''}`} onClick={() => { setImportType(key); setImportRows([]); setImportErrors([]); }}>{definition.label}</button>)}
+            </div>
+            <div className={styles.importActions}>
+              <button className={styles.outlineBtn} onClick={downloadImportTemplate}><FaDownload /> Download template</button>
+              <label className={styles.primaryBtn} htmlFor="library-csv-upload"><FaUpload /> Choose CSV</label>
+              <input id="library-csv-upload" type="file" accept=".csv,text/csv" onChange={handleImportFile} hidden />
+            </div>
+            {importErrors.length > 0 && <div className={styles.importErrorList}>{importErrors.map((item) => <div key={`${item.row}-${item.error}`}><FaExclamationTriangle /> Row {item.row}: {item.error}</div>)}</div>}
+            {importRows.length > 0 && <div className={styles.importPreview}><strong>{importRows.length} rows ready for review</strong><div className={styles.tableWrapper}><table className={styles.customTable}><thead><tr>{importDefinitions[importType].columns.slice(0, 5).map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{importRows.slice(0, 8).map((row) => <tr key={row._row}>{importDefinitions[importType].columns.slice(0, 5).map((column) => <td key={column}>{row[column] || '-'}</td>)}</tr>)}</tbody></table></div></div>}
+          </div>
+          <div className={styles.modalFooter}>
+            <button className={styles.outlineBtn} onClick={() => setIsImportModalOpen(false)}>Cancel</button>
+            <button className={styles.primaryBtn} disabled={!importRows.length || importErrors.length > 0 || importing} onClick={handleImportSubmit}>{importing ? 'Importing...' : `Confirm ${importRows.length} rows`}</button>
           </div>
         </div>
-      )}
+      </LibraryModalPortal>
 
-      {/* MODAL 2: SMART ISSUE BOOK LOAN WORKSTATION */}
-      {isIssueModalOpen && (() => {
-        const cleanBookIdent = (issueFormData.identifier || '').trim().toLowerCase();
-        const matchedBook = books.find(
-          (b) =>
-            b.title?.toLowerCase() === cleanBookIdent ||
-            (b.isbn && b.isbn.toLowerCase() === cleanBookIdent) ||
-            b.id === cleanBookIdent
-        );
+      {/* MODAL 3: SMART ISSUE BOOK LOAN WORKSTATION */}
+      <LibraryModalPortal isOpen={isIssueModalOpen} onClose={() => setIsIssueModalOpen(false)}>
+        {isIssueModalOpen && (() => {
+          const cleanBookIdent = (issueFormData.identifier || '').trim().toLowerCase();
+          const matchedBook = books.find(
+            (b) =>
+              b.title?.toLowerCase() === cleanBookIdent ||
+              (b.isbn && b.isbn.toLowerCase() === cleanBookIdent) ||
+              b.id === cleanBookIdent
+          );
 
-        const cleanMemIdent = (issueFormData.memberIdentifier || '').trim().toLowerCase();
-        const matchedMember = members.find(
-          (m) =>
-            m.member_number?.toLowerCase() === cleanMemIdent ||
-            (m.email && m.email.toLowerCase() === cleanMemIdent) ||
-            m.id === cleanMemIdent ||
-            m.full_name?.toLowerCase() === cleanMemIdent
-        );
+          const cleanMemIdent = (issueFormData.memberIdentifier || '').trim().toLowerCase();
+          const matchedMember = members.find(
+            (m) =>
+              m.member_number?.toLowerCase() === cleanMemIdent ||
+              (m.email && m.email.toLowerCase() === cleanMemIdent) ||
+              m.id === cleanMemIdent ||
+              m.full_name?.toLowerCase() === cleanMemIdent
+          );
 
-        const defaultDuration = matchedMember?.member_type === 'TEACHER'
-          ? (settings?.default_teacher_loan_period || 30)
-          : matchedMember?.member_type === 'STAFF'
-            ? (settings?.default_staff_loan_period || 21)
-            : (settings?.default_student_loan_period || 14);
+          const defaultDuration = matchedMember?.member_type === 'TEACHER'
+            ? (settings?.default_teacher_loan_period || 30)
+            : matchedMember?.member_type === 'STAFF'
+              ? (settings?.default_staff_loan_period || 21)
+              : (settings?.default_student_loan_period || 14);
 
-        const durationDays = issueFormData.loan_duration_days ? Number(issueFormData.loan_duration_days) : defaultDuration;
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + (isNaN(durationDays) || durationDays < 1 ? 14 : durationDays));
+          const durationDays = issueFormData.loan_duration_days ? Number(issueFormData.loan_duration_days) : defaultDuration;
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + (isNaN(durationDays) || durationDays < 1 ? 14 : durationDays));
 
-        const maxLoans = matchedMember?.member_type === 'TEACHER'
-          ? (settings?.max_active_loans_teacher || 10)
-          : matchedMember?.member_type === 'STAFF'
-            ? (settings?.max_active_loans_staff || 5)
-            : (settings?.max_active_loans_student || 3);
+          const maxLoans = matchedMember?.member_type === 'TEACHER'
+            ? (settings?.max_active_loans_teacher || 10)
+            : matchedMember?.member_type === 'STAFF'
+              ? (settings?.max_active_loans_staff || 5)
+              : (settings?.max_active_loans_student || 3);
 
-        const activeLoansCount = matchedMember?.active_loans_count || 0;
-        const isLimitReached = matchedMember && activeLoansCount >= maxLoans;
-        const hasUnpaidFines = Number(matchedMember?.outstanding_fines_sum || 0) > 0;
+          const activeLoansCount = matchedMember?.active_loans_count || 0;
+          const isLimitReached = matchedMember && activeLoansCount >= maxLoans;
+          const hasUnpaidFines = Number(matchedMember?.outstanding_fines_sum || 0) > 0;
 
-        const filteredMembersList = members.filter((m) => {
-          if (memberRoleFilter === 'ALL') return true;
-          return m.member_type === memberRoleFilter;
-        });
+          const filteredMembersList = members.filter((m) => {
+            if (memberRoleFilter === 'ALL') return true;
+            return m.member_type === memberRoleFilter;
+          });
 
-        return (
-          <div className={styles.modalOverlay}>
+          return (
             <div className={styles.issueModalContent}>
               {/* Header */}
               <div className={styles.issueHeader}>
@@ -2936,17 +2979,29 @@ export default function LibraryDashboardPage() { // this means Create a React co
                 </div>
               </form>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </LibraryModalPortal>
 
-      {/* MODAL 3: RETURN BOOK */}
-      {isReturnModalOpen && activeLoanForAction && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 4: RETURN BOOK */}
+      <LibraryModalPortal
+        isOpen={Boolean(isReturnModalOpen && activeLoanForAction)}
+        onClose={() => {
+          setIsReturnModalOpen(false);
+          setActiveLoanForAction(null);
+        }}
+      >
+        {isReturnModalOpen && activeLoanForAction && (
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <h2><FaUndo /> Process Book Return</h2>
-              <button className={styles.closeModalBtn} onClick={() => setIsReturnModalOpen(false)}>
+              <button
+                className={styles.closeModalBtn}
+                onClick={() => {
+                  setIsReturnModalOpen(false);
+                  setActiveLoanForAction(null);
+                }}
+              >
                 <FaTimes />
               </button>
             </div>
@@ -3010,7 +3065,14 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.outlineBtn} onClick={() => setIsReturnModalOpen(false)}>
+                <button
+                  type="button"
+                  className={styles.outlineBtn}
+                  onClick={() => {
+                    setIsReturnModalOpen(false);
+                    setActiveLoanForAction(null);
+                  }}
+                >
                   Cancel
                 </button>
                 <button type="submit" className={styles.successBtn}>
@@ -3019,16 +3081,28 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
 
-      {/* MODAL 4: RECORD FINE PAYMENT */}
-      {isPaymentModalOpen && activeFineForPayment && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 5: RECORD FINE PAYMENT */}
+      <LibraryModalPortal
+        isOpen={Boolean(isPaymentModalOpen && activeFineForPayment)}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setActiveFineForPayment(null);
+        }}
+      >
+        {isPaymentModalOpen && activeFineForPayment && (
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <h2><FaMoneyBillWave /> Record Fine Payment</h2>
-              <button className={styles.closeModalBtn} onClick={() => setIsPaymentModalOpen(false)}>
+              <button
+                className={styles.closeModalBtn}
+                onClick={() => {
+                  setIsPaymentModalOpen(false);
+                  setActiveFineForPayment(null);
+                }}
+              >
                 <FaTimes />
               </button>
             </div>
@@ -3085,7 +3159,14 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.outlineBtn} onClick={() => setIsPaymentModalOpen(false)}>
+                <button
+                  type="button"
+                  className={styles.outlineBtn}
+                  onClick={() => {
+                    setIsPaymentModalOpen(false);
+                    setActiveFineForPayment(null);
+                  }}
+                >
                   Cancel
                 </button>
                 <button type="submit" className={styles.primaryBtn}>
@@ -3094,16 +3175,28 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
 
-      {/* MODAL 5: WAIVE FINE */}
-      {isWaiveModalOpen && activeFineForWaive && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 6: WAIVE FINE */}
+      <LibraryModalPortal
+        isOpen={Boolean(isWaiveModalOpen && activeFineForWaive)}
+        onClose={() => {
+          setIsWaiveModalOpen(false);
+          setActiveFineForWaive(null);
+        }}
+      >
+        {isWaiveModalOpen && activeFineForWaive && (
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <h2>Waive Library Fine</h2>
-              <button className={styles.closeModalBtn} onClick={() => setIsWaiveModalOpen(false)}>
+              <button
+                className={styles.closeModalBtn}
+                onClick={() => {
+                  setIsWaiveModalOpen(false);
+                  setActiveFineForWaive(null);
+                }}
+              >
                 <FaTimes />
               </button>
             </div>
@@ -3132,7 +3225,14 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.outlineBtn} onClick={() => setIsWaiveModalOpen(false)}>
+                <button
+                  type="button"
+                  className={styles.outlineBtn}
+                  onClick={() => {
+                    setIsWaiveModalOpen(false);
+                    setActiveFineForWaive(null);
+                  }}
+                >
                   Cancel
                 </button>
                 <button type="submit" className={styles.dangerBtn}>
@@ -3141,12 +3241,15 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
 
-      {/* MODAL 6: BOOK DETAILS & COPIES DRAWER */}
-      {selectedBookForDetails && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 7: BOOK DETAILS & COPIES DRAWER */}
+      <LibraryModalPortal
+        isOpen={Boolean(selectedBookForDetails)}
+        onClose={() => setSelectedBookForDetails(null)}
+      >
+        {selectedBookForDetails && (
           <div className={styles.modalContent} style={{ maxWidth: '800px' }}>
             <div className={styles.modalHeader}>
               <h2><FaBook /> {selectedBookForDetails.title}</h2>
@@ -3264,12 +3367,15 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
 
-      {/* MODAL 7: ADD COPIES MODAL */}
-      {isAddCopyModalOpen && selectedBookForDetails && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 8: ADD COPIES MODAL */}
+      <LibraryModalPortal
+        isOpen={Boolean(isAddCopyModalOpen && selectedBookForDetails)}
+        onClose={() => setIsAddCopyModalOpen(false)}
+      >
+        {isAddCopyModalOpen && selectedBookForDetails && (
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <h2><FaPlus /> Add Copies for {selectedBookForDetails.title}</h2>
@@ -3317,12 +3423,15 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
 
-      {/* MODAL 8: MASTER DATA QUICK CREATE */}
-      {isMasterDataModalOpen && (
-        <div className={styles.modalOverlay}>
+      {/* MODAL 9: MASTER DATA QUICK CREATE */}
+      <LibraryModalPortal
+        isOpen={isMasterDataModalOpen}
+        onClose={() => setIsMasterDataModalOpen(false)}
+      >
+        {isMasterDataModalOpen && (
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <h2><FaPlus /> Add New {masterDataType}</h2>
@@ -3376,8 +3485,8 @@ export default function LibraryDashboardPage() { // this means Create a React co
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </LibraryModalPortal>
     </div>
   );
 }
