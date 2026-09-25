@@ -140,11 +140,7 @@ export default function GradeSubjectListPage() {
   }, [selectedGrade, selectedAcademicYear, compulsoryFilter, search]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadData();
-    }, 0);
-
-    return () => clearTimeout(timer);
+    loadData();
   }, [loadData]);
 
   // Show Toast Notification
