@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Modal from '@/components/common/Modal';
 import styles from '../settings/users/page.module.css';
 import { listUsers, createUser, toggleUserStatus } from '@/services/userService';
 import { listRoles } from '@/services/roleService';
@@ -243,119 +242,125 @@ export default function StaffManagementPage() {
       </div>
 
       {/* Create Modal */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Add Staff Member"
-        subtitle="Provision a school administrative or operations staff account"
-        icon={FaUserTie}
-        size="md"
-      >
-        <form onSubmit={handleCreateStaff}>
-          <div className={styles.modalBody}>
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>First Name *</label>
-                <input
-                  type="text"
-                  required
-                  className={styles.input}
-                  value={formData.firstName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, firstName: e.target.value })
-                  }
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Last Name *</label>
-                <input
-                  type="text"
-                  required
-                  className={styles.input}
-                  value={formData.lastName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, lastName: e.target.value })
-                  }
-                />
-              </div>
+      {isCreateModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>Add Staff Member</h2>
+              <button
+                className={styles.closeBtn}
+                onClick={() => setIsCreateModalOpen(false)}
+              >
+                &times;
+              </button>
             </div>
+            <form onSubmit={handleCreateStaff}>
+              <div className={styles.modalBody}>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>First Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.input}
+                      value={formData.firstName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, firstName: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Last Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className={styles.input}
+                      value={formData.lastName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, lastName: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
 
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Official Email *</label>
-                <input
-                  type="email"
-                  required
-                  className={styles.input}
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Phone Number</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Official Email *</label>
+                    <input
+                      type="email"
+                      required
+                      className={styles.input}
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Phone Number</label>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
 
-            <div className={styles.formRow}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Role *</label>
-                <select
-                  className={styles.select}
-                  value={formData.roleId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, roleId: e.target.value })
-                  }
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Role *</label>
+                    <select
+                      className={styles.select}
+                      value={formData.roleId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, roleId: e.target.value })
+                      }
+                    >
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Initial Password *</label>
+                    <input
+                      type="password"
+                      required
+                      className={styles.input}
+                      placeholder="Minimum 6 characters"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setIsCreateModalOpen(false)}
                 >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.btnPrimary}
+                  disabled={submitting}
+                >
+                  {submitting ? 'Creating...' : 'Create Account'}
+                </button>
               </div>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Initial Password *</label>
-                <input
-                  type="password"
-                  required
-                  className={styles.input}
-                  placeholder="Minimum 6 characters"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-              </div>
-            </div>
+            </form>
           </div>
-          <div className={styles.modalFooter}>
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={() => setIsCreateModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={styles.btnPrimary}
-              disabled={submitting}
-            >
-              {submitting ? 'Creating...' : 'Create Account'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }
