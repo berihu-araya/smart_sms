@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './page.module.css';
 import { AuthContext } from '@/context/AuthContext';
 import {
@@ -46,6 +47,51 @@ import {
   HiSquares2X2,
   HiListBullet,
 } from 'react-icons/hi2';
+
+function AssignmentModalPortal({ isOpen, onClose, children }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open-dimmed");
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.classList.remove("modal-open-dimmed");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 export default function AssignmentsPage() {
   const { user } = useContext(AuthContext);
