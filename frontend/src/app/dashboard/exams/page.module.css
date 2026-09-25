@@ -106,9 +106,20 @@
   font-size: 1.4rem;
 }
 
-.kpiTotal { background: #eff6ff; color: #2563eb; }
-.kpiPublished { background: #ecfdf5; color: #059669; }
-.kpiMarks { background: #fdf2f8; color: #db2777; }
+.kpiTotal {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiPublished {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiMarks {
+  background: #fdf2f8;
+  color: #db2777;
+}
 
 .kpiLabel {
   font-size: 0.8rem;
@@ -236,11 +247,30 @@
   letter-spacing: 0.03em;
 }
 
-.badgeFinal { background: #e0e7ff; color: #4338ca; }
-.badgeMidterm { background: #fef3c7; color: #b45309; }
-.badgeQuiz { background: #d1fae5; color: #047857; }
-.badgeAssignment { background: #ede9fe; color: #6d28d9; }
-.badgeProject { background: #cffafe; color: #0e7490; }
+.badgeFinal {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.badgeMidterm {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badgeQuiz {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.badgeAssignment {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.badgeProject {
+  background: #cffafe;
+  color: #0e7490;
+}
 
 .statusPublished {
   color: #059669;
@@ -374,8 +404,15 @@
 }
 
 @keyframes modalFadeIn {
-  from { opacity: 0; transform: scale(0.96) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .modalHeader {
