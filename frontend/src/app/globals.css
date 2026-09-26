@@ -71,10 +71,22 @@ footer {
 body.modal-open-dimmed header,
 body.modal-open-dimmed aside,
 body.modal-open-dimmed main,
-body.modal-open-dimmed footer {
+body.modal-open-dimmed main,
+body.modal-open-dimmed footer,
+body.staff-modal-open header,
+body.staff-modal-open aside,
+body.staff-modal-open footer {
   opacity: 0.35 !important;
   filter: blur(3px) !important;
   pointer-events: none !important;
   user-select: none !important;
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+body.staff-modal-open .modalOverlay,
+body.staff-modal-open .modalContent {
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: auto !important;
+  user-select: auto !important;
 }

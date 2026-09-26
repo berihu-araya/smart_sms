@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import styles from '../settings/users/page.module.css';
+import styles from './page.module.css';
 import { listUsers, createUser, toggleUserStatus } from '@/services/userService';
 import { listRoles } from '@/services/roleService';
 import {
@@ -58,7 +58,6 @@ export default function StaffManagementPage() {
     setError(null);
     try {
       const data = await listUsers({ search });
-      // Filter for administrative and operational staff
       const staffOnly = (data || []).filter(
         (u) =>
           u.role_name?.toLowerCase() === 'staff' ||
@@ -74,12 +73,33 @@ export default function StaffManagementPage() {
   }, [search]);
 
   useEffect(() => {
-    loadMetadata();
+    const metadataTimer = setTimeout(() => {
+      void loadMetadata();
+    }, 0);
+
+    return () => clearTimeout(metadataTimer);
   }, []);
 
   useEffect(() => {
-    loadStaffList();
+    const listTimer = setTimeout(() => {
+      void loadStaffList();
+    }, 0);
+
+    return () => clearTimeout(listTimer);
   }, [loadStaffList]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.classList.add('staff-modal-open');
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.classList.remove('staff-modal-open');
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCreateModalOpen]);
 
   const handleCreateStaff = async (e) => {
     e.preventDefault();
@@ -118,127 +138,129 @@ export default function StaffManagementPage() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Staff & Administrative Operations</h1>
-          <p className={styles.subtitle}>
-            Manage school staff members, administrative officers, and coordinators.
-          </p>
+      <div className={`${styles.pageShell} ${isCreateModalOpen ? styles.pageDimmed : ''}`}>
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Staff & Administrative Operations</h1>
+            <p className={styles.subtitle}>
+              Manage school staff members, administrative officers, and coordinators.
+            </p>
+          </div>
+          <div className={styles.actions}>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              <HiPlus /> Add Staff Member
+            </button>
+          </div>
         </div>
-        <div className={styles.actions}>
-          <button
-            className={styles.btnPrimary}
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            <HiPlus /> Add Staff Member
+
+        {message && <div className={`${styles.alert} ${styles.alertSuccess}`}>{message}</div>}
+        {error && <div className={`${styles.alert} ${styles.alertError}`}>{error}</div>}
+
+        {/* Filter Bar */}
+        <div className={styles.filterBar}>
+          <div className={styles.searchGroup}>
+            <input
+              type="text"
+              className={styles.input}
+              placeholder="Search staff by name, email, or role..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button className={styles.btnSecondary} onClick={loadStaffList}>
+            <HiArrowPath /> Refresh
           </button>
         </div>
-      </div>
 
-      {message && <div className={`${styles.alert} ${styles.alertSuccess}`}>{message}</div>}
-      {error && <div className={`${styles.alert} ${styles.alertError}`}>{error}</div>}
-
-      {/* Filter Bar */}
-      <div className={styles.filterBar}>
-        <div className={styles.searchGroup}>
-          <input
-            type="text"
-            className={styles.input}
-            placeholder="Search staff by name, email, or role..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <button className={styles.btnSecondary} onClick={loadStaffList}>
-          <HiArrowPath /> Refresh
-        </button>
-      </div>
-
-      {/* Staff Table */}
-      <div className={styles.tableCard}>
-        {loading ? (
-          <div className={styles.loading}>Loading staff directory...</div>
-        ) : users.length === 0 ? (
-          <div className={styles.emptyState}>
-            <FaUserTie size={48} color="#94a3b8" />
-            <p>No staff records found.</p>
-          </div>
-        ) : (
-          <div className={styles.tableResponsive}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Staff Member</th>
-                  <th>Contact Information</th>
-                  <th>Assigned Role</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <div className={styles.userName}>
-                        {u.first_name} {u.last_name}
-                      </div>
-                      <div className={styles.userEmail}>{u.email}</div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
-                        <span>
-                          <HiEnvelope style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
-                          {u.email}
-                        </span>
-                        {u.phone && (
-                          <span style={{ color: '#64748b' }}>
-                            <HiPhone style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
-                            {u.phone}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={styles.roleBadge}>
-                        <HiShieldCheck /> {u.role_name || 'Staff'}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          u.status === 'ACTIVE'
-                            ? styles.statusActive
-                            : styles.statusInactive
-                        }
-                      >
-                        {u.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className={styles.rowActions}>
-                        <button
-                          className={styles.iconBtn}
-                          title={
-                            u.status === 'ACTIVE'
-                              ? 'Deactivate Staff Account'
-                              : 'Activate Staff Account'
-                          }
-                          onClick={() => handleToggleStatus(u)}
-                        >
-                          {u.status === 'ACTIVE' ? (
-                            <HiNoSymbol color="#ef4444" />
-                          ) : (
-                            <HiCheckCircle color="#10b981" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
+        {/* Staff Table */}
+        <div className={styles.tableCard}>
+          {loading ? (
+            <div className={styles.loading}>Loading staff directory...</div>
+          ) : users.length === 0 ? (
+            <div className={styles.emptyState}>
+              <FaUserTie size={48} color="#94a3b8" />
+              <p>No staff records found.</p>
+            </div>
+          ) : (
+            <div className={styles.tableResponsive}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Staff Member</th>
+                    <th>Contact Information</th>
+                    <th>Assigned Role</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className={styles.userName}>
+                          {u.first_name} {u.last_name}
+                        </div>
+                        <div className={styles.userEmail}>{u.email}</div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
+                          <span>
+                            <HiEnvelope style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
+                            {u.email}
+                          </span>
+                          {u.phone && (
+                            <span style={{ color: '#64748b' }}>
+                              <HiPhone style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
+                              {u.phone}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={styles.roleBadge}>
+                          <HiShieldCheck /> {u.role_name || 'Staff'}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            u.status === 'ACTIVE'
+                              ? styles.statusActive
+                              : styles.statusInactive
+                          }
+                        >
+                          {u.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className={styles.rowActions}>
+                          <button
+                            className={styles.iconBtn}
+                            title={
+                              u.status === 'ACTIVE'
+                                ? 'Deactivate Staff Account'
+                                : 'Activate Staff Account'
+                            }
+                            onClick={() => handleToggleStatus(u)}
+                          >
+                            {u.status === 'ACTIVE' ? (
+                              <HiNoSymbol color="#ef4444" />
+                            ) : (
+                              <HiCheckCircle color="#10b981" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Create Modal */}
@@ -248,6 +270,7 @@ export default function StaffManagementPage() {
             <div className={styles.modalHeader}>
               <h2 className={styles.modalTitle}>Add Staff Member</h2>
               <button
+                type="button"
                 className={styles.closeBtn}
                 onClick={() => setIsCreateModalOpen(false)}
               >
