@@ -26,7 +26,7 @@ async function request(path, options = {}) {
     });
   } catch (error) {
     throw new Error(
-      `Cannot connect to the API at ${API_BASE_URL}. Make sure the backend is running and the browser can reach that address. (${error.message})`
+      "The backend service is not running yet. Please make sure the backend server is started."
     );
   }
 

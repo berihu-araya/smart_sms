@@ -1,244 +1,498 @@
-'use strict';
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import styles from './page.module.css';
-import { listUsers, createUser, toggleUserStatus } from '@/services/userService';
-import { listRoles } from '@/services/roleService';
+import {
+  getStaffList,
+  getStaffRoles,
+  toggleStaffStatus,
+} from './staff.service';
+import {
+  STATUS_OPTIONS,
+  SORT_OPTIONS,
+} from './staff.constants';
+import {
+  StaffFormModal,
+  StaffViewModal,
+  StaffResetPasswordModal,
+  StaffDeleteModal,
+} from './components';
 import {
   HiPlus,
-  HiTrash,
   HiArrowPath,
   HiCheckCircle,
   HiNoSymbol,
   HiEnvelope,
   HiPhone,
   HiShieldCheck,
-  HiUser,
+  HiMagnifyingGlass,
+  HiXMark,
+  HiEye,
+  HiPencilSquare,
+  HiKey,
+  HiTrash,
+  HiUserGroup,
+  HiShieldExclamation,
 } from 'react-icons/hi2';
-import { FaUserTie } from 'react-icons/fa';
+import { FaUserTie } from 'react-icons/fa6';
 
 export default function StaffManagementPage() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('NAME_ASC');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    roleId: '',
-    password: '',
-    status: 'ACTIVE',
-  });
+  // Modal states
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editStaffId, setEditStaffId] = useState(null);
+  const [viewingStaff, setViewingStaff] = useState(null);
+  const [resettingStaff, setResettingStaff] = useState(null);
+  const [deletingStaff, setDeletingStaff] = useState(null);
 
+  // Load roles metadata
   const loadMetadata = async () => {
     try {
-      const rData = await listRoles().catch(() => []);
-      const staffRoles = (rData || []).filter(
-        (r) => r.name.toLowerCase() === 'staff' || r.name.toLowerCase().includes('admin')
-      );
-      setRoles(staffRoles.length > 0 ? staffRoles : rData || []);
-      if (staffRoles.length > 0) {
-        setFormData((prev) => ({ ...prev, roleId: staffRoles[0].id }));
-      }
+      const staffRoles = await getStaffRoles();
+      setRoles(staffRoles);
     } catch (err) {
       console.error('Failed to load roles:', err);
     }
   };
 
-  const loadStaffList = useCallback(async () => {
-    setLoading(true);
+  // Load Staff Users
+  const loadStaffList = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(null);
+
     try {
-      const data = await listUsers({ search });
-      const staffOnly = (data || []).filter(
-        (u) =>
-          u.role_name?.toLowerCase() === 'staff' ||
-          u.role_name?.toLowerCase() === 'school admin' ||
-          u.role_name?.toLowerCase() === 'admin'
-      );
-      setUsers(staffOnly);
+      const staffData = await getStaffList({ limit: 100 });
+      setUsers(staffData);
     } catch (err) {
-      setError(err.message || 'Failed to load staff members');
+      setError(err.message || 'Failed to load staff members directory');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [search]);
-
-  useEffect(() => {
-    const metadataTimer = setTimeout(() => {
-      void loadMetadata();
-    }, 0);
-
-    return () => clearTimeout(metadataTimer);
   }, []);
 
   useEffect(() => {
-    const listTimer = setTimeout(() => {
-      void loadStaffList();
-    }, 0);
-
-    return () => clearTimeout(listTimer);
+    void loadMetadata();
+    void loadStaffList();
   }, [loadStaffList]);
 
-  useEffect(() => {
-    if (!isCreateModalOpen) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.classList.add('staff-modal-open');
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.body.classList.remove('staff-modal-open');
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isCreateModalOpen]);
-
-  const handleCreateStaff = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
+  // Handle status toggle
+  const handleToggleStatus = async (user) => {
+    const nextStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
-      await createUser(formData);
-      setIsCreateModalOpen(false);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        roleId: roles[0]?.id || '',
-        password: '',
-        status: 'ACTIVE',
-      });
-      setMessage('Staff member created successfully!');
+      await toggleStaffStatus(user.id, nextStatus);
+      setMessage(
+        `Staff member "${user.first_name} ${user.last_name}" is now ${
+          nextStatus === 'ACTIVE' ? 'Activated' : 'Deactivated'
+        }.`
+      );
       setTimeout(() => setMessage(null), 4000);
       loadStaffList();
     } catch (err) {
-      setError(err.message || 'Failed to create staff account');
-    } finally {
-      setSubmitting(false);
+      setError(err.message || 'Failed to update account status');
     }
   };
 
-  const handleToggleStatus = async (user) => {
-    try {
-      await toggleUserStatus(user.id);
-      loadStaffList();
-    } catch (err) {
-      setError(err.message || 'Failed to update status');
-    }
+  const handleToastSuccess = (msg) => {
+    setMessage(msg);
+    setTimeout(() => setMessage(null), 4000);
+    loadStaffList();
   };
+
+  // Derived statistics
+  const stats = useMemo(() => {
+    const total = users.length;
+    const active = users.filter((u) => u.status === 'ACTIVE').length;
+    const inactive = users.filter((u) => u.status !== 'ACTIVE').length;
+    const admins = users.filter((u) => (u.role_name || '').toLowerCase().includes('admin')).length;
+    return { total, active, inactive, admins };
+  }, [users]);
+
+  // Filtered & Sorted Staff list
+  const filteredUsers = useMemo(() => {
+    return users
+      .filter((u) => {
+        // Search term matching
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+          const email = (u.email || '').toLowerCase();
+          const phone = (u.phone || '').toLowerCase();
+          const role = (u.role_name || '').toLowerCase();
+          if (!fullName.includes(q) && !email.includes(q) && !phone.includes(q) && !role.includes(q)) {
+            return false;
+          }
+        }
+        // Role filter
+        if (roleFilter !== 'ALL' && u.role_name !== roleFilter) {
+          return false;
+        }
+        // Status filter
+        if (statusFilter !== 'ALL' && u.status !== statusFilter) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'NAME_ASC') {
+          const nameA = `${a.first_name || ''} ${a.last_name || ''}`;
+          const nameB = `${b.first_name || ''} ${b.last_name || ''}`;
+          return nameA.localeCompare(nameB);
+        }
+        if (sortBy === 'NAME_DESC') {
+          const nameA = `${a.first_name || ''} ${a.last_name || ''}`;
+          const nameB = `${b.first_name || ''} ${b.last_name || ''}`;
+          return nameB.localeCompare(nameA);
+        }
+        if (sortBy === 'ROLE_ASC') {
+          return (a.role_name || '').localeCompare(b.role_name || '');
+        }
+        if (sortBy === 'STATUS') {
+          return (a.status === 'ACTIVE' ? 0 : 1) - (b.status === 'ACTIVE' ? 0 : 1);
+        }
+        return 0;
+      });
+  }, [users, search, roleFilter, statusFilter, sortBy]);
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.pageShell} ${isCreateModalOpen ? styles.pageDimmed : ''}`}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Staff & Administrative Operations</h1>
-            <p className={styles.subtitle}>
-              Manage school staff members, administrative officers, and coordinators.
-            </p>
-          </div>
-          <div className={styles.actions}>
-            <button
-              className={styles.btnPrimary}
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <HiPlus /> Add Staff Member
-            </button>
-          </div>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.titleArea}>
+          <h1 className={styles.title}>
+            <FaUserTie className={styles.titleIcon} />
+            Staff & Administrative Operations
+          </h1>
+          <p className={styles.subtitle}>
+            Manage school staff members, coordinators, and administrative officers.
+          </p>
         </div>
-
-        {message && <div className={`${styles.alert} ${styles.alertSuccess}`}>{message}</div>}
-        {error && <div className={`${styles.alert} ${styles.alertError}`}>{error}</div>}
-
-        {/* Filter Bar */}
-        <div className={styles.filterBar}>
-          <div className={styles.searchGroup}>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="Search staff by name, email, or role..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <button className={styles.btnSecondary} onClick={loadStaffList}>
-            <HiArrowPath /> Refresh
+        <div className={styles.actions}>
+          <button
+            className={styles.btnSecondary}
+            onClick={() => loadStaffList(true)}
+            disabled={refreshing}
+            title="Reload directory"
+          >
+            <HiArrowPath className={refreshing ? styles.spinner : ''} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+          <button
+            className={styles.btnPrimary}
+            onClick={() => setIsCreateOpen(true)}
+          >
+            <HiPlus size={18} />
+            <span>Add Staff Member</span>
           </button>
         </div>
+      </div>
 
-        {/* Staff Table */}
-        <div className={styles.tableCard}>
-          {loading ? (
-            <div className={styles.loading}>Loading staff directory...</div>
-          ) : users.length === 0 ? (
-            <div className={styles.emptyState}>
-              <FaUserTie size={48} color="#94a3b8" />
-              <p>No staff records found.</p>
+      {/* Notifications */}
+      {message && (
+        <div className={`${styles.alert} ${styles.alertSuccess}`}>
+          <div className={styles.alertContent}>
+            <HiCheckCircle size={20} />
+            <span>{message}</span>
+          </div>
+          <button className={styles.alertClose} onClick={() => setMessage(null)}>
+            <HiXMark />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className={`${styles.alert} ${styles.alertError}`}>
+          <div className={styles.alertContent}>
+            <HiShieldExclamation size={20} />
+            <span>{error}</span>
+          </div>
+          <button className={styles.alertClose} onClick={() => setError(null)}>
+            <HiXMark />
+          </button>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={`${styles.statIconWrapper} ${styles.statIconBlue}`}>
+            <HiUserGroup />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Total Staff</span>
+            <span className={styles.statValue}>{stats.total}</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={`${styles.statIconWrapper} ${styles.statIconGreen}`}>
+            <HiCheckCircle />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Active Staff</span>
+            <span className={styles.statValue}>{stats.active}</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={`${styles.statIconWrapper} ${styles.statIconAmber}`}>
+            <HiNoSymbol />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Inactive / Suspended</span>
+            <span className={styles.statValue}>{stats.inactive}</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={`${styles.statIconWrapper} ${styles.statIconPurple}`}>
+            <HiShieldCheck />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Admins & Officers</span>
+            <span className={styles.statValue}>{stats.admins}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className={styles.filterBar}>
+        <div className={styles.searchWrapper}>
+          <HiMagnifyingGlass className={styles.searchIcon} />
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Search by name, email, role, or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              className={styles.searchClear}
+              onClick={() => setSearch('')}
+              title="Clear search"
+            >
+              <HiXMark size={16} />
+            </button>
+          )}
+        </div>
+
+        <div className={styles.filterControls}>
+          {/* Role Filter */}
+          <select
+            className={styles.select}
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="ALL">All Roles</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.name}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            className={styles.select}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Sort By */}
+          <select
+            className={styles.select}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Staff Table Card */}
+      <div className={styles.tableCard}>
+        {loading ? (
+          <div className={styles.loadingState}>
+            <HiArrowPath className={styles.spinner} size={36} />
+            <p>Loading staff directory...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <FaUserTie />
             </div>
-          ) : (
-            <div className={styles.tableResponsive}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Staff Member</th>
-                    <th>Contact Information</th>
-                    <th>Assigned Role</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
+            <h3 className={styles.emptyTitle}>No staff members found</h3>
+            <p className={styles.emptySubtitle}>
+              {search || roleFilter !== 'ALL' || statusFilter !== 'ALL'
+                ? 'Try adjusting your search criteria or resetting filters.'
+                : 'Get started by adding your school coordinators and administrative staff.'}
+            </p>
+            {search || roleFilter !== 'ALL' || statusFilter !== 'ALL' ? (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => {
+                  setSearch('');
+                  setRoleFilter('ALL');
+                  setStatusFilter('ALL');
+                }}
+              >
+                Reset All Filters
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={() => setIsCreateOpen(true)}
+              >
+                <HiPlus size={18} />
+                <span>Add First Staff Member</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className={styles.tableResponsive}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Staff Member</th>
+                  <th>Contact Details</th>
+                  <th>Assigned Role</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u) => {
+                  const initials = `${(u.first_name || '')[0] || ''}${(u.last_name || '')[0] || ''}`.toUpperCase() || 'S';
+                  const isAdmin = (u.role_name || '').toLowerCase().includes('admin');
+
+                  return (
                     <tr key={u.id}>
+                      {/* Staff Member */}
                       <td>
-                        <div className={styles.userName}>
-                          {u.first_name} {u.last_name}
+                        <div className={styles.staffCell}>
+                          <div className={`${styles.avatar} ${isAdmin ? styles.avatarAdmin : ''}`}>
+                            {initials}
+                          </div>
+                          <div className={styles.staffInfo}>
+                            <div
+                              className={styles.staffName}
+                              onClick={() => setViewingStaff(u)}
+                            >
+                              {u.first_name} {u.last_name}
+                            </div>
+                            <div className={styles.staffEmail}>{u.email}</div>
+                          </div>
                         </div>
-                        <div className={styles.userEmail}>{u.email}</div>
                       </td>
+
+                      {/* Contact Details */}
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
-                          <span>
-                            <HiEnvelope style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
+                        <div className={styles.contactCell}>
+                          <span className={styles.contactItem}>
+                            <HiEnvelope size={15} color="#2563eb" />
                             {u.email}
                           </span>
-                          {u.phone && (
-                            <span style={{ color: '#64748b' }}>
-                              <HiPhone style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
+                          {u.phone ? (
+                            <span className={styles.contactItem}>
+                              <HiPhone size={15} color="#64748b" />
                               {u.phone}
                             </span>
+                          ) : (
+                            <span className={styles.contactMuted}>No phone</span>
                           )}
                         </div>
                       </td>
+
+                      {/* Assigned Role */}
                       <td>
-                        <span className={styles.roleBadge}>
-                          <HiShieldCheck /> {u.role_name || 'Staff'}
+                        <span className={`${styles.roleBadge} ${isAdmin ? styles.roleBadgeAdmin : ''}`}>
+                          <HiShieldCheck size={14} />
+                          {u.role_name || 'Staff'}
                         </span>
                       </td>
+
+                      {/* Status */}
                       <td>
                         <span
                           className={
                             u.status === 'ACTIVE'
-                              ? styles.statusActive
-                              : styles.statusInactive
+                              ? styles.statusPillActive
+                              : styles.statusPillInactive
                           }
                         >
-                          {u.status}
+                          <span
+                            className={`${styles.statusDot} ${
+                              u.status === 'ACTIVE' ? styles.statusDotActive : ''
+                            }`}
+                          />
+                          {u.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
+
+                      {/* Actions */}
                       <td>
-                        <div className={styles.rowActions}>
+                        <div className={styles.actionsGroup}>
+                          {/* View */}
                           <button
-                            className={styles.iconBtn}
+                            type="button"
+                            className={`${styles.iconBtn} ${styles.iconBtnPrimary}`}
+                            title="View Profile Overview"
+                            onClick={() => setViewingStaff(u)}
+                          >
+                            <HiEye size={16} />
+                          </button>
+
+                          {/* Edit */}
+                          <button
+                            type="button"
+                            className={`${styles.iconBtn} ${styles.iconBtnPrimary}`}
+                            title="Edit Staff Details"
+                            onClick={() => setEditStaffId(u.id)}
+                          >
+                            <HiPencilSquare size={16} />
+                          </button>
+
+                          {/* Reset Password */}
+                          <button
+                            type="button"
+                            className={`${styles.iconBtn} ${styles.iconBtnWarning}`}
+                            title="Reset Staff Password"
+                            onClick={() => setResettingStaff(u)}
+                          >
+                            <HiKey size={16} />
+                          </button>
+
+                          {/* Toggle Active / Inactive */}
+                          <button
+                            type="button"
+                            className={`${styles.iconBtn} ${
+                              u.status === 'ACTIVE' ? styles.iconBtnDanger : styles.iconBtnSuccess
+                            }`}
                             title={
                               u.status === 'ACTIVE'
                                 ? 'Deactivate Staff Account'
@@ -247,142 +501,83 @@ export default function StaffManagementPage() {
                             onClick={() => handleToggleStatus(u)}
                           >
                             {u.status === 'ACTIVE' ? (
-                              <HiNoSymbol color="#ef4444" />
+                              <HiNoSymbol size={16} color="#ef4444" />
                             ) : (
-                              <HiCheckCircle color="#10b981" />
+                              <HiCheckCircle size={16} color="#10b981" />
                             )}
+                          </button>
+
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                            title="Delete Staff Member"
+                            onClick={() => setDeletingStaff(u)}
+                          >
+                            <HiTrash size={16} color="#ef4444" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Create Modal */}
-      {isCreateModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Add Staff Member</h2>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setIsCreateModalOpen(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleCreateStaff}>
-              <div className={styles.modalBody}>
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>First Name *</label>
-                    <input
-                      type="text"
-                      required
-                      className={styles.input}
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Last Name *</label>
-                    <input
-                      type="text"
-                      required
-                      className={styles.input}
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+      {/* MODAL 1: Create Staff Member */}
+      {isCreateOpen && (
+        <StaffFormModal
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          roles={roles}
+          onSuccess={handleToastSuccess}
+        />
+      )}
 
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Official Email *</label>
-                    <input
-                      type="email"
-                      required
-                      className={styles.input}
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Phone Number</label>
-                    <input
-                      type="text"
-                      className={styles.input}
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
+      {/* MODAL 2: Edit Staff Member */}
+      {editStaffId && (
+        <StaffFormModal
+          isOpen={Boolean(editStaffId)}
+          onClose={() => setEditStaffId(null)}
+          staffId={editStaffId}
+          roles={roles}
+          onSuccess={handleToastSuccess}
+        />
+      )}
 
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Role *</label>
-                    <select
-                      className={styles.select}
-                      value={formData.roleId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, roleId: e.target.value })
-                      }
-                    >
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Initial Password *</label>
-                    <input
-                      type="password"
-                      required
-                      className={styles.input}
-                      placeholder="Minimum 6 characters"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsCreateModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.btnPrimary}
-                  disabled={submitting}
-                >
-                  {submitting ? 'Creating...' : 'Create Account'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* MODAL 3: View Staff Member */}
+      {viewingStaff && (
+        <StaffViewModal
+          isOpen={Boolean(viewingStaff)}
+          onClose={() => setViewingStaff(null)}
+          staff={viewingStaff}
+          onEdit={(staff) => setEditStaffId(staff.id)}
+          onResetPassword={(staff) => setResettingStaff(staff)}
+          onToggleStatus={(staff) => handleToggleStatus(staff)}
+        />
+      )}
+
+      {/* MODAL 4: Reset Password Modal */}
+      {resettingStaff && (
+        <StaffResetPasswordModal
+          isOpen={Boolean(resettingStaff)}
+          onClose={() => setResettingStaff(null)}
+          staff={resettingStaff}
+          onSuccess={handleToastSuccess}
+        />
+      )}
+
+      {/* MODAL 5: Delete Staff Modal */}
+      {deletingStaff && (
+        <StaffDeleteModal
+          isOpen={Boolean(deletingStaff)}
+          onClose={() => setDeletingStaff(null)}
+          staff={deletingStaff}
+          onSuccess={handleToastSuccess}
+        />
       )}
     </div>
   );
