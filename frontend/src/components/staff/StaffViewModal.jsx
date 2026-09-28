@@ -5,7 +5,6 @@ import {
   HiEnvelope,
   HiPhone,
   HiShieldCheck,
-  HiCalendar,
   HiKey,
   HiPencilSquare,
   HiFingerPrint,
@@ -99,7 +98,7 @@ export default function StaffViewModal({
             </div>
           </div>
 
-          {/* Account ID / Identifier */}
+          {/* Account ID */}
           <div className={styles.infoCard}>
             <div className={styles.infoIcon}>
               <HiFingerPrint />

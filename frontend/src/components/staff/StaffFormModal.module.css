@@ -93,10 +93,6 @@
   cursor: pointer;
 }
 
-.inputNoIcon {
-  padding-left: 0.9rem;
-}
-
 .input:hover,
 .select:hover {
   border-color: #cbd5e1;
@@ -195,56 +191,6 @@
 
 .generateBtn:hover {
   color: #1d4ed8;
-}
-
-.roleSelectionGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-}
-
-.roleCard {
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.75rem 0.9rem;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  background: #f8fafc;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.roleCard:hover {
-  border-color: #93c5fd;
-  background: #f0f7ff;
-}
-
-.roleCardActive {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-}
-
-.roleCardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: #1e293b;
-}
-
-.roleCardActive .roleCardHeader {
-  color: #1d4ed8;
-}
-
-.roleCardDesc {
-  font-size: 0.75rem;
-  color: #64748b;
-  line-height: 1.3;
 }
 
 .statusPillGroup {
@@ -372,11 +318,9 @@
     grid-template-columns: 1fr;
     gap: 0.9rem;
   }
-
   .footer {
     flex-direction: column-reverse;
   }
-
   .btnCancel,
   .btnSubmit {
     width: 100%;

@@ -8,7 +8,7 @@ import {
   HiArrowPath,
 } from "react-icons/hi2";
 import Modal from "@/components/common/Modal";
-import { deleteUser } from "@/services/userService";
+import { deleteStaff } from "@/services/staffService";
 import styles from "./StaffDeleteModal.module.css";
 
 export default function StaffDeleteModal({
@@ -30,7 +30,7 @@ export default function StaffDeleteModal({
     setError("");
 
     try {
-      await deleteUser(staff.id);
+      await deleteStaff(staff.id);
       onSuccess?.(`Staff member ${fullName} has been deleted.`);
       onClose();
     } catch (err) {

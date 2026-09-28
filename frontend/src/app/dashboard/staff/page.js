@@ -3,20 +3,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import styles from './page.module.css';
 import {
-  getStaffList,
+  listStaff,
   getStaffRoles,
   toggleStaffStatus,
-} from './staff.service';
-import {
-  STATUS_OPTIONS,
-  SORT_OPTIONS,
-} from './staff.constants';
+} from '@/services/staffService';
 import {
   StaffFormModal,
   StaffViewModal,
   StaffResetPasswordModal,
   StaffDeleteModal,
-} from './components';
+} from '@/components/staff';
 import {
   HiPlus,
   HiArrowPath,
@@ -35,6 +31,19 @@ import {
   HiShieldExclamation,
 } from 'react-icons/hi2';
 import { FaUserTie } from 'react-icons/fa6';
+
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'ACTIVE', label: 'Active Only' },
+  { value: 'INACTIVE', label: 'Inactive Only' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'NAME_ASC', label: 'Name (A → Z)' },
+  { value: 'NAME_DESC', label: 'Name (Z → A)' },
+  { value: 'ROLE_ASC', label: 'Role (A → Z)' },
+  { value: 'STATUS', label: 'Status (Active First)' },
+];
 
 export default function StaffManagementPage() {
   const [users, setUsers] = useState([]);
@@ -72,7 +81,7 @@ export default function StaffManagementPage() {
     setError(null);
 
     try {
-      const staffData = await getStaffList({ limit: 100 });
+      const staffData = await listStaff({ limit: 100 });
       setUsers(staffData);
     } catch (err) {
       setError(err.message || 'Failed to load staff members directory');

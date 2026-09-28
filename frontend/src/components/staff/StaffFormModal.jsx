@@ -16,7 +16,7 @@ import {
 } from "react-icons/hi2";
 import { FaUserPlus, FaUserPen } from "react-icons/fa6";
 import Modal from "@/components/common/Modal";
-import { createUser, updateUser, getUserById } from "@/services/userService";
+import { createStaff, updateStaff, getStaffById } from "@/services/staffService";
 import styles from "./StaffFormModal.module.css";
 
 function calculatePasswordStrength(pass) {
@@ -80,7 +80,7 @@ export default function StaffFormModal({
       async function fetchUserDetails() {
         try {
           setLoadingInitial(true);
-          const user = await getUserById(staffId);
+          const user = await getStaffById(staffId);
           setFormData({
             firstName: user.first_name || "",
             lastName: user.last_name || "",
@@ -155,26 +155,9 @@ export default function StaffFormModal({
 
     try {
       if (isEdit) {
-        const payload = {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          phone: formData.phone.trim() || null,
-          roleId: formData.roleId,
-          status: formData.status,
-        };
-        await updateUser(staffId, payload);
+        await updateStaff(staffId, formData);
       } else {
-        const payload = {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          phone: formData.phone.trim() || null,
-          roleId: formData.roleId,
-          password: formData.password,
-          status: formData.status,
-        };
-        await createUser(payload);
+        await createStaff(formData);
       }
 
       onSuccess?.(isEdit ? "Staff member updated successfully!" : "Staff member created successfully!");

@@ -11,7 +11,7 @@ import {
   HiArrowPath,
 } from "react-icons/hi2";
 import Modal from "@/components/common/Modal";
-import { resetUserPassword } from "@/services/userService";
+import { resetStaffPassword } from "@/services/staffService";
 import styles from "./StaffResetPasswordModal.module.css";
 
 function calculatePasswordStrength(pass) {
@@ -74,7 +74,7 @@ export default function StaffResetPasswordModal({
     setError("");
 
     try {
-      await resetUserPassword(staff.id, newPassword);
+      await resetStaffPassword(staff.id, newPassword);
       onSuccess?.(`Password for ${fullName} reset successfully!`);
       setNewPassword("");
       onClose();
