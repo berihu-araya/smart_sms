@@ -49,7 +49,7 @@ function GradeSubjectModalPortal({ isOpen, onClose, children }) {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.removeProperty("overflow");
       document.body.classList.remove("modal-open-dimmed");
       window.removeEventListener("keydown", handleKeyDown);
     };

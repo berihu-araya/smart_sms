@@ -14,6 +14,25 @@ const SIZE_MAP = {
   full: "95vw",
 };
 
+// Global active modals reference counter to prevent race conditions & permanently stuck overflow:hidden
+let openModalsCount = 0;
+
+function lockBodyScroll() {
+  openModalsCount++;
+  if (openModalsCount === 1) {
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("modal-open-dimmed");
+  }
+}
+
+function unlockBodyScroll() {
+  openModalsCount = Math.max(0, openModalsCount - 1);
+  if (openModalsCount === 0) {
+    document.body.style.removeProperty("overflow");
+    document.body.classList.remove("modal-open-dimmed");
+  }
+}
+
 export default function Modal({
   isOpen,
   onClose,
@@ -31,15 +50,19 @@ export default function Modal({
 
   useEffect(() => {
     setMounted(true);
+    return () => {
+      // Safety cleanup if unmounted while open
+      if (isOpen) {
+        unlockBodyScroll();
+      }
+    };
   }, []);
 
-  // Lock body scroll, listen for Escape key, and dim background header, sidebar & page
+  // Lock body scroll safely, listen for Escape key, and dim background
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.body.classList.add("modal-open-dimmed");
+    lockBodyScroll();
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -50,8 +73,7 @@ export default function Modal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.classList.remove("modal-open-dimmed");
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -117,4 +139,3 @@ export default function Modal({
     document.body
   );
 }
-

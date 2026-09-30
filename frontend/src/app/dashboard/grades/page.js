@@ -93,26 +93,6 @@ export default function GradeListPage() {
     loadGrades();
   }, [loadGrades]);
 
-  // Lock body scroll and handle Escape key for modals
-  useEffect(() => {
-    if (!isModalOpen && !isConfirmOpen) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-        setIsConfirmOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isModalOpen, isConfirmOpen]);
 
   const handleSearchChange = (val) => {
     setSearch(val);
