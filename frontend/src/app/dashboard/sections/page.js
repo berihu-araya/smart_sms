@@ -288,8 +288,8 @@ export default function SectionListPage() {
             {isStudent
               ? "Your current enrolled grade level, class section, and room assignment."
               : isTeacher
-              ? "View details and student rosters for your assigned homeroom and subject class sections."
-              : "Organize classes into sections, assign rooms, and manage student capacity."}
+                ? "View details and student rosters for your assigned homeroom and subject class sections."
+                : "Organize classes into sections, assign rooms, and manage student capacity."}
           </p>
         </div>
       </div>
@@ -384,7 +384,6 @@ export default function SectionListPage() {
               className={styles.btnPrimary}
               onClick={handleOpenAdd}
             >
-              <HiPlus size={18} />
               <span>+ Add Section</span>
             </button>
           )}
@@ -530,9 +529,8 @@ export default function SectionListPage() {
                     </td>
                     <td className={styles.td}>
                       <span
-                        className={`${styles.statusPill} ${
-                          sec.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
-                        }`}
+                        className={`${styles.statusPill} ${sec.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
+                          }`}
                       >
                         <span className={styles.statusDot}></span>
                         {sec.status === "ACTIVE" ? "Active" : "Inactive"}

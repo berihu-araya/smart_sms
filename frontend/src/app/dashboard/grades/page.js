@@ -275,7 +275,7 @@ export default function GradeListPage() {
             <HiMagnifyingGlass className={styles.searchIcon} />
             <input
               type="text"
-              placeholder="Search grade by name or description..."
+              placeholder="Search grade by name..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               className={styles.searchInput}
@@ -328,7 +328,6 @@ export default function GradeListPage() {
               className={styles.btnPrimary}
               onClick={handleOpenAdd}
             >
-              <HiPlus size={18} />
               <span>+ Add Grade</span>
             </button>
           )}
@@ -466,9 +465,8 @@ export default function GradeListPage() {
                     </td>
                     <td className={styles.td}>
                       <span
-                        className={`${styles.statusPill} ${
-                          grade.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
-                        }`}
+                        className={`${styles.statusPill} ${grade.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
+                          }`}
                       >
                         <span className={styles.statusDot}></span>
                         {grade.status === "ACTIVE" ? "Active" : "Inactive"}
