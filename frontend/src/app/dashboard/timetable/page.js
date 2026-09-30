@@ -9,6 +9,7 @@ import academicYearService from "@/services/academicYearService";
 import { useAuth } from "@/hooks/useAuth";
 import Modal from "@/components/common/Modal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { TimetableDeleteModal } from "@/components/timetable";
 import {
   HiCalendarDays,
   HiPlus,
@@ -447,15 +448,13 @@ export default function TimetableDashboardPage() {
                   >
                     <HiDocumentDuplicate />
                   </button>
-                  {tt.status !== "PUBLISHED" && (
-                    <button
-                      className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                      title="Delete Timetable Draft"
-                      onClick={() => setDeleteTarget(tt)}
-                    >
-                      <HiTrash />
-                    </button>
-                  )}
+                  <button
+                    className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
+                    title="Delete Timetable"
+                    onClick={() => setDeleteTarget(tt)}
+                  >
+                    <HiTrash />
+                  </button>
                 </div>
               </div>
             </div>
@@ -647,16 +646,18 @@ export default function TimetableDashboardPage() {
         ) : null}
       </Modal>
 
-      {/* Delete Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Timetable Draft"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? All scheduled entries in this timetable will be removed.`}
-        confirmText={deleteLoading ? "Deleting..." : "Delete Timetable"}
-        type="danger"
-      />
+      {/* Timetable Delete Modal */}
+      {deleteTarget && (
+        <TimetableDeleteModal
+          isOpen={Boolean(deleteTarget)}
+          onClose={() => setDeleteTarget(null)}
+          timetable={deleteTarget}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadTimetables();
+          }}
+        />
+      )}
 
       {/* Notification Toast */}
       {toast && (

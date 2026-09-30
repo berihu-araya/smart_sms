@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import styles from "./builder.module.css";
 import timetableService from "@/services/timetableService";
@@ -12,6 +13,7 @@ import teacherSubjectService from "@/services/teacherSubjectService";
 import roomService from "@/services/roomService";
 import Modal from "@/components/common/Modal";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { TimetableDeleteModal } from "@/components/timetable";
 import {
   HiArrowLeft,
   HiPlus,
@@ -32,6 +34,7 @@ import {
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 
 export default function TimetableBuilderPage({ params }) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const timetableId = resolvedParams.id;
 
@@ -43,6 +46,8 @@ export default function TimetableBuilderPage({ params }) {
   const [teacherSubjectAssignments, setTeacherSubjectAssignments] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [entries, setEntries] = useState([]);
+
+  const [isDeleteTimetableOpen, setIsDeleteTimetableOpen] = useState(false);
 
   const [selectedSectionId, setSelectedSectionId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -382,6 +387,13 @@ export default function TimetableBuilderPage({ params }) {
               <HiCheckCircle /> Publish Timetable
             </button>
           )}
+          <button
+            className={styles.deleteTimetableBtn}
+            onClick={() => setIsDeleteTimetableOpen(true)}
+            title="Delete this master timetable"
+          >
+            <HiTrash /> Delete Timetable
+          </button>
           <button
             className={styles.primaryBtn}
             onClick={() => handleOpenAddModal("MONDAY", periods[0]?.id)}
@@ -961,6 +973,19 @@ export default function TimetableBuilderPage({ params }) {
           </div>
         )}
       </Modal>
+
+      {/* Master Timetable Delete Modal */}
+      {isDeleteTimetableOpen && timetable && (
+        <TimetableDeleteModal
+          isOpen={isDeleteTimetableOpen}
+          onClose={() => setIsDeleteTimetableOpen(false)}
+          timetable={timetable}
+          onSuccess={(msg) => {
+            showToast(msg);
+            router.push("/dashboard/timetable");
+          }}
+        />
+      )}
 
       {/* Notification Toast */}
       {toast && (
