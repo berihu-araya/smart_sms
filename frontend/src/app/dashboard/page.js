@@ -527,13 +527,11 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   const parentStats = data?.stats || {};
   const [selectedChildId, setSelectedChildId] = useState(() => children[0]?.id || null);
 
-  useEffect(() => {
-    if (children.length > 0 && (!selectedChildId || !children.find((c) => c.id === selectedChildId))) {
-      setSelectedChildId(children[0].id);
-    }
-  }, [children, selectedChildId]);
+  const activeChildId = children.some((child) => child.id === selectedChildId)
+    ? selectedChildId
+    : children[0]?.id || null;
 
-  const selectedChild = children.find((c) => c.id === selectedChildId) || children[0] || {};
+  const selectedChild = children.find((child) => child.id === activeChildId) || children[0] || {};
   const childStats = selectedChild.stats || {};
   const attendance = selectedChild.attendance || {};
   const todaySchedule = selectedChild.todaySchedule || [];
@@ -579,7 +577,7 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
             </div>
             <div className={styles.childTabs}>
               {children.map((child) => {
-                const isSelected = child.id === selectedChild.id;
+                const isSelected = child.id === activeChildId;
                 const initial = (child.firstName || child.name || "C")[0].toUpperCase();
                 return (
                   <button
