@@ -33,6 +33,7 @@ const substitutionRoutes = require('./modules/timetable/substitutions/substituti
 const notificationRoutes = require('./modules/notifications/notification.routes');
 const libraryRoutes = require('./modules/library/library.routes');
 const transportRoutes = require('./modules/transport/transport.routes');
+const financeRoutes = require('./modules/finance/finance.routes');
 
 const { db } = require('./config/database');
 const AuthorizationService = require('./services/authorization.service');
@@ -94,6 +95,7 @@ app.use('/api/v1/timetable/substitutions', substitutionRoutes);
 app.use('/api/v1/timetable', timetableRoutes);
 app.use('/api/v1/library', libraryRoutes);
 app.use('/api/v1/transport', transportRoutes);
+app.use('/api/v1/finance', financeRoutes);
 
 
 
