@@ -16,7 +16,29 @@ class FinanceRepository {
       `SELECT * FROM finance_settings WHERE (school_id = $1 OR school_id IS NULL) LIMIT 1`,
       [schoolId]
     );
-    if (res.rows.length > 0) return res.rows[0];
+    if (res.rows.length > 0) {
+      const row = res.rows[0];
+      return {
+        ...row,
+        transport_tax_exemption_limit: row.transport_tax_exemption_limit !== null && row.transport_tax_exemption_limit !== undefined
+          ? Number(row.transport_tax_exemption_limit)
+          : 600.00,
+        pension_employee_rate: row.pension_employee_rate !== null && row.pension_employee_rate !== undefined
+          ? Number(row.pension_employee_rate)
+          : 7.00,
+        pension_employer_rate: row.pension_employer_rate !== null && row.pension_employer_rate !== undefined
+          ? Number(row.pension_employer_rate)
+          : 11.00,
+        tax_brackets_json: row.tax_brackets_json || [
+          { min: 0, max: 2000, rate: 0.00, offset: 0.00 },
+          { min: 2000, max: 4000, rate: 0.15, offset: 300.00 },
+          { min: 4000, max: 7000, rate: 0.20, offset: 500.00 },
+          { min: 7000, max: 10000, rate: 0.25, offset: 850.00 },
+          { min: 10000, max: 14000, rate: 0.30, offset: 1350.00 },
+          { min: 14000, max: null, rate: 0.35, offset: 2050.00 },
+        ],
+      };
+    }
 
     // Return defaults if not initialized yet
     return {
@@ -27,14 +49,25 @@ class FinanceRepository {
       voucher_prefix: 'EXP',
       payslip_prefix: 'PAY',
       enable_bank_slip_verification: true,
+      transport_tax_exemption_limit: 600.00,
+      pension_employee_rate: 7.00,
+      pension_employer_rate: 11.00,
+      tax_brackets_json: [
+        { min: 0, max: 2000, rate: 0.00, offset: 0.00 },
+        { min: 2000, max: 4000, rate: 0.15, offset: 300.00 },
+        { min: 4000, max: 7000, rate: 0.20, offset: 500.00 },
+        { min: 7000, max: 10000, rate: 0.25, offset: 850.00 },
+        { min: 10000, max: 14000, rate: 0.30, offset: 1350.00 },
+        { min: 14000, max: null, rate: 0.35, offset: 2050.00 },
+      ],
     };
   }
 
   async upsertSettings(schoolId, data) {
     const res = await this.db.query(
       `INSERT INTO finance_settings 
-       (school_id, currency_symbol, currency_code, receipt_prefix, invoice_prefix, voucher_prefix, payslip_prefix, enable_bank_slip_verification, tax_identification_number, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+       (school_id, currency_symbol, currency_code, receipt_prefix, invoice_prefix, voucher_prefix, payslip_prefix, enable_bank_slip_verification, tax_identification_number, transport_tax_exemption_limit, pension_employee_rate, pension_employer_rate, tax_brackets_json, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
        ON CONFLICT (school_id) DO UPDATE SET
          currency_symbol = EXCLUDED.currency_symbol,
          currency_code = EXCLUDED.currency_code,
@@ -44,6 +77,10 @@ class FinanceRepository {
          payslip_prefix = EXCLUDED.payslip_prefix,
          enable_bank_slip_verification = EXCLUDED.enable_bank_slip_verification,
          tax_identification_number = EXCLUDED.tax_identification_number,
+         transport_tax_exemption_limit = EXCLUDED.transport_tax_exemption_limit,
+         pension_employee_rate = EXCLUDED.pension_employee_rate,
+         pension_employer_rate = EXCLUDED.pension_employer_rate,
+         tax_brackets_json = EXCLUDED.tax_brackets_json,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [
@@ -56,6 +93,10 @@ class FinanceRepository {
         data.payslip_prefix || 'PAY',
         data.enable_bank_slip_verification !== undefined ? data.enable_bank_slip_verification : true,
         data.tax_identification_number || null,
+        data.transport_tax_exemption_limit !== undefined ? Number(data.transport_tax_exemption_limit) : 600.00,
+        data.pension_employee_rate !== undefined ? Number(data.pension_employee_rate) : 7.00,
+        data.pension_employer_rate !== undefined ? Number(data.pension_employer_rate) : 11.00,
+        data.tax_brackets_json ? JSON.stringify(data.tax_brackets_json) : null,
       ]
     );
     return res.rows[0];
@@ -1132,14 +1173,17 @@ class FinanceRepository {
   async upsertSalaryStructure(schoolId, data) {
     const res = await this.db.query(
       `INSERT INTO salary_structures 
-       (school_id, user_id, base_salary, housing_allowance, transport_allowance, medical_allowance, other_allowances, tax_rate_percentage, pension_employee_percentage, pension_employer_percentage, bank_name, bank_account_number, bank_account_name, effective_from, is_active, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
+       (school_id, user_id, base_salary, housing_allowance, transport_allowance, professional_allowance, medical_allowance, other_allowances, custom_earnings, custom_deductions, tax_rate_percentage, pension_employee_percentage, pension_employer_percentage, bank_name, bank_account_number, bank_account_name, effective_from, is_active, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
        ON CONFLICT (school_id, user_id) WHERE deleted_at IS NULL DO UPDATE SET
          base_salary = EXCLUDED.base_salary,
          housing_allowance = EXCLUDED.housing_allowance,
          transport_allowance = EXCLUDED.transport_allowance,
+         professional_allowance = EXCLUDED.professional_allowance,
          medical_allowance = EXCLUDED.medical_allowance,
          other_allowances = EXCLUDED.other_allowances,
+         custom_earnings = EXCLUDED.custom_earnings,
+         custom_deductions = EXCLUDED.custom_deductions,
          tax_rate_percentage = EXCLUDED.tax_rate_percentage,
          pension_employee_percentage = EXCLUDED.pension_employee_percentage,
          pension_employer_percentage = EXCLUDED.pension_employer_percentage,
@@ -1156,11 +1200,14 @@ class FinanceRepository {
         Number(data.base_salary) || 0,
         Number(data.housing_allowance) || 0,
         Number(data.transport_allowance) || 0,
+        Number(data.professional_allowance) || 0,
         Number(data.medical_allowance) || 0,
         Number(data.other_allowances) || 0,
+        JSON.stringify(data.custom_earnings || []),
+        JSON.stringify(data.custom_deductions || []),
         Number(data.tax_rate_percentage) || 0,
-        Number(data.pension_employee_percentage) !== undefined ? Number(data.pension_employee_percentage) : 7.0,
-        Number(data.pension_employer_percentage) !== undefined ? Number(data.pension_employer_percentage) : 11.0,
+        data.pension_employee_percentage !== undefined ? Number(data.pension_employee_percentage) : 7.0,
+        data.pension_employer_percentage !== undefined ? Number(data.pension_employer_percentage) : 11.0,
         data.bank_name || null,
         data.bank_account_number || null,
         data.bank_account_name || null,

@@ -193,6 +193,18 @@ function validateSalaryStructure(data) {
   if (data.base_salary === undefined || isNaN(Number(data.base_salary)) || Number(data.base_salary) < 0) {
     errors.push('base_salary must be a non-negative number');
   }
+  const allowanceFields = ['housing_allowance', 'transport_allowance', 'professional_allowance', 'medical_allowance', 'other_allowances'];
+  for (const field of allowanceFields) {
+    if (data[field] !== undefined && data[field] !== null && (isNaN(Number(data[field])) || Number(data[field]) < 0)) {
+      errors.push(`${field} must be a non-negative number`);
+    }
+  }
+  if (data.custom_earnings && !Array.isArray(data.custom_earnings)) {
+    errors.push('custom_earnings must be an array of earning items');
+  }
+  if (data.custom_deductions && !Array.isArray(data.custom_deductions)) {
+    errors.push('custom_deductions must be an array of deduction items');
+  }
   return errors;
 }
 

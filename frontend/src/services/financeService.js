@@ -290,11 +290,13 @@ export function processMonthlyPayroll(data) {
   });
 }
 
-export function disbursePayroll(id) {
+export function markPayrollPaid(id) {
   return request(`/api/v1/finance/payroll/runs/${id}/disburse`, {
     method: 'PATCH',
   });
 }
+
+export { markPayrollPaid as disbursePayroll };
 
 export function getPayslipById(id) {
   return request(`/api/v1/finance/payroll/payslips/${id}`, { method: 'GET' });

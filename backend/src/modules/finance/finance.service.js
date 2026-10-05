@@ -3,15 +3,7 @@
  * Enforces business rules, transactions, and domain calculations.
  */
 
-function calculateProgressiveIncomeTax(taxableIncome) {
-  if (taxableIncome <= 600) return 0;
-  if (taxableIncome <= 1650) return Number(((taxableIncome * 0.10) - 60).toFixed(2));
-  if (taxableIncome <= 3200) return Number(((taxableIncome * 0.15) - 142.50).toFixed(2));
-  if (taxableIncome <= 5250) return Number(((taxableIncome * 0.20) - 302.50).toFixed(2));
-  if (taxableIncome <= 7800) return Number(((taxableIncome * 0.25) - 565.00).toFixed(2));
-  if (taxableIncome <= 10900) return Number(((taxableIncome * 0.30) - 955.00).toFixed(2));
-  return Number(((taxableIncome * 0.35) - 1500.00).toFixed(2));
-}
+const { calculateEmployeeSalary, calculateProgressivePAYE } = require('./payroll-calculator');
 
 class FinanceService {
   constructor(repository, database) {
@@ -543,6 +535,9 @@ class FinanceService {
         throw new Error(`Payroll for ${month}/${year} has already been generated (Status: ${dupRes.rows[0].status})`);
       }
 
+      // Fetch finance settings for transport tax exemption, pension rates, and tax brackets
+      const settings = await this.repo.getSettings(schoolId);
+
       // Fetch active staff salary structures
       const structuresRes = await client.query(
         `SELECT ss.*, u.first_name, u.last_name
@@ -586,65 +581,52 @@ class FinanceService {
         payslipCounter++;
         const payslipNumber = `PS-${year}${String(month).padStart(2, '0')}-${String(payslipCounter).padStart(4, '0')}`;
 
-        const baseSalary = Number(struct.base_salary);
-        const housing = Number(struct.housing_allowance);
-        const transport = Number(struct.transport_allowance);
-        const medical = Number(struct.medical_allowance);
-        const otherAllowances = Number(struct.other_allowances);
+        const calc = calculateEmployeeSalary({
+          basicSalary: struct.base_salary,
+          transportAllowance: struct.transport_allowance,
+          professionalAllowance: struct.professional_allowance,
+          housingAllowance: struct.housing_allowance,
+          medicalAllowance: struct.medical_allowance,
+          otherAllowances: struct.other_allowances,
+          customEarnings: struct.custom_earnings,
+          customDeductions: struct.custom_deductions,
+          transportExemptionLimit: settings.transport_tax_exemption_limit,
+          pensionEmployeeRate: struct.pension_employee_percentage !== null ? struct.pension_employee_percentage : settings.pension_employee_rate,
+          pensionEmployerRate: struct.pension_employer_percentage !== null ? struct.pension_employer_percentage : settings.pension_employer_rate,
+          taxBrackets: settings.tax_brackets_json,
+        });
 
-        const totalAllowances = housing + transport + medical + otherAllowances;
-        const grossSalary = baseSalary + totalAllowances;
-
-        // Statutory Pension: 7% Employee, 11% Employer
-        const pensionEmployeeRate = Number(struct.pension_employee_percentage) || 7.0;
-        const pensionEmployerRate = Number(struct.pension_employer_percentage) || 11.0;
-        const pensionEmployee = Number(((baseSalary * pensionEmployeeRate) / 100).toFixed(2));
-        const pensionEmployer = Number(((baseSalary * pensionEmployerRate) / 100).toFixed(2));
-
-        // Income tax (progressive calculation on taxable income: gross - non-taxable transport)
-        const taxableIncome = Math.max(0, grossSalary - (transport > 2200 ? transport - 2200 : 0)); // standard transport exemption
-        const taxDeduction = calculateProgressiveIncomeTax(taxableIncome);
-
-        const otherDeductions = 0.00;
-        const staffDeductions = pensionEmployee + taxDeduction + otherDeductions;
-        const netSalary = Math.max(0, Number((grossSalary - staffDeductions).toFixed(2)));
-
-        // Insert payslip
+        // Insert payslip with exact audit fields
         const psRes = await client.query(
           `INSERT INTO payslips 
-           (payroll_run_id, school_id, user_id, payslip_number, base_salary, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'BANK_TRANSFER', $14, 'GENERATED')
+           (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED')
            RETURNING id`,
           [
             payrollRunId,
             schoolId,
             struct.user_id,
             payslipNumber,
-            baseSalary,
-            totalAllowances,
-            grossSalary,
-            taxDeduction,
-            pensionEmployee,
-            pensionEmployer,
-            otherDeductions,
-            staffDeductions,
-            netSalary,
+            calc.basicSalary,
+            calc.professionalAllowance,
+            calc.transportExemption,
+            calc.taxableIncome,
+            calc.totalAllowances,
+            calc.grossSalary,
+            calc.payeTax,
+            calc.pensionEmployee,
+            calc.pensionEmployer,
+            calc.otherDeductions,
+            calc.totalDeductions,
+            calc.netSalary,
             struct.bank_account_number || null,
           ]
         );
         const payslipId = psRes.rows[0].id;
 
         // Insert itemized allowance/deduction breakdowns
-        const items = [];
-        if (housing > 0) items.push({ type: 'ALLOWANCE', name: 'Housing Allowance', amount: housing });
-        if (transport > 0) items.push({ type: 'ALLOWANCE', name: 'Transport Allowance', amount: transport });
-        if (medical > 0) items.push({ type: 'ALLOWANCE', name: 'Medical Allowance', amount: medical });
-        if (otherAllowances > 0) items.push({ type: 'ALLOWANCE', name: 'Other Allowances', amount: otherAllowances });
-
-        items.push({ type: 'DEDUCTION', name: `Pension Fund (${pensionEmployeeRate}%)`, amount: pensionEmployee });
-        if (taxDeduction > 0) items.push({ type: 'DEDUCTION', name: 'Employment Income Tax', amount: taxDeduction });
-
-        for (const itm of items) {
+        const allItems = [...calc.itemizedAllowances, ...calc.itemizedDeductions];
+        for (const itm of allItems) {
           await client.query(
             `INSERT INTO payslip_items (payslip_id, item_type, name, amount) VALUES ($1, $2, $3, $4)`,
             [payslipId, itm.type, itm.name, itm.amount]
@@ -652,9 +634,9 @@ class FinanceService {
         }
 
         totalStaffCount++;
-        totalGross += grossSalary;
-        totalDeductions += staffDeductions;
-        totalNet += netSalary;
+        totalGross += calc.grossSalary;
+        totalDeductions += calc.totalDeductions;
+        totalNet += calc.netSalary;
       }
 
       // Update header totals
