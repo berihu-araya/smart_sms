@@ -876,6 +876,35 @@
   color: #8a5b00;
 }
 
+.deleteStructureButton {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-left: 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #fecdca;
+  border-radius: 7px;
+  background: #fff;
+  color: #b42318;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.deleteStructureButton:hover:not(:disabled) {
+  border-color: #fda29b;
+  background: #fff5f4;
+}
+
+.deleteStructureButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .btnAction {
   min-height: 34px;
   padding: 0.4rem 0.65rem;
@@ -1145,15 +1174,37 @@
   }
 }
 
+.processModal {
+  max-height: min(92vh, 1000px);
+  min-height: 0;
+}
+
+.processForm {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.processBody {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.processFooter {
+  flex: 0 0 auto;
+}
+
 .structureModal {
-  max-width: 1240px;
-  width: min(96vw, 1240px);
-  max-height: min(94vh, 1040px);
+  max-width: 1060px;
+  width: min(94vw, 1060px);
+  max-height: min(92vh, 960px);
 }
 
 .structureModalHeader {
   align-items: center;
-  padding: 1.25rem clamp(1rem, 2.5vw, 1.75rem);
+  padding: 1.1rem clamp(1rem, 2.5vw, 1.5rem);
 }
 
 .structureModalHeading {
@@ -1221,11 +1272,11 @@
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(0, 1.55fr) minmax(270px, 0.8fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.85fr);
   align-items: start;
-  gap: 1.25rem;
+  gap: 1rem;
   overflow-y: auto;
-  padding: clamp(1rem, 2vw, 1.5rem);
+  padding: clamp(0.9rem, 1.8vw, 1.25rem);
   background: #f8f9fc;
 }
 
@@ -1353,7 +1404,7 @@
   position: sticky;
   top: 0;
   min-width: 0;
-  padding: 1.15rem;
+  padding: 1rem;
   border: 1px solid #ddd5f1;
   border-radius: 16px;
   background:

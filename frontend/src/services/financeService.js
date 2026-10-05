@@ -275,6 +275,10 @@ export function upsertSalaryStructure(data) {
   });
 }
 
+export function deleteSalaryStructure(id) {
+  return request(`/api/v1/finance/payroll/structures/${id}`, { method: 'DELETE' });
+}
+
 export function listPayrollRuns() {
   return request('/api/v1/finance/payroll/runs', { method: 'GET' });
 }

@@ -46,6 +46,7 @@ const {
   deleteIncome,
   listSalaryStructures,
   getSalaryStructure,
+  deleteSalaryStructure,
   upsertSalaryStructure,
   listPayrollRuns,
   getPayrollRunById,
@@ -135,6 +136,7 @@ router.delete('/incomes/:id', authorizeRoles(...ADMIN_ROLES), deleteIncome);
 router.get('/payroll/structures', authorizeRoles(...ADMIN_ROLES, 'Accountant'), listSalaryStructures);
 router.get('/payroll/structures/user/:userId', authorizeRoles(...ADMIN_ROLES, 'Accountant'), getSalaryStructure);
 router.post('/payroll/structures', authorizeRoles(...ADMIN_ROLES), upsertSalaryStructure);
+router.delete('/payroll/structures/:id', authorizeRoles(...ADMIN_ROLES), deleteSalaryStructure);
 
 router.get('/payroll/runs', authorizeRoles(...ADMIN_ROLES, 'Accountant'), listPayrollRuns);
 router.get('/payroll/runs/:id', authorizeRoles(...ADMIN_ROLES, 'Accountant'), getPayrollRunById);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './page.module.css';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,17 +17,26 @@ import {
   FaTimes,
   FaPrint,
   FaDownload,
+  FaTrash,
   FaSearch,
   FaCalculator,
 } from 'react-icons/fa';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
-function ModalPortal({ isOpen, onClose, children }) {
-  const [mounted, setMounted] = useState(false);
+function subscribeToClient() {
+  return () => {};
+}
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+function getClientSnapshot() {
+  return true;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
+function ModalPortal({ isOpen, onClose, children }) {
+  const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -144,6 +153,7 @@ export default function PayrollPage() {
   const { user } = useAuth();
   const userRole = (user?.role || '').toLowerCase();
   const isTeacherOrStaff = userRole === 'teacher' || userRole === 'staff';
+  const canManageSalaryStructures = userRole === 'school admin' || userRole === 'admin';
 
   const [activeTab, setActiveTab] = useState(isTeacherOrStaff ? 'my_payslips' : 'runs');
   const [loading, setLoading] = useState(false);
@@ -256,9 +266,20 @@ export default function PayrollPage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'runs') loadRuns();
-    if (activeTab === 'structures') loadStructures();
-    if (activeTab === 'my_payslips') loadMyPayslips();
+    let cancelled = false;
+
+    async function loadActiveTab() {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (activeTab === 'runs') await loadRuns();
+      if (activeTab === 'structures') await loadStructures();
+      if (activeTab === 'my_payslips') await loadMyPayslips();
+    }
+
+    loadActiveTab();
+    return () => {
+      cancelled = true;
+    };
   }, [activeTab, loadRuns, loadStructures, loadMyPayslips]);
 
   const handleProcessPayroll = async (e) => {
@@ -308,6 +329,23 @@ export default function PayrollPage() {
       setSuccessMsg(isEditingStructure ? 'Staff salary structure updated successfully!' : 'Staff salary structure created successfully!');
       setIsStructureModalOpen(false);
       loadStructures();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSalaryStructure = async (structure) => {
+    const employeeName = `${structure.first_name} ${structure.last_name}`.trim();
+    if (!window.confirm(`Delete the salary structure for ${employeeName}? Existing payroll records will be kept.`)) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await financeApi.deleteSalaryStructure(structure.id);
+      setSalaryStructures((current) => current.filter((item) => item.id !== structure.id));
+      setSuccessMsg(`Salary structure for ${employeeName} deleted successfully.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -530,7 +568,7 @@ export default function PayrollPage() {
                           {run.status === 'DISBURSED'
                             ? 'Paid'
                             : run.status === 'PROCESSED'
-                              ? 'Processed'
+                              ? 'Draft'
                               : run.status}
                         </span>
                       </td>
@@ -663,6 +701,19 @@ export default function PayrollPage() {
                           >
                             Edit
                           </button>
+                          {canManageSalaryStructures && (
+                            <button
+                              type="button"
+                              className={styles.deleteStructureButton}
+                              onClick={() => handleDeleteSalaryStructure(s)}
+                              disabled={loading}
+                              aria-label={`Delete salary structure for ${s.first_name} ${s.last_name}`}
+                              title={`Delete salary structure for ${s.first_name} ${s.last_name}`}
+                            >
+                              <FaTrash aria-hidden="true" />
+                              <span>Delete</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -740,7 +791,7 @@ export default function PayrollPage() {
 
       {/* MODAL 1: PROCESS PAYROLL */}
       <ModalPortal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)}>
-        <div className={styles.modalContent}>
+        <div className={`${styles.modalContent} ${styles.processModal}`}>
           <div className={styles.modalHeader}>
             <h3>
               <FaWallet /> Execute Monthly Payroll Run
@@ -749,8 +800,8 @@ export default function PayrollPage() {
               <FaTimes />
             </button>
           </div>
-          <form onSubmit={handleProcessPayroll}>
-            <div className={styles.modalBody}>
+          <form onSubmit={handleProcessPayroll} className={styles.processForm}>
+            <div className={`${styles.modalBody} ${styles.processBody}`}>
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
                   <label>Payroll Month *</label>
@@ -840,7 +891,7 @@ export default function PayrollPage() {
               </div>
             </div>
 
-            <div className={styles.modalFooter}>
+            <div className={`${styles.modalFooter} ${styles.processFooter}`}>
               <button type="button" className={styles.btnSecondary} onClick={() => setIsProcessModalOpen(false)}>
                 Cancel
               </button>
@@ -1340,7 +1391,7 @@ export default function PayrollPage() {
                         <th>Total Deductions</th>
                         <th>Net Payment</th>
                         <th>Bank Account</th>
-                        <th>Action</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1384,13 +1435,17 @@ export default function PayrollPage() {
                               </div>
                             </td>
                             <td>
-                              <button
-                                className={styles.btnAction}
-                                onClick={() => handleOpenPayslipModal(ps.id)}
-                                title="Print / View Official Payslip"
+                              <span
+                                className={`${styles.statusBadge} ${
+                                  ps.status === 'PAID' ? styles.statusPaid : styles.statusProcessed
+                                }`}
                               >
-                                <FaPrint /> Payslip
-                              </button>
+                                {ps.status === 'PAID'
+                                  ? 'Paid'
+                                  : ps.status === 'GENERATED'
+                                    ? 'Processed'
+                                    : ps.status || 'Unknown'}
+                              </span>
                             </td>
                           </tr>
                         ))}

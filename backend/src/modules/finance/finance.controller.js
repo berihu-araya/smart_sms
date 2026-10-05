@@ -481,6 +481,18 @@ async function getSalaryStructure(req, res, next) {
   }
 }
 
+async function deleteSalaryStructure(req, res, next) {
+  try {
+    const success = await repo.deleteSalaryStructure(req.params.id, getSchoolId(req));
+    if (!success) {
+      return res.status(404).json({ success: false, message: 'Salary structure not found', data: null });
+    }
+    res.json({ success: true, message: 'Salary structure deleted', data: null });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function upsertSalaryStructure(req, res, next) {
   try {
     const errors = validateSalaryStructure(req.body);
@@ -646,6 +658,7 @@ module.exports = {
   deleteIncome,
   listSalaryStructures,
   getSalaryStructure,
+  deleteSalaryStructure,
   upsertSalaryStructure,
   listPayrollRuns,
   getPayrollRunById,

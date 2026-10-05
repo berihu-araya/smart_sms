@@ -1170,6 +1170,17 @@ class FinanceRepository {
     return res.rows[0] || null;
   }
 
+  async deleteSalaryStructure(id, schoolId) {
+    const res = await this.db.query(
+      `UPDATE salary_structures
+       SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL
+       RETURNING id`,
+      [id, schoolId]
+    );
+    return res.rows.length > 0;
+  }
+
   async upsertSalaryStructure(schoolId, data) {
     const res = await this.db.query(
       `INSERT INTO salary_structures 
