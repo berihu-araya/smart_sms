@@ -17,7 +17,7 @@ const DEFAULT_PENSION_EMPLOYEE_RATE = 7.00;
 const DEFAULT_PENSION_EMPLOYER_RATE = 11.00;
 
 function round2(val) {
-  return Math.round((Number(val) + Number.EPSILON) * 100) / 100;
+  return Math.round((Number(val) + Number.EPSILON) * 100) / 100; // the purpose of adding Number.EPSILON is to avoid floating point rounding errors and round to 2 decimal places.
 }
 
 /**

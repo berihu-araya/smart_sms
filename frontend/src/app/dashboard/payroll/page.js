@@ -122,6 +122,24 @@ function computeSalaryBreakdown({
   };
 }
 
+function createEmptyStructureForm() {
+  return {
+    user_id: '',
+    base_salary: '',
+    housing_allowance: 0,
+    transport_allowance: 0,
+    professional_allowance: 0,
+    medical_allowance: 0,
+    other_allowances: 0,
+    tax_rate_percentage: 0,
+    pension_employee_percentage: 7.0,
+    pension_employer_percentage: 11.0,
+    bank_name: 'Commercial Bank of Ethiopia (CBE)',
+    bank_account_number: '',
+    bank_account_name: '',
+  };
+}
+
 export default function PayrollPage() {
   const { user } = useAuth();
   const userRole = (user?.role || '').toLowerCase();
@@ -140,6 +158,7 @@ export default function PayrollPage() {
   // Modals
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
+  const [isEditingStructure, setIsEditingStructure] = useState(false);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
   const [isRunBreakdownModalOpen, setIsRunBreakdownModalOpen] = useState(false);
   const [selectedRunDetails, setSelectedRunDetails] = useState(null);
@@ -153,21 +172,7 @@ export default function PayrollPage() {
     remarks: 'Monthly automated staff salary computation',
   });
 
-  const [structureForm, setStructureForm] = useState({
-    user_id: '',
-    base_salary: '',
-    housing_allowance: 0,
-    transport_allowance: 0,
-    professional_allowance: 0,
-    medical_allowance: 0,
-    other_allowances: 0,
-    tax_rate_percentage: 0,
-    pension_employee_percentage: 7.0,
-    pension_employer_percentage: 11.0,
-    bank_name: 'Commercial Bank of Ethiopia (CBE)',
-    bank_account_number: '',
-    bank_account_name: '',
-  });
+  const [structureForm, setStructureForm] = useState(createEmptyStructureForm);
 
   // Dynamic live calculation for the salary structure form
   const structurePreview = useMemo(() => {
@@ -236,12 +241,12 @@ export default function PayrollPage() {
         const list = Array.isArray(res)
           ? res
           : Array.isArray(res?.items)
-          ? res.items
-          : Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res?.data?.items)
-          ? res.data.items
-          : [];
+            ? res.items
+            : Array.isArray(res?.data)
+              ? res.data
+              : Array.isArray(res?.data?.items)
+                ? res.data.items
+                : [];
         setStaffUsers(list);
       } catch (err) {
         console.error(err);
@@ -300,7 +305,7 @@ export default function PayrollPage() {
         medical_allowance: Number(structureForm.medical_allowance) || 0,
         other_allowances: Number(structureForm.other_allowances) || 0,
       });
-      setSuccessMsg('Staff salary structure updated successfully!');
+      setSuccessMsg(isEditingStructure ? 'Staff salary structure updated successfully!' : 'Staff salary structure created successfully!');
       setIsStructureModalOpen(false);
       loadStructures();
     } catch (err) {
@@ -337,6 +342,15 @@ export default function PayrollPage() {
     }
   };
 
+  const handleDownloadBankCsv = async (runId) => {
+    try {
+      setError(null);
+      await financeApi.downloadPayrollBankCsv(runId);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const totalPaidPayroll = payrollRuns
     .filter((r) => r.status === 'DISBURSED')
     .reduce((sum, r) => sum + Number(r.total_net_amount), 0);
@@ -359,7 +373,14 @@ export default function PayrollPage() {
         <div className={styles.headerActions}>
           {!isTeacherOrStaff && (
             <>
-              <button className={styles.btnSecondary} onClick={() => setIsStructureModalOpen(true)}>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => {
+                  setIsEditingStructure(false);
+                  setStructureForm(createEmptyStructureForm());
+                  setIsStructureModalOpen(true);
+                }}
+              >
                 <FaPlus /> Salary Structure
               </button>
               <button className={styles.btnPrimary} onClick={() => setIsProcessModalOpen(true)}>
@@ -503,15 +524,14 @@ export default function PayrollPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${
-                            run.status === 'DISBURSED' ? styles.statusPaid : styles.statusProcessed
-                          }`}
+                          className={`${styles.statusBadge} ${run.status === 'DISBURSED' ? styles.statusPaid : styles.statusProcessed
+                            }`}
                         >
                           {run.status === 'DISBURSED'
                             ? 'Paid'
                             : run.status === 'PROCESSED'
-                            ? 'Processed'
-                            : run.status}
+                              ? 'Processed'
+                              : run.status}
                         </span>
                       </td>
                       <td>
@@ -521,7 +541,7 @@ export default function PayrollPage() {
                             onClick={() => handleOpenRunBreakdown(run.id)}
                             title="View individual employee salary computations and net payments"
                           >
-                            <FaUsers style={{ color: '#7c3aed' }} /> Employee Breakdown
+                            <FaUsers style={{ color: '#7c3aed' }} /> All Employees
                           </button>
                           {run.status !== 'DISBURSED' && (
                             <button
@@ -532,14 +552,15 @@ export default function PayrollPage() {
                               <FaCheck /> Mark paid
                             </button>
                           )}
-                          <a
-                            href={`/api/v1/finance/payroll/runs/${run.id}/bank-export`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            className={styles.btnAction}
+                            onClick={() => handleDownloadBankCsv(run.id)}
+                            title="Download bank transfer CSV"
                             style={{ padding: '0.35rem 0.65rem', background: '#f1f5f9', color: '#334155', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                           >
                             <FaDownload /> Bank CSV
-                          </a>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -636,6 +657,7 @@ export default function PayrollPage() {
                                 bank_account_number: s.bank_account_number,
                                 bank_account_name: s.bank_account_name,
                               });
+                              setIsEditingStructure(true);
                               setIsStructureModalOpen(true);
                             }}
                           >
@@ -832,178 +854,283 @@ export default function PayrollPage() {
 
       {/* MODAL 2: SALARY STRUCTURE */}
       <ModalPortal isOpen={isStructureModalOpen} onClose={() => setIsStructureModalOpen(false)}>
-        <div className={`${styles.modalContent} ${styles.modalLarge}`}>
-          <div className={styles.modalHeader}>
-            <div>
+        <div className={`${styles.modalContent} ${styles.modalLarge} ${styles.structureModal}`}>
+          <div className={`${styles.modalHeader} ${styles.structureModalHeader}`}>
+            <div className={styles.structureModalHeading}>
+              <span className={styles.structureModalIcon}><FaUsers /></span>
               <h3>
-                <FaUsers style={{ color: '#7c3aed' }} /> Staff Salary Structure Configuration
+                {isEditingStructure ? 'Edit salary structure' : 'Create salary structure'}
               </h3>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                Configurable allowances with 600 ETB transport tax exemption & statutory PAYE / Pension calculation
-              </div>
+              <p>Set monthly earnings, statutory deductions, and payment details for one staff member.</p>
             </div>
-            <button className={styles.closeBtn} onClick={() => setIsStructureModalOpen(false)}>
+            <span className={styles.monthlyBadge}>ETB <span>/</span> MONTHLY</span>
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={() => setIsStructureModalOpen(false)}
+              aria-label="Close salary structure form"
+            >
               <FaTimes />
             </button>
           </div>
-          <form onSubmit={handleSaveStructure}>
-            <div className={styles.modalBody}>
-              <div className={styles.formGroup}>
-                <label>Staff / Teacher Member *</label>
-                <select
-                  className={styles.formSelect}
-                  value={structureForm.user_id}
-                  onChange={(e) => setStructureForm({ ...structureForm, user_id: e.target.value })}
-                  required
-                >
-                  <option value="">Select Staff Member</option>
-                  {staffUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.first_name} {u.last_name} ({u.role_name || u.role || 'Staff'}) - {u.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Base Monthly Salary (ETB) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    placeholder="e.g. 38609"
-                    value={structureForm.base_salary}
-                    onChange={(e) => setStructureForm({ ...structureForm, base_salary: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>
-                    Transport Allowance (ETB)
-                    <span style={{ fontSize: '0.75rem', color: '#059669', marginLeft: '0.5rem', fontWeight: 500 }}>
-                      (First 600 ETB tax-exempt)
+          <form onSubmit={handleSaveStructure} className={styles.structureForm}>
+            <div className={`${styles.modalBody} ${styles.structureBody}`}>
+              <div className={styles.structureFormColumn}>
+                <section className={styles.structureSection}>
+                  <div className={styles.structureSectionHeader}>
+                    <span className={styles.structureStep}>01</span>
+                    <div>
+                      <h4>Staff member</h4>
+                      <p>Choose who this monthly compensation plan belongs to.</p>
+                    </div>
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label htmlFor="salary-structure-user">Staff / teacher <span className={styles.requiredMark}>*</span></label>
+                    <select
+                      id="salary-structure-user"
+                      className={styles.formSelect}
+                      value={structureForm.user_id}
+                      onChange={(e) => setStructureForm({ ...structureForm, user_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Select a staff member</option>
+                      {staffUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.first_name} {u.last_name} ({u.role_name || u.role || 'Staff'}) - {u.email}
+                        </option>
+                      ))}
+                    </select>
+                    <span className={styles.fieldHint}>
+                      {staffUsers.length
+                        ? `${staffUsers.length} staff accounts available`
+                        : 'No staff accounts are available to select.'}
                     </span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    placeholder="e.g. 3860"
-                    value={structureForm.transport_allowance}
-                    onChange={(e) => setStructureForm({ ...structureForm, transport_allowance: e.target.value })}
-                  />
-                </div>
+                  </div>
+                </section>
+
+                <section className={styles.structureSection}>
+                  <div className={styles.structureSectionHeader}>
+                    <span className={styles.structureStep}>02</span>
+                    <div>
+                      <h4>Monthly earnings</h4>
+                      <p>Add the fixed salary and applicable allowances.</p>
+                    </div>
+                  </div>
+                  <div className={styles.structureFieldsGrid}>
+                    <div className={`${styles.formGroup} ${styles.baseSalaryField}`}>
+                      <label htmlFor="salary-base">Base monthly salary <span className={styles.requiredMark}>*</span></label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-base"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.base_salary}
+                          onChange={(e) => setStructureForm({ ...structureForm, base_salary: e.target.value })}
+                          required
+                        />
+                        <span>ETB</span>
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-transport">Transport allowance</label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-transport"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.transport_allowance}
+                          onChange={(e) => setStructureForm({ ...structureForm, transport_allowance: e.target.value })}
+                        />
+                        <span>ETB</span>
+                      </div>
+                      <span className={styles.fieldHint}>First 600 ETB is tax-exempt.</span>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-professional">Professional allowance</label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-professional"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.professional_allowance}
+                          onChange={(e) => setStructureForm({ ...structureForm, professional_allowance: e.target.value })}
+                        />
+                        <span>ETB</span>
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-housing">Housing allowance</label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-housing"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.housing_allowance}
+                          onChange={(e) => setStructureForm({ ...structureForm, housing_allowance: e.target.value })}
+                        />
+                        <span>ETB</span>
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-medical">Medical allowance</label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-medical"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.medical_allowance}
+                          onChange={(e) => setStructureForm({ ...structureForm, medical_allowance: e.target.value })}
+                        />
+                        <span>ETB</span>
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-other">Other allowances</label>
+                      <div className={styles.currencyInput}>
+                        <input
+                          id="salary-other"
+                          type="number"
+                          step="0.01"
+                          className={styles.formInput}
+                          placeholder="0.00"
+                          value={structureForm.other_allowances}
+                          onChange={(e) => setStructureForm({ ...structureForm, other_allowances: e.target.value })}
+                        />
+                        <span>ETB</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className={styles.structureSection}>
+                  <div className={styles.structureSectionHeader}>
+                    <span className={styles.structureStep}>03</span>
+                    <div>
+                      <h4>Statutory deductions</h4>
+                      <p>Contribution rates used to estimate take-home pay.</p>
+                    </div>
+                  </div>
+                  <div className={styles.structureFieldsGrid}>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-employee-pension">Employee pension rate</label>
+                      <div className={styles.percentInput}>
+                        <input
+                          id="salary-employee-pension"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={styles.formInput}
+                          value={structureForm.pension_employee_percentage}
+                          onChange={(e) => setStructureForm({ ...structureForm, pension_employee_percentage: e.target.value })}
+                        />
+                        <span>%</span>
+                      </div>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-employer-pension">Employer pension rate</label>
+                      <div className={styles.percentInput}>
+                        <input
+                          id="salary-employer-pension"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={styles.formInput}
+                          value={structureForm.pension_employer_percentage}
+                          onChange={(e) => setStructureForm({ ...structureForm, pension_employer_percentage: e.target.value })}
+                        />
+                        <span>%</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className={styles.structureSection}>
+                  <div className={styles.structureSectionHeader}>
+                    <span className={styles.structureStep}>04</span>
+                    <div>
+                      <h4>Payment details</h4>
+                      <p>Bank details are used when preparing payroll payments.</p>
+                    </div>
+                  </div>
+                  <div className={styles.structureFieldsGrid}>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-bank-name">Bank name</label>
+                      <input
+                        id="salary-bank-name"
+                        type="text"
+                        className={styles.formInput}
+                        value={structureForm.bank_name}
+                        onChange={(e) => setStructureForm({ ...structureForm, bank_name: e.target.value })}
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label htmlFor="salary-account-name">Account holder name</label>
+                      <input
+                        id="salary-account-name"
+                        type="text"
+                        className={styles.formInput}
+                        value={structureForm.bank_account_name}
+                        onChange={(e) => setStructureForm({ ...structureForm, bank_account_name: e.target.value })}
+                      />
+                    </div>
+                    <div className={`${styles.formGroup} ${styles.accountNumberField}`}>
+                      <label htmlFor="salary-account-number">Bank account number</label>
+                      <input
+                        id="salary-account-number"
+                        type="text"
+                        className={styles.formInput}
+                        value={structureForm.bank_account_number}
+                        onChange={(e) => setStructureForm({ ...structureForm, bank_account_number: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Professional Allowance (ETB)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    placeholder="e.g. 3860"
-                    value={structureForm.professional_allowance}
-                    onChange={(e) => setStructureForm({ ...structureForm, professional_allowance: e.target.value })}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Housing Allowance (ETB)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    value={structureForm.housing_allowance}
-                    onChange={(e) => setStructureForm({ ...structureForm, housing_allowance: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Medical Allowance (ETB)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    value={structureForm.medical_allowance}
-                    onChange={(e) => setStructureForm({ ...structureForm, medical_allowance: e.target.value })}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Other Allowances (ETB)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className={styles.formInput}
-                    value={structureForm.other_allowances}
-                    onChange={(e) => setStructureForm({ ...structureForm, other_allowances: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label>Bank Name</label>
-                  <input
-                    type="text"
-                    className={styles.formInput}
-                    value={structureForm.bank_name}
-                    onChange={(e) => setStructureForm({ ...structureForm, bank_name: e.target.value })}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Bank Account Number</label>
-                  <input
-                    type="text"
-                    className={styles.formInput}
-                    value={structureForm.bank_account_number}
-                    onChange={(e) => setStructureForm({ ...structureForm, bank_account_number: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Real-time Calculation Breakdown Preview */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', marginTop: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.75rem' }}>
-                  <FaCalculator style={{ color: '#7c3aed' }} /> Real-Time Statutory Calculation Preview
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.85rem' }}>
-                  <div style={{ background: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Gross Salary</div>
-                    <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{structurePreview.grossSalary.toLocaleString()} ETB</div>
-                  </div>
-                  <div style={{ background: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Transport Exemption</div>
-                    <div style={{ fontWeight: 700, color: '#059669' }}>-{structurePreview.transportExemption.toLocaleString()} ETB</div>
-                  </div>
-                  <div style={{ background: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Taxable Income</div>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{structurePreview.taxableIncome.toLocaleString()} ETB</div>
-                  </div>
-                  <div style={{ background: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>PAYE Income Tax</div>
-                    <div style={{ fontWeight: 700, color: '#dc2626' }}>-{structurePreview.payeTax.toLocaleString()} ETB</div>
-                  </div>
-                  <div style={{ background: '#fff', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Employee Pension (7%)</div>
-                    <div style={{ fontWeight: 700, color: '#d97706' }}>-{structurePreview.pensionEmployee.toLocaleString()} ETB</div>
-                  </div>
-                  <div style={{ background: '#ecfdf5', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #a7f3d0' }}>
-                    <div style={{ color: '#065f46', fontSize: '0.75rem', fontWeight: 600 }}>Estimated Net Pay</div>
-                    <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#059669' }}>{structurePreview.netSalary.toLocaleString()} ETB</div>
+              <aside className={styles.structurePreviewPanel}>
+                <div className={styles.structurePreviewHeading}>
+                  <span className={styles.previewIcon}><FaCalculator /></span>
+                  <div>
+                    <h4>Live salary estimate</h4>
+                    <p>Updates as you edit the figures</p>
                   </div>
                 </div>
-              </div>
+                <div className={styles.netEstimate}>
+                  <span>Estimated take-home pay</span>
+                  <strong>{structurePreview.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  <small>ETB <span>/ month</span></small>
+                </div>
+                <div className={styles.previewBreakdown}>
+                  <div><span>Gross salary</span><strong>{structurePreview.grossSalary.toLocaleString()} ETB</strong></div>
+                  <div><span>Taxable income</span><strong>{structurePreview.taxableIncome.toLocaleString()} ETB</strong></div>
+                  <div><span>Transport tax exemption</span><strong className={styles.positiveValue}>{structurePreview.transportExemption.toLocaleString()} ETB</strong></div>
+                  <div><span>PAYE income tax</span><strong className={styles.deductionValue}>−{structurePreview.payeTax.toLocaleString()} ETB</strong></div>
+                  <div><span>Employee pension ({structureForm.pension_employee_percentage || 0}%)</span><strong className={styles.deductionValue}>−{structurePreview.pensionEmployee.toLocaleString()} ETB</strong></div>
+                  <div><span>Employer pension ({structureForm.pension_employer_percentage || 0}%)</span><strong className={styles.positiveValue}>{structurePreview.pensionEmployer.toLocaleString()} ETB</strong></div>
+                  <div className={styles.previewNetSalary}><span>Net salary</span><strong>{structurePreview.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</strong></div>
+                </div>
+                <div className={styles.previewNote}>
+                  This is an estimate based on the current salary inputs and statutory settings. Final payroll is calculated when a monthly run is processed.
+                </div>
+              </aside>
             </div>
 
-            <div className={styles.modalFooter}>
+            <div className={`${styles.modalFooter} ${styles.structureModalFooter}`}>
               <button type="button" className={styles.btnSecondary} onClick={() => setIsStructureModalOpen(false)}>
                 Cancel
               </button>
               <button type="submit" className={styles.btnPrimary} disabled={loading}>
-                Save Salary Structure
+                {loading ? 'Saving...' : isEditingStructure ? 'Save changes' : 'Create salary structure'}
               </button>
             </div>
           </form>
@@ -1279,15 +1406,13 @@ export default function PayrollPage() {
               Close
             </button>
             {selectedRunDetails && (
-              <a
-                href={`/api/v1/finance/payroll/runs/${selectedRunDetails.id}/bank-export`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
                 className={styles.btnPrimary}
-                style={{ textDecoration: 'none' }}
+                onClick={() => handleDownloadBankCsv(selectedRunDetails.id)}
               >
                 <FaDownload /> Export Bank CSV
-              </a>
+              </button>
             )}
           </div>
         </div>

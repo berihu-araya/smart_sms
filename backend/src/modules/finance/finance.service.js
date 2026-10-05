@@ -707,17 +707,35 @@ class FinanceService {
     const run = await this.repo.getPayrollRunById(runId, schoolId);
     if (!run) throw new Error('Payroll run not found');
 
-    const headers = ['Payslip Number', 'Employee Name', 'Bank Name', 'Account Number', 'Net Amount', 'Payment Month'];
+    const headers = [
+      'Employee',
+      'Base Salary',
+      'Allowances',
+      'Gross Salary',
+      'Taxable Income',
+      'PAYE Tax',
+      'Pension (7%)',
+      'Total Deductions',
+      'Net Payment',
+      'Bank Account',
+      'Status',
+    ];
+    const escapeCsvValue = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = (run.payslips || []).map((ps) => [
-      ps.payslip_number,
-      `"${ps.first_name} ${ps.last_name}"`,
-      `"${ps.bank_name || 'Commercial Bank of Ethiopia'}"`,
-      `"${ps.bank_account_number || ''}"`,
-      Number(ps.net_salary).toFixed(2),
-      `"${run.month}/${run.year}"`,
+      escapeCsvValue(`${ps.first_name || ''} ${ps.last_name || ''}`.trim()),
+      Number(ps.base_salary || 0).toFixed(2),
+      Number(ps.total_allowances || 0).toFixed(2),
+      Number(ps.gross_salary || 0).toFixed(2),
+      Number(ps.taxable_income || 0).toFixed(2),
+      Number(ps.tax_deduction || 0).toFixed(2),
+      Number(ps.pension_employee_deduction || 0).toFixed(2),
+      Number(ps.total_deductions || 0).toFixed(2),
+      Number(ps.net_salary || 0).toFixed(2),
+      escapeCsvValue(ps.bank_account_number),
+      escapeCsvValue(ps.status),
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent = [headers.map(escapeCsvValue).join(','), ...rows.map((r) => r.join(','))].join('\n');
     return {
       filename: `Bank_Salary_Transfer_${run.batch_reference}.csv`,
       csvContent,

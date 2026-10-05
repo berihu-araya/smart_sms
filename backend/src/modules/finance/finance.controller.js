@@ -20,13 +20,13 @@ const {
   validatePayrollRun,
 } = require('./finance.validation');
 
-const repo = new FinanceRepository(db);
-const service = new FinanceService(repo, db);
+const repo = new FinanceRepository(db); // Initialize the repository with the database connection
+const service = new FinanceService(repo, db); // Initialize the service with the repository and database connection
 
 // Helper for extracting school_id from authenticated user
 function getSchoolId(req) {
   return req.user?.school_id || null;
-}
+} // Helper for extracting user_id safely from authenticated user payload (supports sub and id)
 
 // Helper for extracting user_id safely from authenticated user payload (supports sub and id)
 function getUserId(req) {

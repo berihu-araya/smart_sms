@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { downloadFile, request } from './apiClient';
 
 // ==========================================
 // 1. SETTINGS
@@ -281,6 +281,13 @@ export function listPayrollRuns() {
 
 export function getPayrollRunById(id) {
   return request(`/api/v1/finance/payroll/runs/${id}`, { method: 'GET' });
+}
+
+export function downloadPayrollBankCsv(id) {
+  return downloadFile(
+    `/api/v1/finance/payroll/runs/${id}/bank-export`,
+    `payroll-bank-export-${id}.csv`
+  );
 }
 
 export function processMonthlyPayroll(data) {
