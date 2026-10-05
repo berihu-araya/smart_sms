@@ -53,6 +53,16 @@ function ModalPortal({ isOpen, onClose, children }) {
   );
 }
 
+function calculateEstimatedEthiopianTax(taxableIncome) {
+  if (taxableIncome <= 600) return 0;
+  if (taxableIncome <= 1650) return Number(((taxableIncome * 0.10) - 60).toFixed(2));
+  if (taxableIncome <= 3200) return Number(((taxableIncome * 0.15) - 142.50).toFixed(2));
+  if (taxableIncome <= 5250) return Number(((taxableIncome * 0.20) - 302.50).toFixed(2));
+  if (taxableIncome <= 7800) return Number(((taxableIncome * 0.25) - 565.00).toFixed(2));
+  if (taxableIncome <= 10900) return Number(((taxableIncome * 0.30) - 955.00).toFixed(2));
+  return Number(((taxableIncome * 0.35) - 1500.00).toFixed(2));
+}
+
 export default function PayrollPage() {
   const { user } = useAuth();
   const userRole = (user?.role || '').toLowerCase();
@@ -72,6 +82,9 @@ export default function PayrollPage() {
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+  const [isRunBreakdownModalOpen, setIsRunBreakdownModalOpen] = useState(false);
+  const [selectedRunDetails, setSelectedRunDetails] = useState(null);
+  const [breakdownSearch, setBreakdownSearch] = useState('');
   const [activePayslip, setActivePayslip] = useState(null);
 
   // Forms
@@ -218,6 +231,20 @@ export default function PayrollPage() {
       const res = await financeApi.getPayslipById(payslipId);
       setActivePayslip(res.data);
       setIsPayslipModalOpen(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenRunBreakdown = async (runId) => {
+    try {
+      setLoading(true);
+      const res = await financeApi.getPayrollRunById(runId);
+      setSelectedRunDetails(res.data);
+      setBreakdownSearch('');
+      setIsRunBreakdownModalOpen(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -382,10 +409,17 @@ export default function PayrollPage() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <button
+                            className={styles.btnAction}
+                            onClick={() => handleOpenRunBreakdown(run.id)}
+                            title="View individual employee salary computations and net payments"
+                          >
+                            <FaUsers style={{ color: '#7c3aed' }} /> Employee Breakdown
+                          </button>
                           {run.status !== 'DISBURSED' && (
                             <button
-                              style={{ padding: '0.35rem 0.65rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                              style={{ padding: '0.35rem 0.65rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                               onClick={() => handleDisbursePayroll(run.id)}
                             >
                               <FaCheck /> Disburse
@@ -605,6 +639,50 @@ export default function PayrollPage() {
                   onChange={(e) => setProcessForm({ ...processForm, remarks: e.target.value })}
                 />
               </div>
+
+              {/* Live Staff Salary Computation Preview */}
+              <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Live Employee Salary Computation Preview</span>
+                  <span style={{ fontSize: '0.8rem', color: '#7c3aed', fontWeight: 600 }}>
+                    {salaryStructures.length} Active Staff Structures
+                  </span>
+                </label>
+                <div className={styles.previewBox}>
+                  {salaryStructures.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#94a3b8', padding: '0.75rem' }}>
+                      No active salary structures configured. Please configure structures first.
+                    </div>
+                  ) : (
+                    salaryStructures.map((s) => {
+                      const base = Number(s.base_salary || 0);
+                      const allow = Number(s.housing_allowance || 0) + Number(s.transport_allowance || 0) + Number(s.medical_allowance || 0) + Number(s.other_allowances || 0);
+                      const gross = base + allow;
+                      const pension = Number(((base * (Number(s.pension_employee_percentage) || 7)) / 100).toFixed(2));
+                      const trans = Number(s.transport_allowance || 0);
+                      const taxable = Math.max(0, gross - (trans > 2200 ? trans - 2200 : 0));
+                      const tax = calculateEstimatedEthiopianTax(taxable);
+                      const net = Math.max(0, Number((gross - pension - tax).toFixed(2)));
+
+                      return (
+                        <div key={s.id} className={styles.previewItem}>
+                          <div>
+                            <strong>{s.first_name} {s.last_name}</strong>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              Base: {base.toLocaleString()} ETB | Gross: {gross.toLocaleString()} ETB | Tax: {tax.toLocaleString()} ETB | Pension: {pension.toLocaleString()} ETB
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span className={styles.netBadge}>
+                              Net: {net.toLocaleString()} ETB
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className={styles.modalFooter}>
@@ -812,6 +890,170 @@ export default function PayrollPage() {
             <button type="button" className={styles.btnPrimary} onClick={() => window.print()}>
               <FaPrint /> Print Official Payslip
             </button>
+          </div>
+        </div>
+      </ModalPortal>
+
+      {/* MODAL 4: PAYROLL RUN DETAILED BREAKDOWN & NET PAYMENTS */}
+      <ModalPortal isOpen={isRunBreakdownModalOpen} onClose={() => setIsRunBreakdownModalOpen(false)}>
+        <div className={`${styles.modalContent} ${styles.modalLarge}`}>
+          <div className={styles.modalHeader}>
+            <div>
+              <h3>
+                <FaUsers style={{ color: '#7c3aed' }} /> Employee Salary Computation & Net Payments
+              </h3>
+              <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.2rem' }}>
+                Batch Reference: <strong>{selectedRunDetails?.batch_reference}</strong> &bull; Period:{' '}
+                <strong>
+                  {selectedRunDetails ? new Date(selectedRunDetails.year, selectedRunDetails.month - 1).toLocaleString('default', { month: 'long' }) : ''}{' '}
+                  {selectedRunDetails?.year}
+                </strong>
+              </div>
+            </div>
+            <button className={styles.closeBtn} onClick={() => setIsRunBreakdownModalOpen(false)}>
+              <FaTimes />
+            </button>
+          </div>
+
+          <div className={styles.modalBody}>
+            {selectedRunDetails && (
+              <>
+                {/* Summary Stat Pills */}
+                <div className={styles.statGridSmall}>
+                  <div className={styles.statPill}>
+                    <span className={styles.statPillLabel}>Total Employees</span>
+                    <span className={styles.statPillValue}>{selectedRunDetails.total_staff_count || selectedRunDetails.payslips?.length || 0}</span>
+                  </div>
+                  <div className={styles.statPill}>
+                    <span className={styles.statPillLabel}>Total Gross Salary</span>
+                    <span className={styles.statPillValue}>{Number(selectedRunDetails.total_gross_amount || 0).toLocaleString()} ETB</span>
+                  </div>
+                  <div className={styles.statPill}>
+                    <span className={styles.statPillLabel}>Tax & Pension Deductions</span>
+                    <span className={styles.statPillValue} style={{ color: '#dc2626' }}>
+                      {Number(selectedRunDetails.total_deductions_amount || 0).toLocaleString()} ETB
+                    </span>
+                  </div>
+                  <div className={styles.statPill} style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                    <span className={styles.statPillLabel} style={{ color: '#065f46' }}>Total Net Disbursed</span>
+                    <span className={styles.statPillValue} style={{ color: '#059669' }}>
+                      {Number(selectedRunDetails.total_net_amount || 0).toLocaleString()} ETB
+                    </span>
+                  </div>
+                </div>
+
+                {/* Filter Search */}
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <div className={styles.searchBox} style={{ flex: 1 }}>
+                    <FaSearch />
+                    <input
+                      type="text"
+                      placeholder="Search employee by name, role, email, or account number..."
+                      value={breakdownSearch}
+                      onChange={(e) => setBreakdownSearch(e.target.value)}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    Showing {(selectedRunDetails.payslips || []).filter((ps) => {
+                      const q = breakdownSearch.toLowerCase();
+                      return (
+                        !q ||
+                        `${ps.first_name} ${ps.last_name}`.toLowerCase().includes(q) ||
+                        (ps.role_name || '').toLowerCase().includes(q) ||
+                        (ps.email || '').toLowerCase().includes(q) ||
+                        (ps.bank_account_number || '').toLowerCase().includes(q)
+                      );
+                    }).length} employee records
+                  </span>
+                </div>
+
+                {/* Employees Computation Table */}
+                <div className={styles.tableWrapper} style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Base Salary</th>
+                        <th>Allowances</th>
+                        <th>Gross Salary</th>
+                        <th>Pension (7%)</th>
+                        <th>Income Tax</th>
+                        <th>Total Deductions</th>
+                        <th>Net Payment</th>
+                        <th>Bank Account</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedRunDetails.payslips || [])
+                        .filter((ps) => {
+                          const q = breakdownSearch.toLowerCase();
+                          return (
+                            !q ||
+                            `${ps.first_name} ${ps.last_name}`.toLowerCase().includes(q) ||
+                            (ps.role_name || '').toLowerCase().includes(q) ||
+                            (ps.email || '').toLowerCase().includes(q) ||
+                            (ps.bank_account_number || '').toLowerCase().includes(q)
+                          );
+                        })
+                        .map((ps) => (
+                          <tr key={ps.id}>
+                            <td>
+                              <strong>{ps.first_name} {ps.last_name}</strong>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ps.role_name || 'Staff'} &bull; {ps.email}</div>
+                            </td>
+                            <td>{Number(ps.base_salary).toLocaleString()} ETB</td>
+                            <td>{Number(ps.total_allowances || 0).toLocaleString()} ETB</td>
+                            <td style={{ fontWeight: 600 }}>{Number(ps.gross_salary).toLocaleString()} ETB</td>
+                            <td style={{ color: '#d97706' }}>{Number(ps.pension_employee_deduction).toLocaleString()} ETB</td>
+                            <td style={{ color: '#dc2626' }}>{Number(ps.tax_deduction).toLocaleString()} ETB</td>
+                            <td style={{ color: '#dc2626', fontWeight: 600 }}>{Number(ps.total_deductions).toLocaleString()} ETB</td>
+                            <td>
+                              <span className={styles.netBadge}>
+                                {Number(ps.net_salary).toLocaleString()} ETB
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '0.8rem' }}>
+                                {ps.bank_name || 'Bank'}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                {ps.bank_account_number || 'N/A'}
+                              </div>
+                            </td>
+                            <td>
+                              <button
+                                className={styles.btnAction}
+                                onClick={() => handleOpenPayslipModal(ps.id)}
+                                title="Print / View Official Payslip"
+                              >
+                                <FaPrint /> Payslip
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={styles.modalFooter}>
+            <button type="button" className={styles.btnSecondary} onClick={() => setIsRunBreakdownModalOpen(false)}>
+              Close
+            </button>
+            {selectedRunDetails && (
+              <a
+                href={`/api/v1/finance/payroll/runs/${selectedRunDetails.id}/bank-export`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.btnPrimary}
+                style={{ textDecoration: 'none' }}
+              >
+                <FaDownload /> Export Bank CSV
+              </a>
+            )}
           </div>
         </div>
       </ModalPortal>
