@@ -35,6 +35,21 @@ function getServerSnapshot() {
   return false;
 }
 
+const PAYROLL_STATUS_DETAILS = {
+  DRAFT: { label: 'Draft', style: 'statusDraft', nextStatus: 'CALCULATED', action: 'Calculate' },
+  CALCULATED: { label: 'Calculated', style: 'statusCalculated', nextStatus: 'REVIEWED', action: 'Mark reviewed' },
+  REVIEWED: { label: 'Reviewed', style: 'statusReviewed', nextStatus: 'APPROVED', action: 'Approve' },
+  APPROVED: { label: 'Approved', style: 'statusApproved', nextStatus: 'PAID', action: 'Mark paid' },
+  PAID: { label: 'Paid', style: 'statusPaid', nextStatus: 'DONE', action: 'Close period' },
+  DONE: { label: 'Done', style: 'statusClosed', action: 'Closed' },
+};
+
+function normalizePayrollStatus(status) {
+  if (status === 'PROCESSED') return 'CALCULATED';
+  if (status === 'DISBURSED') return 'PAID';
+  return status;
+}
+
 function ModalPortal({ isOpen, onClose, children }) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
 
@@ -154,6 +169,7 @@ export default function PayrollPage() {
   const userRole = (user?.role || '').toLowerCase();
   const isTeacherOrStaff = userRole === 'teacher' || userRole === 'staff';
   const canManageSalaryStructures = userRole === 'school admin' || userRole === 'admin';
+  const canReviewPayroll = canManageSalaryStructures || userRole === 'accountant';
 
   const [activeTab, setActiveTab] = useState(isTeacherOrStaff ? 'my_payslips' : 'runs');
   const [loading, setLoading] = useState(false);
@@ -169,6 +185,7 @@ export default function PayrollPage() {
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
   const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
   const [isEditingStructure, setIsEditingStructure] = useState(false);
+  const [editingStructureId, setEditingStructureId] = useState(null);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
   const [isRunBreakdownModalOpen, setIsRunBreakdownModalOpen] = useState(false);
   const [selectedRunDetails, setSelectedRunDetails] = useState(null);
@@ -287,10 +304,10 @@ export default function PayrollPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await financeApi.processMonthlyPayroll(processForm);
-      setSuccessMsg(`Payroll run ${res.data.batchReference} generated for ${res.data.totalStaffCount} staff members!`);
+      const res = await financeApi.createPayrollDraft(processForm);
+      setSuccessMsg(`Payroll draft ${res.data.batchReference} created. Configure any remaining salary structures, then calculate it.`);
       setIsProcessModalOpen(false);
-      loadRuns();
+      await loadRuns();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -298,13 +315,30 @@ export default function PayrollPage() {
     }
   };
 
-  const handleMarkPayrollPaid = async (runId) => {
-    if (!window.confirm('Mark this payroll as paid and release official payslips to staff?')) return;
+  const handleAdvancePayroll = async (run) => {
+    const status = normalizePayrollStatus(run.status);
+    const statusDetails = PAYROLL_STATUS_DETAILS[status];
+    if (!statusDetails?.nextStatus) return;
+
+    const confirmations = {
+      CALCULATED: 'Calculate this draft using the active salary structures for the selected period?',
+      APPROVED: 'Approve this reviewed payroll? Approved payroll results will be locked from further changes.',
+      PAID: 'Record this payroll as paid and release the official payslips?',
+      DONE: 'Close this paid payroll period? A closed period cannot be reopened through normal operations.',
+    };
+    const confirmation = confirmations[statusDetails.nextStatus];
+    if (confirmation && !window.confirm(confirmation)) return;
+
     try {
       setLoading(true);
-      await financeApi.markPayrollPaid(runId);
-      setSuccessMsg('Payroll run marked as paid and payslips released!');
-      loadRuns();
+      setError(null);
+      if (status === 'DRAFT') {
+        await financeApi.calculatePayrollRun(run.id);
+      } else {
+        await financeApi.transitionPayrollRun(run.id, statusDetails.nextStatus);
+      }
+      setSuccessMsg(`Payroll ${run.batch_reference} moved to ${statusDetails.nextStatus}.`);
+      await loadRuns();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -317,7 +351,7 @@ export default function PayrollPage() {
     try {
       setLoading(true);
       setError(null);
-      await financeApi.upsertSalaryStructure({
+      const structureData = {
         ...structureForm,
         base_salary: Number(structureForm.base_salary),
         housing_allowance: Number(structureForm.housing_allowance) || 0,
@@ -325,10 +359,18 @@ export default function PayrollPage() {
         professional_allowance: Number(structureForm.professional_allowance) || 0,
         medical_allowance: Number(structureForm.medical_allowance) || 0,
         other_allowances: Number(structureForm.other_allowances) || 0,
-      });
+      };
+      if (isEditingStructure) {
+        if (!editingStructureId) {
+          throw new Error('Cannot update salary structure because its record ID is missing. Close the form and select Edit again.');
+        }
+        await financeApi.updateSalaryStructure(editingStructureId, structureData);
+      } else {
+        await financeApi.upsertSalaryStructure(structureData);
+      }
       setSuccessMsg(isEditingStructure ? 'Staff salary structure updated successfully!' : 'Staff salary structure created successfully!');
       setIsStructureModalOpen(false);
-      loadStructures();
+      await loadStructures();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -390,7 +432,7 @@ export default function PayrollPage() {
   };
 
   const totalPaidPayroll = payrollRuns
-    .filter((r) => r.status === 'DISBURSED')
+    .filter((r) => ['PAID', 'DONE', 'DISBURSED'].includes(r.status))
     .reduce((sum, r) => sum + Number(r.total_net_amount), 0);
 
   return (
@@ -409,12 +451,13 @@ export default function PayrollPage() {
         </div>
 
         <div className={styles.headerActions}>
-          {!isTeacherOrStaff && (
+          {canManageSalaryStructures && (
             <>
               <button
                 className={styles.btnSecondary}
                 onClick={() => {
                   setIsEditingStructure(false);
+                  setEditingStructureId(null);
                   setStructureForm(createEmptyStructureForm());
                   setIsStructureModalOpen(true);
                 }}
@@ -519,8 +562,8 @@ export default function PayrollPage() {
         <div className={styles.tableCard}>
           <div className={styles.cardHeader}>
             <div>
-              <h2>Monthly payroll runs</h2>
-              <p>Review staff totals, check each calculation, and mark completed payments.</p>
+                <h2>Monthly payroll runs</h2>
+                <p>Move each payroll through calculation, review, approval, payment, and period close.</p>
             </div>
             <span className={styles.recordCount}>{payrollRuns.length} runs</span>
           </div>
@@ -542,11 +585,18 @@ export default function PayrollPage() {
                 {payrollRuns.length === 0 ? (
                   <tr>
                     <td colSpan="8" className={styles.emptyCell}>
-                      No payroll runs processed yet. Click &quot;Process Monthly Payroll&quot; to execute batch salary computation.
+                      No payroll periods yet. Click &quot;Process Monthly Payroll&quot; to create the first payroll draft.
                     </td>
                   </tr>
                 ) : (
-                  payrollRuns.map((run) => (
+                  payrollRuns.map((run) => {
+                    const status = normalizePayrollStatus(run.status);
+                    const statusDetails = PAYROLL_STATUS_DETAILS[status];
+                    const canAdvance = status === 'DRAFT' || status === 'CALCULATED'
+                      ? canReviewPayroll
+                      : canManageSalaryStructures;
+
+                    return (
                     <tr key={run.id}>
                       <td style={{ fontWeight: 700, color: '#7c3aed' }}>{run.batch_reference}</td>
                       <td>
@@ -562,18 +612,13 @@ export default function PayrollPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${run.status === 'DISBURSED' ? styles.statusPaid : styles.statusProcessed
-                            }`}
+                          className={`${styles.statusBadge} ${styles[statusDetails?.style || 'statusDraft']}`}
                         >
-                          {run.status === 'DISBURSED'
-                            ? 'Paid'
-                            : run.status === 'PROCESSED'
-                              ? 'Draft'
-                              : run.status}
+                          {statusDetails?.label || run.status}
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <div className={styles.payrollActions}>
                           <button
                             className={styles.btnAction}
                             onClick={() => handleOpenRunBreakdown(run.id)}
@@ -581,28 +626,32 @@ export default function PayrollPage() {
                           >
                             <FaUsers style={{ color: '#7c3aed' }} /> All Employees
                           </button>
-                          {run.status !== 'DISBURSED' && (
+                          {statusDetails?.nextStatus && (
                             <button
                               className={styles.btnPaid}
-                              onClick={() => handleMarkPayrollPaid(run.id)}
-                              disabled={loading}
+                              onClick={() => handleAdvancePayroll(run)}
+                              disabled={loading || !canAdvance}
+                              title={!canAdvance ? 'Only an administrator can approve, mark paid, or close payroll.' : undefined}
                             >
-                              <FaCheck /> Mark paid
+                              {status === 'DRAFT' ? <FaCalculator /> : <FaCheck />} {statusDetails.action}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className={styles.btnAction}
-                            onClick={() => handleDownloadBankCsv(run.id)}
-                            title="Download bank transfer CSV"
-                            style={{ padding: '0.35rem 0.65rem', background: '#f1f5f9', color: '#334155', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                          >
-                            <FaDownload /> Bank CSV
-                          </button>
+                          {status === 'DONE' && <span className={styles.payrollClosedLabel}>Period closed</span>}
+                          {status !== 'DRAFT' && canManageSalaryStructures && (
+                            <button
+                              type="button"
+                              className={`${styles.btnAction} ${styles.bankCsvAction}`}
+                              onClick={() => handleDownloadBankCsv(run.id)}
+                              title="Download bank transfer CSV"
+                            >
+                              <FaDownload /> Bank CSV
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -681,20 +730,21 @@ export default function PayrollPage() {
                             style={{ padding: '0.3rem 0.6rem', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '6px', cursor: 'pointer' }}
                             onClick={() => {
                               setStructureForm({
-                                user_id: s.user_id,
-                                base_salary: s.base_salary,
-                                housing_allowance: s.housing_allowance,
-                                transport_allowance: s.transport_allowance,
-                                professional_allowance: s.professional_allowance || 0,
-                                medical_allowance: s.medical_allowance,
-                                other_allowances: s.other_allowances,
-                                tax_rate_percentage: s.tax_rate_percentage,
-                                pension_employee_percentage: s.pension_employee_percentage,
-                                pension_employer_percentage: s.pension_employer_percentage,
-                                bank_name: s.bank_name,
-                                bank_account_number: s.bank_account_number,
-                                bank_account_name: s.bank_account_name,
+                                user_id: s.user_id ?? '',
+                                base_salary: s.base_salary ?? '',
+                                housing_allowance: s.housing_allowance ?? 0,
+                                transport_allowance: s.transport_allowance ?? 0,
+                                professional_allowance: s.professional_allowance ?? 0,
+                                medical_allowance: s.medical_allowance ?? 0,
+                                other_allowances: s.other_allowances ?? 0,
+                                tax_rate_percentage: s.tax_rate_percentage ?? 0,
+                                pension_employee_percentage: s.pension_employee_percentage ?? 7,
+                                pension_employer_percentage: s.pension_employer_percentage ?? 11,
+                                bank_name: s.bank_name ?? '',
+                                bank_account_number: s.bank_account_number ?? '',
+                                bank_account_name: s.bank_account_name ?? '',
                               });
+                              setEditingStructureId(s.id);
                               setIsEditingStructure(true);
                               setIsStructureModalOpen(true);
                             }}
@@ -794,7 +844,7 @@ export default function PayrollPage() {
         <div className={`${styles.modalContent} ${styles.processModal}`}>
           <div className={styles.modalHeader}>
             <h3>
-              <FaWallet /> Execute Monthly Payroll Run
+              <FaWallet /> Create Monthly Payroll Draft
             </h3>
             <button className={styles.closeBtn} onClick={() => setIsProcessModalOpen(false)}>
               <FaTimes />
@@ -896,7 +946,7 @@ export default function PayrollPage() {
                 Cancel
               </button>
               <button type="submit" className={styles.btnPrimary} disabled={loading}>
-                Execute Payroll Calculation
+                {loading ? 'Creating draft...' : 'Create payroll draft'}
               </button>
             </div>
           </form>
@@ -1130,7 +1180,7 @@ export default function PayrollPage() {
                         id="salary-account-name"
                         type="text"
                         className={styles.formInput}
-                        value={structureForm.bank_account_name}
+                        value={structureForm.bank_account_name ?? ''}
                         onChange={(e) => setStructureForm({ ...structureForm, bank_account_name: e.target.value })}
                       />
                     </div>
@@ -1343,7 +1393,9 @@ export default function PayrollPage() {
                   </div>
                   <div className={styles.statPill} style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
                     <span className={styles.statPillLabel} style={{ color: '#065f46' }}>
-                      {selectedRunDetails.status === 'DISBURSED' ? 'Total net paid' : 'Total net pay'}
+                      {['PAID', 'DONE', 'DISBURSED'].includes(normalizePayrollStatus(selectedRunDetails.status))
+                        ? 'Total net paid'
+                        : 'Total net pay'}
                     </span>
                     <span className={styles.statPillValue} style={{ color: '#059669' }}>
                       {Number(selectedRunDetails.total_net_amount || 0).toLocaleString()} ETB

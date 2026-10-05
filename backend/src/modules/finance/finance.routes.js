@@ -47,10 +47,14 @@ const {
   listSalaryStructures,
   getSalaryStructure,
   deleteSalaryStructure,
+  updateSalaryStructure,
   upsertSalaryStructure,
   listPayrollRuns,
   getPayrollRunById,
   processMonthlyPayroll,
+  createPayrollDraft,
+  calculatePayrollRun,
+  transitionPayrollRun,
   disbursePayroll,
   getPayslipById,
   getMyPayslips,
@@ -136,11 +140,15 @@ router.delete('/incomes/:id', authorizeRoles(...ADMIN_ROLES), deleteIncome);
 router.get('/payroll/structures', authorizeRoles(...ADMIN_ROLES, 'Accountant'), listSalaryStructures);
 router.get('/payroll/structures/user/:userId', authorizeRoles(...ADMIN_ROLES, 'Accountant'), getSalaryStructure);
 router.post('/payroll/structures', authorizeRoles(...ADMIN_ROLES), upsertSalaryStructure);
+router.put('/payroll/structures/:id', authorizeRoles(...ADMIN_ROLES), updateSalaryStructure);
 router.delete('/payroll/structures/:id', authorizeRoles(...ADMIN_ROLES), deleteSalaryStructure);
 
 router.get('/payroll/runs', authorizeRoles(...ADMIN_ROLES, 'Accountant'), listPayrollRuns);
 router.get('/payroll/runs/:id', authorizeRoles(...ADMIN_ROLES, 'Accountant'), getPayrollRunById);
 router.post('/payroll/runs/process', authorizeRoles(...ADMIN_ROLES), processMonthlyPayroll);
+router.post('/payroll/runs/draft', authorizeRoles(...ADMIN_ROLES), createPayrollDraft);
+router.post('/payroll/runs/:id/calculate', authorizeRoles(...ADMIN_ROLES, 'Accountant'), calculatePayrollRun);
+router.patch('/payroll/runs/:id/status', authorizeRoles(...ADMIN_ROLES, 'Accountant'), transitionPayrollRun);
 router.patch('/payroll/runs/:id/disburse', authorizeRoles(...ADMIN_ROLES), disbursePayroll);
 router.get('/payroll/runs/:id/bank-export', authorizeRoles(...ADMIN_ROLES), exportBankCsv);
 

@@ -1181,6 +1181,54 @@ class FinanceRepository {
     return res.rows.length > 0;
   }
 
+  async updateSalaryStructure(id, schoolId, data) {
+    const res = await this.db.query(
+      `UPDATE salary_structures
+       SET base_salary = $1,
+           housing_allowance = $2,
+           transport_allowance = $3,
+           professional_allowance = $4,
+           medical_allowance = $5,
+           other_allowances = $6,
+           custom_earnings = $7,
+           custom_deductions = $8,
+           tax_rate_percentage = $9,
+           pension_employee_percentage = $10,
+           pension_employer_percentage = $11,
+           bank_name = $12,
+           bank_account_number = $13,
+           bank_account_name = $14,
+           effective_from = $15,
+           is_active = $16,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $17
+         AND (school_id = $18 OR school_id IS NULL)
+         AND deleted_at IS NULL
+       RETURNING *`,
+      [
+        Number(data.base_salary) || 0,
+        Number(data.housing_allowance) || 0,
+        Number(data.transport_allowance) || 0,
+        Number(data.professional_allowance) || 0,
+        Number(data.medical_allowance) || 0,
+        Number(data.other_allowances) || 0,
+        JSON.stringify(data.custom_earnings || []),
+        JSON.stringify(data.custom_deductions || []),
+        Number(data.tax_rate_percentage) || 0,
+        data.pension_employee_percentage !== undefined ? Number(data.pension_employee_percentage) : 7.0,
+        data.pension_employer_percentage !== undefined ? Number(data.pension_employer_percentage) : 11.0,
+        data.bank_name || null,
+        data.bank_account_number || null,
+        data.bank_account_name || null,
+        data.effective_from || new Date(),
+        data.is_active !== undefined ? data.is_active : true,
+        id,
+        schoolId,
+      ]
+    );
+    return res.rows[0] || null;
+  }
+
   async upsertSalaryStructure(schoolId, data) {
     const res = await this.db.query(
       `INSERT INTO salary_structures 
@@ -1356,7 +1404,8 @@ class FinanceRepository {
     const payrollRes = await this.db.query(
       `SELECT COALESCE(SUM(total_net_amount), 0) as total_payroll
        FROM payroll_runs
-       WHERE (school_id = $1 OR school_id IS NULL) AND deleted_at IS NULL AND status = 'DISBURSED'`,
+       WHERE (school_id = $1 OR school_id IS NULL) AND deleted_at IS NULL
+         AND status IN ('PAID', 'DONE', 'DISBURSED')`,
       [schoolId]
     );
 
@@ -1471,7 +1520,7 @@ class FinanceRepository {
         WHERE (pr.school_id = $1 OR pr.school_id IS NULL) 
           AND pr.deleted_at IS NULL 
           AND pr.year = $2 
-          AND pr.status = 'DISBURSED'
+          AND pr.status IN ('PAID', 'DONE', 'DISBURSED')
         GROUP BY pr.month
       )
       SELECT 

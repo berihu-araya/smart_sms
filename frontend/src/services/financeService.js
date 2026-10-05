@@ -275,6 +275,13 @@ export function upsertSalaryStructure(data) {
   });
 }
 
+export function updateSalaryStructure(id, data) {
+  return request(`/api/v1/finance/payroll/structures/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 export function deleteSalaryStructure(id) {
   return request(`/api/v1/finance/payroll/structures/${id}`, { method: 'DELETE' });
 }
@@ -298,6 +305,24 @@ export function processMonthlyPayroll(data) {
   return request('/api/v1/finance/payroll/runs/process', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export function createPayrollDraft(data) {
+  return request('/api/v1/finance/payroll/runs/draft', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function calculatePayrollRun(id) {
+  return request(`/api/v1/finance/payroll/runs/${id}/calculate`, { method: 'POST' });
+}
+
+export function transitionPayrollRun(id, status) {
+  return request(`/api/v1/finance/payroll/runs/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   });
 }
 

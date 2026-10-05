@@ -493,6 +493,22 @@ async function deleteSalaryStructure(req, res, next) {
   }
 }
 
+async function updateSalaryStructure(req, res, next) {
+  try {
+    const errors = validateSalaryStructure(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: errors.join('; '), data: null });
+    }
+    const data = await repo.updateSalaryStructure(req.params.id, getSchoolId(req), req.body);
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Salary structure not found', data: null });
+    }
+    res.json({ success: true, message: 'Staff salary structure updated', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function upsertSalaryStructure(req, res, next) {
   try {
     const errors = validateSalaryStructure(req.body);
@@ -532,7 +548,54 @@ async function processMonthlyPayroll(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join('; '), data: null });
     }
     const data = await service.processMonthlyPayroll(getSchoolId(req), getUserId(req), req.body);
-    res.status(201).json({ success: true, message: 'Monthly payroll run processed successfully', data });
+    res.status(201).json({ success: true, message: 'Payroll draft created and calculated successfully', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createPayrollDraft(req, res, next) {
+  try {
+    const errors = validatePayrollRun(req.body);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, message: errors.join('; '), data: null });
+    }
+    const data = await service.createPayrollDraft(getSchoolId(req), getUserId(req), req.body);
+    res.status(201).json({ success: true, message: 'Payroll draft created', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function calculatePayrollRun(req, res, next) {
+  try {
+    const data = await service.calculatePayrollRun(getSchoolId(req), req.params.id);
+    res.json({ success: true, message: 'Payroll calculated successfully', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function transitionPayrollRun(req, res, next) {
+  try {
+    const nextStatus = String(req.body.status || '').toUpperCase();
+    const role = String(req.user?.role || '').toLowerCase().trim();
+    const isAdmin = role === 'admin' || role === 'school admin';
+
+    if (!['REVIEWED', 'APPROVED', 'PAID', 'DONE'].includes(nextStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid next payroll status', data: null });
+    }
+    if (!isAdmin && nextStatus !== 'REVIEWED') {
+      return res.status(403).json({ success: false, message: 'Only an administrator can approve, pay, or close payroll', data: null });
+    }
+
+    const data = await service.transitionPayrollRun(
+      getSchoolId(req),
+      getUserId(req),
+      req.params.id,
+      nextStatus
+    );
+    res.json({ success: true, message: `Payroll status changed to ${nextStatus}`, data });
   } catch (err) {
     next(err);
   }
@@ -541,7 +604,7 @@ async function processMonthlyPayroll(req, res, next) {
 async function disbursePayroll(req, res, next) {
   try {
     const data = await service.disbursePayroll(getSchoolId(req), getUserId(req), req.params.id);
-    res.json({ success: true, message: 'Payroll run marked as disbursed and payslips released', data });
+    res.json({ success: true, message: 'Payroll run marked as paid and payslips released', data });
   } catch (err) {
     next(err);
   }
@@ -659,10 +722,14 @@ module.exports = {
   listSalaryStructures,
   getSalaryStructure,
   deleteSalaryStructure,
+  updateSalaryStructure,
   upsertSalaryStructure,
   listPayrollRuns,
   getPayrollRunById,
   processMonthlyPayroll,
+  createPayrollDraft,
+  calculatePayrollRun,
+  transitionPayrollRun,
   disbursePayroll,
   getPayslipById,
   getMyPayslips,

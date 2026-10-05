@@ -517,7 +517,7 @@ class FinanceService {
   // ==========================================
   // 4. MONTHLY PAYROLL PROCESSING ENGINE
   // ==========================================
-  async processMonthlyPayroll(schoolId, userId, data) {
+  async createPayrollDraft(schoolId, userId, data) {
     const client = await this.db.connect();
     try {
       await client.query('BEGIN');
@@ -535,10 +535,65 @@ class FinanceService {
         throw new Error(`Payroll for ${month}/${year} has already been generated (Status: ${dupRes.rows[0].status})`);
       }
 
-      // Fetch finance settings for transport tax exemption, pension rates, and tax brackets
-      const settings = await this.repo.getSettings(schoolId);
+      const countRes = await client.query(
+        `SELECT COUNT(*) FROM payroll_runs WHERE (school_id = $1 OR school_id IS NULL)`,
+        [schoolId]
+      );
+      const batchCount = Number(countRes.rows[0].count) + 1;
+      const batchRef = `PAY-RUN-${year}${String(month).padStart(2, '0')}-${String(batchCount).padStart(3, '0')}`;
 
-      // Fetch active staff salary structures
+      const runRes = await client.query(
+        `INSERT INTO payroll_runs
+         (school_id, batch_reference, month, year, status, processed_by, remarks)
+         VALUES ($1, $2, $3, $4, 'DRAFT', $5, $6)
+         RETURNING id`,
+        [schoolId, batchRef, month, year, userId, data.remarks || null]
+      );
+      const payrollRunId = runRes.rows[0].id;
+      await client.query('COMMIT');
+      return {
+        id: payrollRunId,
+        batchReference: batchRef,
+        month,
+        year,
+        totalStaffCount: 0,
+        totalGross: 0,
+        totalDeductions: 0,
+        totalNet: 0,
+        status: 'DRAFT',
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async calculatePayrollRun(schoolId, runId) {
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const runRes = await client.query(
+        `SELECT * FROM payroll_runs
+         WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL
+         FOR UPDATE`,
+        [runId, schoolId]
+      );
+      if (runRes.rows.length === 0) {
+        const error = new Error('Payroll run not found');
+        error.status = 404;
+        throw error;
+      }
+      const run = runRes.rows[0];
+      if (run.status !== 'DRAFT') {
+        const error = new Error(`Only draft payroll can be calculated. Current status: ${run.status}`);
+        error.status = 409;
+        throw error;
+      }
+
+      const settings = await this.repo.getSettings(schoolId);
       const structuresRes = await client.query(
         `SELECT ss.*, u.first_name, u.last_name
          FROM salary_structures ss
@@ -553,34 +608,24 @@ class FinanceService {
         throw new Error('No active staff salary structures configured. Please configure staff compensation first.');
       }
 
-      const countRes = await client.query(
-        `SELECT COUNT(*) FROM payroll_runs WHERE (school_id = $1 OR school_id IS NULL)`,
-        [schoolId]
+      const existingPayslips = await client.query(
+        'SELECT id FROM payslips WHERE payroll_run_id = $1 LIMIT 1',
+        [runId]
       );
-      const batchCount = Number(countRes.rows[0].count) + 1;
-      const batchRef = `PAY-RUN-${year}${String(month).padStart(2, '0')}-${String(batchCount).padStart(3, '0')}`;
+      if (existingPayslips.rows.length > 0) {
+        const error = new Error('Draft payroll already contains payslips and cannot be recalculated.');
+        error.status = 409;
+        throw error;
+      }
 
-      // Insert payroll run header
-      const runRes = await client.query(
-        `INSERT INTO payroll_runs 
-         (school_id, batch_reference, month, year, status, processed_by, remarks)
-         VALUES ($1, $2, $3, $4, 'PROCESSED', $5, $6)
-         RETURNING id`,
-        [schoolId, batchRef, month, year, userId, data.remarks || null]
-      );
-      const payrollRunId = runRes.rows[0].id;
-
-      let totalStaffCount = 0;
       let totalGross = 0;
       let totalDeductions = 0;
       let totalNet = 0;
-
       let payslipCounter = 0;
 
       for (const struct of structuresRes.rows) {
         payslipCounter++;
-        const payslipNumber = `PS-${year}${String(month).padStart(2, '0')}-${String(payslipCounter).padStart(4, '0')}`;
-
+        const payslipNumber = `PS-${run.year}${String(run.month).padStart(2, '0')}-${String(payslipCounter).padStart(4, '0')}`;
         const calc = calculateEmployeeSalary({
           basicSalary: struct.base_salary,
           transportAllowance: struct.transport_allowance,
@@ -596,14 +641,13 @@ class FinanceService {
           taxBrackets: settings.tax_brackets_json,
         });
 
-        // Insert payslip with exact audit fields
-        const psRes = await client.query(
-          `INSERT INTO payslips 
+        const payslipRes = await client.query(
+          `INSERT INTO payslips
            (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED')
            RETURNING id`,
           [
-            payrollRunId,
+            runId,
             schoolId,
             struct.user_id,
             payslipNumber,
@@ -622,39 +666,37 @@ class FinanceService {
             struct.bank_account_number || null,
           ]
         );
-        const payslipId = psRes.rows[0].id;
 
-        // Insert itemized allowance/deduction breakdowns
-        const allItems = [...calc.itemizedAllowances, ...calc.itemizedDeductions];
-        for (const itm of allItems) {
+        const payslipId = payslipRes.rows[0].id;
+        for (const item of [...calc.itemizedAllowances, ...calc.itemizedDeductions]) {
           await client.query(
-            `INSERT INTO payslip_items (payslip_id, item_type, name, amount) VALUES ($1, $2, $3, $4)`,
-            [payslipId, itm.type, itm.name, itm.amount]
+            'INSERT INTO payslip_items (payslip_id, item_type, name, amount) VALUES ($1, $2, $3, $4)',
+            [payslipId, item.type, item.name, item.amount]
           );
         }
 
-        totalStaffCount++;
         totalGross += calc.grossSalary;
         totalDeductions += calc.totalDeductions;
         totalNet += calc.netSalary;
       }
 
-      // Update header totals
       await client.query(
-        `UPDATE payroll_runs 
-         SET total_staff_count = $1, total_gross_amount = $2, total_deductions_amount = $3, total_net_amount = $4, updated_at = CURRENT_TIMESTAMP
+        `UPDATE payroll_runs
+         SET status = 'CALCULATED', total_staff_count = $1, total_gross_amount = $2,
+             total_deductions_amount = $3, total_net_amount = $4, updated_at = CURRENT_TIMESTAMP
          WHERE id = $5`,
-        [totalStaffCount, totalGross, totalDeductions, totalNet, payrollRunId]
+        [payslipCounter, totalGross, totalDeductions, totalNet, runId]
       );
 
       await client.query('COMMIT');
       return {
-        id: payrollRunId,
-        batchReference: batchRef,
-        totalStaffCount,
+        id: runId,
+        batchReference: run.batch_reference,
+        totalStaffCount: payslipCounter,
         totalGross,
         totalDeductions,
         totalNet,
+        status: 'CALCULATED',
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -664,43 +706,94 @@ class FinanceService {
     }
   }
 
-  async disbursePayroll(schoolId, userId, runId) {
+  async processMonthlyPayroll(schoolId, userId, data) {
+    const draft = await this.createPayrollDraft(schoolId, userId, data);
+    return this.calculatePayrollRun(schoolId, draft.id);
+  }
+
+  async transitionPayrollRun(schoolId, userId, runId, nextStatus) {
+    const transitions = {
+      CALCULATED: 'REVIEWED',
+      REVIEWED: 'APPROVED',
+      APPROVED: 'PAID',
+      PAID: 'DONE',
+    };
+    const legacyStatusMap = {
+      PROCESSED: 'CALCULATED',
+      DISBURSED: 'PAID',
+    };
     const client = await this.db.connect();
     try {
       await client.query('BEGIN');
-
       const runRes = await client.query(
-        `SELECT * FROM payroll_runs 
-         WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL 
+        `SELECT * FROM payroll_runs
+         WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL
          FOR UPDATE`,
         [runId, schoolId]
       );
       if (runRes.rows.length === 0) {
-        throw new Error('Payroll run not found');
+        const error = new Error('Payroll run not found');
+        error.status = 404;
+        throw error;
       }
 
-      await client.query(
-        `UPDATE payroll_runs 
-         SET status = 'DISBURSED', approved_by = $1, disbursed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [userId, runId]
-      );
+      const run = runRes.rows[0];
+      const currentStatus = legacyStatusMap[run.status] || run.status;
+      const requestedStatus = String(nextStatus).toUpperCase();
+      if (transitions[currentStatus] !== requestedStatus) {
+        const error = new Error(`Cannot move payroll from ${run.status} to ${nextStatus}`);
+        error.status = 409;
+        throw error;
+      }
 
-      await client.query(
-        `UPDATE payslips 
-         SET status = 'PAID', payment_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP
-         WHERE payroll_run_id = $1`,
-        [runId]
-      );
+      if (requestedStatus === 'REVIEWED') {
+        await client.query(
+          `UPDATE payroll_runs
+           SET status = 'REVIEWED', reviewed_by = $1, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [userId, runId]
+        );
+      } else if (requestedStatus === 'APPROVED') {
+        await client.query(
+          `UPDATE payroll_runs
+           SET status = 'APPROVED', approved_by = $1, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [userId, runId]
+        );
+      } else if (requestedStatus === 'PAID') {
+        await client.query(
+          `UPDATE payroll_runs
+           SET status = 'PAID', disbursed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [runId]
+        );
+        await client.query(
+          `UPDATE payslips
+           SET status = 'PAID', payment_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP
+           WHERE payroll_run_id = $1`,
+          [runId]
+        );
+      } else {
+        await client.query(
+          `UPDATE payroll_runs
+           SET status = 'DONE', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [runId]
+        );
+      }
 
       await client.query('COMMIT');
-      return { success: true };
+      return { id: runId, previousStatus: run.status, status: requestedStatus };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  async disbursePayroll(schoolId, userId, runId) {
+    return this.transitionPayrollRun(schoolId, userId, runId, 'PAID');
   }
 
   async generateBankExportCsv(schoolId, runId) {

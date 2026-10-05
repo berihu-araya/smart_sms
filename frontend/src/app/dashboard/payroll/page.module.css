@@ -842,6 +842,42 @@
   border-bottom: 0;
 }
 
+.payrollActions {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.payrollActions .btnAction,
+.payrollActions .btnPaid {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border-radius: 9px;
+  font-size: 0.75rem;
+}
+
+.bankCsvAction {
+  border-color: #d9d6fe;
+  background: #f5f3ff;
+  color: #5b43a5;
+}
+
+.bankCsvAction:hover {
+  border-color: #c4b5fd;
+  background: #ede9fe;
+  color: #4c1d95;
+}
+
+.payrollActions .payrollClosedLabel {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .emptyCell {
   padding: 3rem 1.5rem !important;
   color: #7b8494 !important;
@@ -870,10 +906,42 @@
   color: #4355a5;
 }
 
+.statusCalculated {
+  border: 1px solid #c8d5ff;
+  background: #eff3ff;
+  color: #4355a5;
+}
+
+.statusReviewed {
+  border: 1px solid #d9c7ff;
+  background: #f5f0ff;
+  color: #6941c6;
+}
+
+.statusApproved {
+  border: 1px solid #a4bcfd;
+  background: #eef4ff;
+  color: #3538cd;
+}
+
+.statusClosed {
+  border: 1px solid #d0d5dd;
+  background: #f2f4f7;
+  color: #475467;
+}
+
 .statusDraft {
   border: 1px solid #f4d68b;
   background: #fff8e6;
   color: #8a5b00;
+}
+
+.payrollClosedLabel {
+  align-self: center;
+  padding: 0.35rem 0.6rem;
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .deleteStructureButton {

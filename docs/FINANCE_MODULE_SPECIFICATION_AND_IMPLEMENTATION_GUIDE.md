@@ -394,10 +394,13 @@ CREATE TABLE payroll_runs (
     total_gross_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
     total_deductions_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
     total_net_amount NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'PROCESSED', 'APPROVED', 'DISBURSED', 'CANCELLED')),
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'CALCULATED', 'REVIEWED', 'APPROVED', 'PAID', 'DONE')),
     processed_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
     approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
     disbursed_at TIMESTAMP WITH TIME ZONE,
+    closed_at TIMESTAMP WITH TIME ZONE,
     remarks TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -406,6 +409,8 @@ CREATE TABLE payroll_runs (
 );
 CREATE INDEX idx_payroll_runs_month_year ON payroll_runs(school_id, year, month) WHERE deleted_at IS NULL;
 ```
+
+Payroll runs move through `DRAFT` → `CALCULATED` → `REVIEWED` → `APPROVED` → `PAID` → `DONE`. A draft is calculated from the active salary structures; approval locks the calculated results; payment updates the payslips to `PAID`; and `DONE` closes the period. Admins can advance every stage; Accountants can calculate and review, but only Admins can approve, record payment, or close the period. Legacy `PROCESSED` and `DISBURSED` records are migrated to `CALCULATED` and `PAID`.
 
 #### Table 14: `payslips`
 Individual staff payslip record generated in a payroll run.
@@ -576,9 +581,12 @@ All endpoints require `Authorization: Bearer <token>` and enforce multi-tenant i
 | `GET` | `/api/v1/finance/payroll/structures` | Admin | List staff salary structures |
 | `POST` | `/api/v1/finance/payroll/structures` | Admin | Upsert staff salary configuration |
 | `GET` | `/api/v1/finance/payroll/runs` | Admin | List monthly payroll run history |
-| `POST` | `/api/v1/finance/payroll/runs/generate`| Admin | Execute automated batch payroll calculation for month/year |
+| `POST` | `/api/v1/finance/payroll/runs/draft` | Admin | Create a draft payroll period |
+| `POST` | `/api/v1/finance/payroll/runs/:id/calculate` | Admin, Accountant | Calculate a draft using active salary structures |
+| `PATCH` | `/api/v1/finance/payroll/runs/:id/status` | Admin, Accountant (review only) | Advance payroll to the next lifecycle status |
+| `POST` | `/api/v1/finance/payroll/runs/process` | Admin | Legacy endpoint to create a draft and calculate it in one request |
 | `GET` | `/api/v1/finance/payroll/runs/:id` | Admin | Get payroll run details with itemized payslips |
-| `PATCH`| `/api/v1/finance/payroll/runs/:id/disburse` | Admin | Mark payroll as disbursed and lock payslips |
+| `PATCH` | `/api/v1/finance/payroll/runs/:id/disburse` | Admin | Legacy endpoint to mark an approved payroll as paid |
 | `GET` | `/api/v1/finance/payroll/payslips/:id` | Admin, Staff, Teacher | Get individual printable payslip |
 | `GET` | `/api/v1/finance/payroll/my-payslips` | All Staff, Teachers | Staff self-service portal to view own payslips |
 | `GET` | `/api/v1/finance/payroll/runs/:id/bank-export` | Admin | Export batch salary transfer CSV for commercial banks |
