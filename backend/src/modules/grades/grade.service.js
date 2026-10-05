@@ -24,6 +24,8 @@ class GradeService {
     status = 'active',
     sortBy = 'name',
     sortOrder = 'ASC',
+    gradeId = null,
+    gradeIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -35,6 +37,8 @@ class GradeService {
       status,
       sortBy,
       sortOrder,
+      gradeId,
+      gradeIds,
       limit: parsedLimit,
       offset: parsedOffset,
     });

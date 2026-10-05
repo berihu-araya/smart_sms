@@ -8,6 +8,8 @@ class SubjectRepository {
     status = 'active', // 'active' | 'inactive' | 'all'
     sortBy = 'subject_name',
     sortOrder = 'ASC',
+    gradeId = null,
+    subjectIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -23,6 +25,17 @@ class SubjectRepository {
     }
 
     const statusClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
+    const gradeClause = gradeId
+      ? `AND EXISTS (SELECT 1 FROM grade_subjects gs_scope WHERE gs_scope.subject_id = s.id AND gs_scope.grade_id = $${values.length + 1} AND gs_scope.deleted_at IS NULL)`
+      : '';
+    if (gradeId) values.push(gradeId);
+
+    const subjectIdsClause = subjectIds !== null && Array.isArray(subjectIds)
+      ? (subjectIds.length === 0 ? 'AND 1 = 0' : `AND s.id = ANY($${values.length + 1}::uuid[])`)
+      : '';
+    if (subjectIds !== null && Array.isArray(subjectIds) && subjectIds.length > 0) {
+      values.push(subjectIds);
+    }
 
     const whereClause = `
       WHERE (
@@ -31,6 +44,8 @@ class SubjectRepository {
         OR LOWER(COALESCE(s.short_name, '')) LIKE LOWER($1)
       )
       ${statusClause}
+      ${gradeClause}
+      ${subjectIdsClause}
     `;
 
     // 1. Total count

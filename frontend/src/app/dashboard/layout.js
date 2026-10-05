@@ -1,14 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar/Sidebar";
+import AccessRestricted from "@/components/auth/AccessRestricted";
+import { useAuth } from "@/hooks/useAuth";
+import menuData, {
+  findMenuItemForPath,
+  roleIsAllowed,
+} from "@/components/layout/Sidebar/menuData";
 import styles from "./layout.module.css";
 
 export default function DashboardLayout({ children }) {
+  const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const [isSidebarVisible, setIsSidebarVisible] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth > 768;
   });
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const handleSidebarToggle = () => {
@@ -24,13 +34,14 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth <= 768) {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (mobile) {
         setIsSidebarVisible(false);
-      } else {
-        setIsSidebarVisible(true);
       }
     };
 
+    handleResize();
     window.addEventListener("resize", handleResize);
 
     return () => window.removeEventListener("resize", handleResize);
@@ -46,6 +57,13 @@ export default function DashboardLayout({ children }) {
     }
   }, [isSidebarVisible]);
 
+  const desktopMargin = isSidebarVisible ? 280 : 72;
+  const desktopWidth = isSidebarVisible ? "calc(100% - 280px)" : "calc(100% - 72px)";
+  const restrictedItem = user && !authLoading
+    ? findMenuItemForPath(menuData, pathname)
+    : null;
+  const isRestricted = restrictedItem && !roleIsAllowed(restrictedItem.roles, user.role);
+
   return (
     <>
       {/* Sidebar */}
@@ -54,14 +72,14 @@ export default function DashboardLayout({ children }) {
       {/* Main Content */}
       <main
         style={{
-          marginLeft: isSidebarVisible ? 280 : 0,
-          transition: "margin-left 0.3s ease",
-          width: isSidebarVisible ? "calc(100% - 280px)" : "100%",
+          marginLeft: isMobile ? 0 : desktopMargin,
+          transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          width: isMobile ? "100%" : desktopWidth,
           boxSizing: "border-box",
-          minHeight: "100vh",
+          minHeight: "calc(100vh - 68px)",
         }}
       >
-        {children}
+        {isRestricted ? <AccessRestricted /> : children}
       </main>
     </>
   );

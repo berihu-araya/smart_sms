@@ -33,8 +33,67 @@ async function listParents(req, res, next) {
   }
 }
 
+async function getMyProfile(req, res, next) {
+  try {
+    const parentId = req.parentScope?.parent_id;
+    if (!parentId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parent profile not linked to this account',
+        data: null,
+      });
+    }
+
+    const data = await parentService.getParentById(parentId);
+    return res.status(200).json({
+      success: true,
+      message: 'Your parent profile loaded successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getMyChildren(req, res, next) {
+  try {
+    const parentId = req.parentScope?.parent_id;
+    if (!parentId) {
+      return res.status(200).json({
+        success: true,
+        message: 'No children found',
+        data: [],
+      });
+    }
+
+    const data = await parentService.getParentStudents(parentId);
+    return res.status(200).json({
+      success: true,
+      message: 'Your linked children loaded successfully',
+      data: data.students || [],
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function getParentById(req, res, next) {
-  const { id, errors } = validateParentId(req.params.id);
+  let targetId = req.params.id;
+  const role = (req.user?.role || '').toLowerCase().trim();
+
+  if (role === 'parent') {
+    if (targetId === 'me') {
+      targetId = req.parentScope?.parent_id;
+    } else if (targetId !== req.parentScope?.parent_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access their own profile',
+        data: null,
+      });
+    }
+  }
+
+  const { id, errors } = validateParentId(targetId);
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({
@@ -82,7 +141,22 @@ async function createParent(req, res, next) {
 }
 
 async function updateParent(req, res, next) {
-  const { id, errors: idErrors } = validateParentId(req.params.id);
+  let targetId = req.params.id;
+  const role = (req.user?.role || '').toLowerCase().trim();
+
+  if (role === 'parent') {
+    if (targetId === 'me') {
+      targetId = req.parentScope?.parent_id;
+    } else if (targetId !== req.parentScope?.parent_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only update their own profile',
+        data: null,
+      });
+    }
+  }
+
+  const { id, errors: idErrors } = validateParentId(targetId);
 
   if (Object.keys(idErrors).length > 0) {
     return res.status(400).json({
@@ -140,7 +214,22 @@ async function deleteParent(req, res, next) {
 }
 
 async function getParentStudents(req, res, next) {
-  const { id, errors } = validateParentId(req.params.id);
+  let targetId = req.params.id;
+  const role = (req.user?.role || '').toLowerCase().trim();
+
+  if (role === 'parent') {
+    if (targetId === 'me') {
+      targetId = req.parentScope?.parent_id;
+    } else if (targetId !== req.parentScope?.parent_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access their own linked children',
+        data: null,
+      });
+    }
+  }
+
+  const { id, errors } = validateParentId(targetId);
 
   if (Object.keys(errors).length > 0) {
     return res.status(400).json({
@@ -166,6 +255,8 @@ async function getParentStudents(req, res, next) {
 module.exports = {
   listParents,
   getParentById,
+  getMyProfile,
+  getMyChildren,
   createParent,
   updateParent,
   deleteParent,

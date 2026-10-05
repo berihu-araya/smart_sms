@@ -3,6 +3,7 @@ const {
   listUsers,
   getUserById,
   createUser,
+  preRegister,
   updateUser,
   toggleUserStatus,
   resetPassword,
@@ -18,6 +19,7 @@ router.use(authorizeRoles('School Admin', 'Admin'));
 
 router.get('/', listUsers);
 router.get('/:id', getUserById);
+router.post('/pre-registrations', preRegister);
 router.post('/', createUser);
 router.put('/:id', updateUser);
 router.patch('/:id/status', toggleUserStatus);

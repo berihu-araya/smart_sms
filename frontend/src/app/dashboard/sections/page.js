@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import sectionService from "@/services/sectionService";
 import gradeService from "@/services/gradeService";
+import { useAuth } from "@/hooks/useAuth";
+import { SectionFormModal, SectionDeleteModal } from "@/components/sections";
 import styles from "./page.module.css";
 import {
   HiBuildingOffice2,
@@ -21,10 +24,16 @@ import {
   HiChevronLeft,
   HiChevronRight,
   HiInbox,
-  HiExclamationTriangle,
 } from "react-icons/hi2";
 
-export default function SectionListPage() {
+function SectionListContent() {
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isTeacher = role.includes("teacher") && !role.includes("admin");
+  const canManage = !isStudent && !isTeacher;
+
   const [sections, setSections] = useState([]);
   const [grades, setGrades] = useState([]);
   const [total, setTotal] = useState(0);
@@ -42,20 +51,9 @@ export default function SectionListPage() {
   // Modal State (Add & Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    grade_id: "",
-    room_number: "",
-    capacity: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formApiError, setFormApiError] = useState("");
 
-  // Deactivation / Delete Confirm State
+  // Deactivation Confirm State
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteReferences, setDeleteReferences] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const showToast = (msg, type = "success") => {
@@ -75,6 +73,19 @@ export default function SectionListPage() {
   useEffect(() => {
     loadGrades();
   }, [loadGrades]);
+
+  // Support ?new=1 or ?new=true query param
+  useEffect(() => {
+    const isNewParam = searchParams.get("new");
+    const gradeIdParam = searchParams.get("gradeId") || searchParams.get("grade_id");
+    if (gradeIdParam) {
+      setGradeFilter(gradeIdParam);
+    }
+    if (isNewParam === "1" || isNewParam === "true") {
+      setEditingSection(null);
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   const loadSections = useCallback(async () => {
     try {
@@ -106,26 +117,6 @@ export default function SectionListPage() {
     loadSections();
   }, [loadSections]);
 
-  useEffect(() => {
-    if (!isModalOpen && !isConfirmOpen) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-        setIsConfirmOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isModalOpen, isConfirmOpen]);
-
   const handleSearchChange = (val) => {
     setSearch(val);
     setPage(1);
@@ -153,108 +144,17 @@ export default function SectionListPage() {
 
   const handleOpenAdd = () => {
     setEditingSection(null);
-    setFormData({
-      name: "",
-      grade_id: gradeFilter || (grades[0]?.id || ""),
-      room_number: "",
-      capacity: "",
-    });
-    setFormErrors({});
-    setFormApiError("");
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (sec) => {
     setEditingSection(sec);
-    setFormData({
-      name: sec.name || "",
-      grade_id: sec.grade_id || "",
-      room_number: sec.room_number || "",
-      capacity: sec.capacity !== null && sec.capacity !== undefined ? String(sec.capacity) : "",
-    });
-    setFormErrors({});
-    setFormApiError("");
     setIsModalOpen(true);
   };
 
-  const validateForm = () => {
-    const errs = {};
-    if (!formData.name || !formData.name.trim()) {
-      errs.name = "Section name is required";
-    }
-    if (!formData.grade_id) {
-      errs.grade_id = "Please select a grade level";
-    }
-    if (formData.capacity && (isNaN(Number(formData.capacity)) || Number(formData.capacity) <= 0)) {
-      errs.capacity = "Capacity must be a positive number";
-    }
-    setFormErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    setFormApiError("");
-
-    if (!validateForm()) return;
-
-    try {
-      setFormSubmitting(true);
-      const payload = {
-        name: formData.name.trim(),
-        grade_id: formData.grade_id,
-        room_number: formData.room_number?.trim() || null,
-        capacity: formData.capacity ? Number(formData.capacity) : null,
-      };
-
-      if (editingSection) {
-        await sectionService.updateSection(editingSection.id, payload);
-        showToast(`Section "${formData.name.trim()}" updated successfully!`);
-      } else {
-        await sectionService.createSection(payload);
-        showToast(`Section "${formData.name.trim()}" created successfully!`);
-      }
-
-      setIsModalOpen(false);
-      loadSections();
-    } catch (err) {
-      setFormApiError(err.message || "Failed to save section. Please check input.");
-    } finally {
-      setFormSubmitting(false);
-    }
-  };
-
-  const handleInitiateDelete = async (sec) => {
-    try {
-      setDeleteTarget(sec);
-      setDeleteLoading(true);
-      setIsConfirmOpen(true);
-
-      const refData = await sectionService.checkSectionReferences(sec.id);
-      setDeleteReferences(refData);
-    } catch (err) {
-      console.error("Failed to check section references:", err);
-      setDeleteReferences(null);
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      setDeleteLoading(true);
-      await sectionService.deleteSection(deleteTarget.id);
-      setIsConfirmOpen(false);
-      showToast(`Section "${deleteTarget.name}" deactivated successfully.`);
-      loadSections();
-    } catch (err) {
-      alert(err.message || "Failed to deactivate section.");
-    } finally {
-      setDeleteLoading(false);
-      setDeleteTarget(null);
-    }
+  const handleInitiateDelete = (sec) => {
+    setDeleteTarget(sec);
+    setIsConfirmOpen(true);
   };
 
   const handleRestore = async (sec) => {
@@ -263,7 +163,7 @@ export default function SectionListPage() {
       showToast(`Section "${sec.name}" restored to Active.`);
       loadSections();
     } catch (err) {
-      alert(err.message || "Failed to restore section.");
+      showToast(err.message || "Failed to restore section.", "error");
     }
   };
 
@@ -276,20 +176,54 @@ export default function SectionListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>Section Management</h1>
-          <p>Organize classes into sections, assign rooms, and manage student capacity.</p>
+          <h1>
+            {isStudent
+              ? "My Grade & Section"
+              : isTeacher
+              ? "My Assigned Sections"
+              : "Section Management"}
+          </h1>
+          <p>
+            {isStudent
+              ? "Your current enrolled grade level, class section, and room assignment."
+              : isTeacher
+              ? "View details and student rosters for your assigned homeroom and subject class sections."
+              : "Organize classes into sections, assign rooms, and manage student capacity."}
+          </p>
         </div>
+
+        {canManage && (
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={handleOpenAdd}
+          >
+            <HiPlus size={18} />
+            <span>Add New Section</span>
+          </button>
+        )}
       </div>
 
       {/* Toast Notification */}
       {notification && (
-        <div className={styles.alertSuccess}>
-          <HiCheckCircle size={20} /> {notification.msg}
+        <div
+          className={
+            notification.type === "error" ? styles.alertError : styles.alertSuccess
+          }
+        >
+          {notification.type === "error" ? (
+            <HiXMark size={20} />
+          ) : (
+            <HiCheckCircle size={20} />
+          )}
+          <span>{notification.msg}</span>
         </div>
       )}
+
       {error && (
         <div className={styles.alertError}>
-          <HiXMark size={20} /> {error}
+          <HiXMark size={20} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -317,36 +251,44 @@ export default function SectionListPage() {
             )}
           </div>
 
-          <div className={styles.statusTabs}>
-            {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-              { label: "All", value: "all" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {!isStudent && (
+            <>
+              {canManage && (
+                <div className={styles.statusTabs}>
+                  {[
+                    { label: "Active", value: "active" },
+                    { label: "Inactive", value: "inactive" },
+                    { label: "All", value: "all" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`${styles.statusTab} ${
+                        status === opt.value ? styles.statusTabActive : ""
+                      }`}
+                      onClick={() => handleStatusChange(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-          <select
-            value={gradeFilter}
-            onChange={(e) => handleGradeFilterChange(e.target.value)}
-            className={styles.gradeSelectFilter}
-            title="Filter by Grade Level"
-          >
-            <option value="">All Grades</option>
-            {grades.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+              <select
+                value={gradeFilter}
+                onChange={(e) => handleGradeFilterChange(e.target.value)}
+                className={styles.gradeSelectFilter}
+                title="Filter by Grade Level"
+              >
+                <option value="">All Grades</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
 
         <div className={styles.toolbarRight}>
@@ -357,15 +299,6 @@ export default function SectionListPage() {
             title="Refresh sections list"
           >
             <HiArrowPath size={17} />
-          </button>
-
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleOpenAdd}
-          >
-            <HiPlus size={18} />
-            <span>+ Add Section</span>
           </button>
         </div>
       </div>
@@ -384,7 +317,11 @@ export default function SectionListPage() {
                   <div className={styles.thContent}>
                     <span>Section</span>
                     {sortBy === "name" ? (
-                      sortOrder === "ASC" ? <HiChevronUp size={14} color="#2563eb" /> : <HiChevronDown size={14} color="#2563eb" />
+                      sortOrder === "ASC" ? (
+                        <HiChevronUp size={14} color="#2563eb" />
+                      ) : (
+                        <HiChevronDown size={14} color="#2563eb" />
+                      )
                     ) : (
                       <HiChevronUpDown size={14} color="#94a3b8" />
                     )}
@@ -398,7 +335,11 @@ export default function SectionListPage() {
                   <div className={styles.thContent}>
                     <span>Grade Level</span>
                     {sortBy === "grade_name" ? (
-                      sortOrder === "ASC" ? <HiChevronUp size={14} color="#2563eb" /> : <HiChevronDown size={14} color="#2563eb" />
+                      sortOrder === "ASC" ? (
+                        <HiChevronUp size={14} color="#2563eb" />
+                      ) : (
+                        <HiChevronDown size={14} color="#2563eb" />
+                      )
                     ) : (
                       <HiChevronUpDown size={14} color="#94a3b8" />
                     )}
@@ -412,10 +353,17 @@ export default function SectionListPage() {
                   onClick={() => handleSortClick("capacity")}
                   style={{ textAlign: "center", width: "12%" }}
                 >
-                  <div className={styles.thContent} style={{ justifyContent: "center" }}>
+                  <div
+                    className={styles.thContent}
+                    style={{ justifyContent: "center" }}
+                  >
                     <span>Capacity</span>
                     {sortBy === "capacity" ? (
-                      sortOrder === "ASC" ? <HiChevronUp size={14} color="#2563eb" /> : <HiChevronDown size={14} color="#2563eb" />
+                      sortOrder === "ASC" ? (
+                        <HiChevronUp size={14} color="#2563eb" />
+                      ) : (
+                        <HiChevronDown size={14} color="#2563eb" />
+                      )
                     ) : (
                       <HiChevronUpDown size={14} color="#94a3b8" />
                     )}
@@ -426,10 +374,17 @@ export default function SectionListPage() {
                   onClick={() => handleSortClick("student_count")}
                   style={{ textAlign: "center", width: "12%" }}
                 >
-                  <div className={styles.thContent} style={{ justifyContent: "center" }}>
+                  <div
+                    className={styles.thContent}
+                    style={{ justifyContent: "center" }}
+                  >
                     <span>Students</span>
                     {sortBy === "student_count" ? (
-                      sortOrder === "ASC" ? <HiChevronUp size={14} color="#2563eb" /> : <HiChevronDown size={14} color="#2563eb" />
+                      sortOrder === "ASC" ? (
+                        <HiChevronUp size={14} color="#2563eb" />
+                      ) : (
+                        <HiChevronDown size={14} color="#2563eb" />
+                      )
                     ) : (
                       <HiChevronUpDown size={14} color="#94a3b8" />
                     )}
@@ -438,7 +393,10 @@ export default function SectionListPage() {
                 <th className={styles.th} style={{ width: "10%" }}>
                   Status
                 </th>
-                <th className={styles.th} style={{ textAlign: "right", width: "10%" }}>
+                <th
+                  className={styles.th}
+                  style={{ textAlign: "right", width: "10%" }}
+                >
                   Actions
                 </th>
               </tr>
@@ -459,17 +417,21 @@ export default function SectionListPage() {
                       <HiInbox className={styles.emptyIcon} />
                       <h3 className={styles.emptyTitle}>No sections found</h3>
                       <p className={styles.emptyText}>
-                        No class sections match your active filters. Click &ldquo;+ Add Section&rdquo; to create one.
+                        {isTeacher
+                          ? "You are not currently assigned as a Class Teacher or Subject Teacher to any active sections."
+                          : 'No class sections match your active filters. Click "+ Add New Section" to create one.'}
                       </p>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        onClick={handleOpenAdd}
-                        style={{ marginTop: "8px" }}
-                      >
-                        <HiPlus size={18} />
-                        <span>+ Add Section</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          onClick={handleOpenAdd}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <HiPlus size={18} />
+                          <span>Add New Section</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -477,7 +439,28 @@ export default function SectionListPage() {
                 sections.map((sec) => (
                   <tr key={sec.id} className={styles.tr}>
                     <td className={styles.td}>
-                      <strong style={{ color: "#0f172a", fontSize: "14px" }}>{sec.name}</strong>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "8px",
+                            background: "#eff6ff",
+                            color: "#2563eb",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <HiBuildingOffice2 size={16} />
+                        </div>
+                        <strong style={{ color: "#0f172a", fontSize: "14px" }}>
+                          {sec.name}
+                        </strong>
+                      </div>
                     </td>
                     <td className={styles.td}>
                       <span
@@ -485,10 +468,11 @@ export default function SectionListPage() {
                           display: "inline-flex",
                           padding: "3px 10px",
                           borderRadius: "8px",
-                          background: "#eff6ff",
-                          color: "#1d4ed8",
+                          background: "#f1f5f9",
+                          color: "#1e293b",
                           fontWeight: 600,
                           fontSize: "13px",
+                          border: "1px solid #e2e8f0",
                         }}
                       >
                         {sec.grade_name || "—"}
@@ -497,16 +481,28 @@ export default function SectionListPage() {
                     <td className={styles.td} style={{ color: "#475569" }}>
                       {sec.room_number || "—"}
                     </td>
-                    <td className={styles.td} style={{ textAlign: "center", color: "#475569" }}>
+                    <td
+                      className={styles.td}
+                      style={{ textAlign: "center", color: "#475569" }}
+                    >
                       {sec.capacity ? `${sec.capacity} seats` : "—"}
                     </td>
-                    <td className={styles.td} style={{ textAlign: "center", fontWeight: 700, color: "#0f172a" }}>
+                    <td
+                      className={styles.td}
+                      style={{
+                        textAlign: "center",
+                        fontWeight: 700,
+                        color: "#0f172a",
+                      }}
+                    >
                       {sec.student_count || 0}
                     </td>
                     <td className={styles.td}>
                       <span
                         className={`${styles.statusPill} ${
-                          sec.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
+                          sec.status === "ACTIVE"
+                            ? styles.statusActive
+                            : styles.statusInactive
                         }`}
                       >
                         <span className={styles.statusDot}></span>
@@ -514,7 +510,14 @@ export default function SectionListPage() {
                       </span>
                     </td>
                     <td className={styles.td} style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          justifyContent: "flex-end",
+                        }}
+                      >
                         <Link
                           href={`/dashboard/sections/${sec.id}`}
                           className={styles.actionBtn}
@@ -522,32 +525,36 @@ export default function SectionListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() => handleOpenEdit(sec)}
-                          title="Edit Section"
-                        >
-                          <HiPencilSquare size={15} />
-                        </button>
-                        {sec.status === "INACTIVE" || sec.deleted_at ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
-                            onClick={() => handleRestore(sec)}
-                            title="Restore / Reactivate Section"
-                          >
-                            <HiArrowPath size={15} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                            onClick={() => handleInitiateDelete(sec)}
-                            title="Deactivate Section"
-                          >
-                            <HiTrash size={15} />
-                          </button>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(sec)}
+                              title="Edit Section"
+                            >
+                              <HiPencilSquare size={15} />
+                            </button>
+                            {sec.status === "INACTIVE" || sec.deleted_at ? (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                                onClick={() => handleRestore(sec)}
+                                title="Restore / Reactivate Section"
+                              >
+                                <HiArrowPath size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                onClick={() => handleInitiateDelete(sec)}
+                                title="Deactivate Section"
+                              >
+                                <HiTrash size={15} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -562,8 +569,8 @@ export default function SectionListPage() {
         {!loading && sections.length > 0 && (
           <div className={styles.paginationFooter}>
             <div className={styles.recordsInfo}>
-              Showing <strong>{startRecord}</strong> to <strong>{endRecord}</strong> of{" "}
-              <strong>{total}</strong> records
+              Showing <strong>{startRecord}</strong> to{" "}
+              <strong>{endRecord}</strong> of <strong>{total}</strong> records
             </div>
 
             <div className={styles.paginationControls}>
@@ -609,246 +616,47 @@ export default function SectionListPage() {
         )}
       </div>
 
-      {/* Add / Edit Section Modal */}
+      {/* Senior Section Form Modal (Create & Edit) */}
       {isModalOpen && (
-        <div
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false);
+        <SectionFormModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSection(null);
           }}
-        >
-          <div className={styles.modalDialog} role="dialog" aria-modal="true">
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleArea}>
-                <h2>{editingSection ? `Edit Section: ${editingSection.name}` : "Create New Section"}</h2>
-                <p>
-                  {editingSection
-                    ? "Update section parameters and room assignment"
-                    : "Define a class section under an academic grade level"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsModalOpen(false)}
-                aria-label="Close dialog"
-              >
-                <HiXMark size={20} />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <form onSubmit={handleFormSubmit} className={styles.form}>
-                {formApiError && (
-                  <div className={styles.alertError} style={{ margin: 0 }}>
-                    <HiXMark size={18} />
-                    <span>{formApiError}</span>
-                  </div>
-                )}
-
-                <div className={styles.formFieldRow}>
-                  <div className={styles.formField}>
-                    <label className={styles.label}>
-                      Section Name <span className={styles.requiredStar}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Section A, Blue, Rose"
-                      value={formData.name}
-                      onChange={(e) => {
-                        setFormData((prev) => ({ ...prev, name: e.target.value }));
-                        if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: "" }));
-                      }}
-                      className={`${styles.input} ${formErrors.name ? styles.inputError : ""}`}
-                      autoFocus
-                    />
-                    {formErrors.name && (
-                      <span className={styles.errorMessage}>{formErrors.name}</span>
-                    )}
-                  </div>
-
-                  <div className={styles.formField}>
-                    <label className={styles.label}>
-                      Grade Level <span className={styles.requiredStar}>*</span>
-                    </label>
-                    <select
-                      value={formData.grade_id}
-                      onChange={(e) => {
-                        setFormData((prev) => ({ ...prev, grade_id: e.target.value }));
-                        if (formErrors.grade_id) setFormErrors((prev) => ({ ...prev, grade_id: "" }));
-                      }}
-                      className={`${styles.select} ${formErrors.grade_id ? styles.inputError : ""}`}
-                    >
-                      <option value="">Select Grade</option>
-                      {grades.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                    {formErrors.grade_id && (
-                      <span className={styles.errorMessage}>{formErrors.grade_id}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className={styles.formFieldRow}>
-                  <div className={styles.formField}>
-                    <label className={styles.label}>Room Number / Hall</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Room 102, Lab B"
-                      value={formData.room_number}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, room_number: e.target.value }))
-                      }
-                      className={styles.input}
-                    />
-                  </div>
-
-                  <div className={styles.formField}>
-                    <label className={styles.label}>Student Capacity</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 35"
-                      min="1"
-                      value={formData.capacity}
-                      onChange={(e) => {
-                        setFormData((prev) => ({ ...prev, capacity: e.target.value }));
-                        if (formErrors.capacity) setFormErrors((prev) => ({ ...prev, capacity: "" }));
-                      }}
-                      className={`${styles.input} ${formErrors.capacity ? styles.inputError : ""}`}
-                    />
-                    {formErrors.capacity && (
-                      <span className={styles.errorMessage}>{formErrors.capacity}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className={styles.modalActions}>
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    onClick={() => setIsModalOpen(false)}
-                    disabled={formSubmitting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className={styles.btnPrimary}
-                    disabled={formSubmitting}
-                  >
-                    {formSubmitting ? (
-                      <>
-                        <span className={styles.spinner}></span> Saving...
-                      </>
-                    ) : editingSection ? (
-                      "Update Section"
-                    ) : (
-                      "Create Section"
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+          section={editingSection}
+          defaultGradeId={gradeFilter}
+          grades={grades}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadSections();
+          }}
+        />
       )}
 
-      {/* Deactivate Confirm Dialog with Reference Breakdown */}
+      {/* Senior Section Deactivate / Delete Confirm Modal */}
       {isConfirmOpen && (
-        <div
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !deleteLoading) setIsConfirmOpen(false);
+        <SectionDeleteModal
+          isOpen={isConfirmOpen}
+          onClose={() => {
+            setIsConfirmOpen(false);
+            setDeleteTarget(null);
           }}
-        >
-          <div className={styles.modalDialog} role="dialog" aria-modal="true">
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleArea}>
-                <h2>Deactivate Section</h2>
-                <p>Review dependency impact before deactivating</p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsConfirmOpen(false)}
-                disabled={deleteLoading}
-              >
-                <HiXMark size={20} />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <p style={{ margin: "0 0 12px", fontSize: "14px", color: "#334155", lineHeight: 1.5 }}>
-                Are you sure you want to deactivate section{" "}
-                <strong style={{ color: "#0f172a" }}>&ldquo;{deleteTarget?.name}&rdquo;</strong>?
-                This will soft-delete the section and hide it from active selectors.
-              </p>
-
-              {deleteReferences && deleteReferences.hasReferences && (
-                <div className={styles.warningCallout}>
-                  <div className={styles.warningCalloutTitle}>
-                    <HiExclamationTriangle size={17} />
-                    <span>Active Dependencies Detected ({deleteReferences.totalReferences} records)</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "12px", color: "#78350f" }}>
-                    This section is currently referenced by other active academic modules:
-                  </p>
-                  <div className={styles.refBadgeList}>
-                    {deleteReferences.students > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.students}</strong> Student(s)
-                      </span>
-                    )}
-                    {deleteReferences.teacherSubjects > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.teacherSubjects}</strong> Teacher Assignment(s)
-                      </span>
-                    )}
-                    {deleteReferences.attendance > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.attendance}</strong> Attendance Record(s)
-                      </span>
-                    )}
-                    {deleteReferences.marks > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.marks}</strong> Mark(s)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsConfirmOpen(false)}
-                  disabled={deleteLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className={styles.btnDanger}
-                  onClick={handleConfirmDelete}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? (
-                    <>
-                      <span className={styles.spinner}></span> Deactivating...
-                    </>
-                  ) : (
-                    "Confirm Deactivation"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          section={deleteTarget}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadSections();
+          }}
+        />
       )}
     </div>
+  );
+}
+
+export default function SectionListPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "28px" }}>Loading sections...</div>}>
+      <SectionListContent />
+    </Suspense>
   );
 }

@@ -11,11 +11,20 @@ const subjectService = new SubjectService(new SubjectRepository(db));
 
 async function listSubjects(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    let subjectIds = null;
+
+    if (role === 'teacher' && req.teacherScope) {
+      subjectIds = req.teacherScope.all_accessible_subject_ids || req.teacherScope.assigned_subject_ids || [];
+    }
+
     const data = await subjectService.listSubjects({
       search: req.query.search || '',
       status: req.query.status || 'active',
       sortBy: req.query.sortBy || 'subject_name',
       sortOrder: req.query.sortOrder || 'ASC',
+      gradeId: req.studentScope?.grade_id || null,
+      subjectIds,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });
@@ -42,6 +51,20 @@ async function getSubjectById(req, res, next) {
   }
 
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    if (role === 'teacher' && req.teacherScope) {
+      const allowedIds = req.teacherScope.all_accessible_subject_ids || req.teacherScope.assigned_subject_ids || [];
+      const isAssigned = allowedIds.includes(id);
+
+      if (!isAssigned) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to view this subject',
+          data: null,
+        });
+      }
+    }
+
     const data = await subjectService.getSubjectById(id);
 
     return res.status(200).json({

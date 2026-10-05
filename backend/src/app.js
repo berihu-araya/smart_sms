@@ -14,20 +14,40 @@ const gradeSubjectRoutes = require('./modules/grades/subjects/grade-subject.rout
 const academicYearRoutes = require('./modules/academic-years/academic-year.routes');
 
 const teacherSubjectRoutes = require('./modules/teachers/subjects/teacher-subject.routes');
+<<<<<<< HEAD
 const classTeacherRoutes = require('./modules/class-teachers/class-teacher.routes');
 const staffRoleRoutes = require('./modules/staff-roles/staff-role.routes');
 const unitRoutes = require('./modules/units/unit.routes');
+=======
+const classTeacherRoutes = require('./modules/teachers/class-teacher/class-teacher.routes');
+>>>>>>> Main
 const parentRoutes = require('./modules/parents/parent.routes');
 
 const attendanceRoutes = require('./modules/attendance/attendance.routes');
+const assignmentRoutes = require('./modules/assignments/assignment.routes');
 const examRoutes = require('./modules/exams/exam.routes');
 const markRoutes = require('./modules/marks/mark.routes');
 const resultRoutes = require('./modules/results/result.routes');
 const userRoutes = require('./modules/users/user.routes');
 const roleRoutes = require('./modules/roles/role.routes');
 const settingRoutes = require('./modules/settings/setting.routes');
+const timetableRoutes = require('./modules/timetable/timetable.routes');
+const roomRoutes = require('./modules/timetable/rooms/room.routes');
+const periodRoutes = require('./modules/timetable/periods/period.routes');
+const availabilityRoutes = require('./modules/timetable/availability/availability.routes');
+const substitutionRoutes = require('./modules/timetable/substitutions/substitution.routes');
+const notificationRoutes = require('./modules/notifications/notification.routes');
+const libraryRoutes = require('./modules/library/library.routes');
+const transportRoutes = require('./modules/transport/transport.routes');
+const financeRoutes = require('./modules/finance/finance.routes');
+
+const { db } = require('./config/database');
+const AuthorizationService = require('./services/authorization.service');
 
 const app = express();
+
+const authorizationService = new AuthorizationService(db);
+app.set('authorizationService', authorizationService);
 
 app.use(cors()); // Enable CORS for all routes
 app.use(helmet());// Enable Helmet for security headers
@@ -54,6 +74,7 @@ app.use('/api/v1/grades/subjects', gradeSubjectRoutes);
 app.use('/api/v1/grades', gradeRoutes);
 
 app.use('/api/v1/sections', sectionRoutes);
+app.use('/api/v1/teachers/class-teachers', classTeacherRoutes);
 app.use('/api/v1/teachers/subjects', teacherSubjectRoutes);
 app.use('/api/v1/class-teachers', classTeacherRoutes);
 app.use('/api/v1/staff-roles', staffRoleRoutes);
@@ -66,12 +87,24 @@ app.use('/api/v1/subjects/groups', groupRoutes);
 app.use('/api/v1/subjects', subjectRoutes);
 
 app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/exams', examRoutes);
 app.use('/api/v1/marks', markRoutes);
 app.use('/api/v1/results', resultRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/settings', settingRoutes);
+
+app.use('/api/v1/timetable/rooms', roomRoutes);
+app.use('/api/v1/rooms', roomRoutes);
+app.use('/api/v1/timetable/periods', periodRoutes);
+app.use('/api/v1/timetable/availability', availabilityRoutes);
+app.use('/api/v1/timetable/substitutions', substitutionRoutes);
+app.use('/api/v1/timetable', timetableRoutes);
+app.use('/api/v1/library', libraryRoutes);
+app.use('/api/v1/transport', transportRoutes);
+app.use('/api/v1/finance', financeRoutes);
 
 
 

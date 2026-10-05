@@ -11,6 +11,11 @@ const { db } = require('../../config/database');
 const attendanceService = new AttendanceService(new AttendanceRepository(db));
 
 async function getRosterSheet(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  if (role === 'student') {
+    return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
+  }
+
   const query = validateSheetQuery(req.query);
 
   if (Object.keys(query.errors).length > 0) {
@@ -19,6 +24,17 @@ async function getRosterSheet(req, res, next) {
       message: 'Validation failed',
       data: query.errors,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(query.sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -38,6 +54,7 @@ async function getRosterSheet(req, res, next) {
 }
 
 async function recordBulkAttendance(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
   const input = validateBulkAttendanceInput(req.body);
 
   if (Object.keys(input.errors).length > 0) {
@@ -46,6 +63,17 @@ async function recordBulkAttendance(req, res, next) {
       message: 'Validation failed',
       data: input.errors,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(input.sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -69,6 +97,7 @@ async function recordBulkAttendance(req, res, next) {
 }
 
 async function getDailySummary(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
   const date = req.query.date;
   const sectionId = req.query.sectionId;
 
@@ -78,6 +107,17 @@ async function getDailySummary(req, res, next) {
       message: 'Valid date (YYYY-MM-DD) is required',
       data: null,
     });
+  }
+
+  if (role === 'teacher' && req.teacherScope && sectionId) {
+    const canAccess = req.teacherScope.canAccessSection(sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   try {
@@ -97,6 +137,11 @@ async function getDailySummary(req, res, next) {
 }
 
 async function getMonthlyMatrix(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  if (role === 'student') {
+    return res.status(403).json({ success: false, message: 'Students can only access their own attendance history', data: null });
+  }
+
   const sectionId = req.query.sectionId;
   const now = new Date();
   const year = Number(req.query.year || now.getFullYear());
@@ -108,6 +153,30 @@ async function getMonthlyMatrix(req, res, next) {
       message: 'Valid sectionId is required',
       data: null,
     });
+  }
+
+  // Parent RBAC: Parent can only view matrix for sections their children are enrolled in
+  if (role === 'parent') {
+    const allowedSections = req.parentScope?.child_section_ids || [];
+    if (!allowedSections.includes(sectionId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You are only authorized to view attendance matrix for your children's class sections",
+        data: null,
+      });
+    }
+  }
+
+  // Teacher RBAC: Teacher can only view matrix for assigned sections
+  if (role === 'teacher' && req.teacherScope) {
+    const canAccess = req.teacherScope.canAccessSection(sectionId);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this class section as a subject teacher or class teacher',
+        data: null,
+      });
+    }
   }
 
   if (isNaN(year) || year < 2000 || year > 2100 || isNaN(month) || month < 1 || month > 12) {
@@ -131,7 +200,27 @@ async function getMonthlyMatrix(req, res, next) {
 }
 
 async function getStudentAttendance(req, res, next) {
-  const studentId = req.params.studentId;
+  let studentId = req.params.studentId;
+  const role = (req.user?.role || '').toLowerCase().trim();
+
+  if (role === 'parent') {
+    if (studentId === 'me') {
+      studentId = req.parentScope?.child_student_ids[0];
+      if (!studentId) {
+        return res.status(200).json({
+          success: true,
+          message: 'No children linked to parent',
+          data: { student: null, attendance: [], history: [], stats: {} },
+        });
+      }
+    } else if (!req.parentScope?.child_student_ids.includes(studentId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Parents can only access attendance of their own linked children',
+        data: null,
+      });
+    }
+  }
 
   if (!isValidUUID(studentId)) {
     return res.status(400).json({
@@ -142,7 +231,22 @@ async function getStudentAttendance(req, res, next) {
   }
 
   try {
-    const limit = Number(req.query.limit || 30);
+    if (role === 'teacher' && req.teacherScope) {
+      const studentRes = await db.query(
+        `SELECT section_id FROM students WHERE (id = $1 OR user_id = $1) AND deleted_at IS NULL LIMIT 1`,
+        [studentId]
+      );
+      const student = studentRes.rows[0] || null;
+      if (student && !req.teacherScope.canAccessStudent(student.section_id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to view attendance for this student',
+          data: null,
+        });
+      }
+    }
+
+    const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
 
     const data = await attendanceService.getStudentAttendance(studentId, { limit, offset });
@@ -150,6 +254,74 @@ async function getStudentAttendance(req, res, next) {
     return res.status(200).json({
       success: true,
       message: 'Student attendance history loaded',
+      data: {
+        history: data.history || [],
+        attendance: data.history || [],
+        stats: data.stats || {},
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getMyChildrenAttendance(req, res, next) {
+  try {
+    const children = req.parentScope?.children || [];
+    if (!children.length) {
+      return res.status(200).json({
+        success: true,
+        message: 'No children linked to parent',
+        data: [],
+      });
+    }
+
+    const limit = Number(req.query.limit || 100);
+    const offset = Number(req.query.offset || 0);
+
+    const results = await Promise.all(
+      children.map(async (child) => {
+        const historyData = await attendanceService.getStudentAttendance(child.id, { limit, offset });
+        const list = historyData.history || [];
+        return {
+          student: child,
+          history: list,
+          attendance: list,
+          stats: historyData.stats || {},
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Children attendance loaded successfully',
+      data: results,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getOwnAttendance(req, res, next) {
+  if (!req.studentScope?.student_id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Student profile is not linked to this account',
+      data: null,
+    });
+  }
+
+  try {
+    const limit = Number(req.query.limit || 30);
+    const offset = Number(req.query.offset || 0);
+    const data = await attendanceService.getStudentAttendance(
+      req.studentScope.student_id,
+      { limit, offset }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your attendance history loaded',
       data,
     });
   } catch (error) {
@@ -163,4 +335,6 @@ module.exports = {
   getDailySummary,
   getMonthlyMatrix,
   getStudentAttendance,
+  getMyChildrenAttendance,
+  getOwnAttendance,
 };

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 import studentService from "@/services/studentService";
 import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
+import StudentFormModal from "@/components/students/StudentFormModal";
 import {
   FaBan,
   FaCheckCircle,
@@ -40,7 +43,16 @@ const GROUP_ICONS = {
   WITHDRAWN: FaBan,
 };
 
-export default function StudentListPage() {
+function StudentListContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const canEdit = ["school admin", "admin", "staff"].includes(role);
+  const canDelete = ["school admin", "admin"].includes(role);
+  const isParent = role === "parent";
+
   const [students, setStudents] = useState([]);
   const [grades, setGrades] = useState([]);
   const [sections, setSections] = useState([]);
@@ -50,7 +62,26 @@ export default function StudentListPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Modal dialog states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState(null);
+
+  // Check URL query parameters (e.g. /dashboard/students?action=new or ?edit=123)
+  useEffect(() => {
+    const action = searchParams?.get("action") || searchParams?.get("add");
+    const editId = searchParams?.get("edit");
+
+    if (action === "new" || action === "true") {
+      setEditingStudentId(null);
+      setIsModalOpen(true);
+    } else if (editId) {
+      setEditingStudentId(editId);
+      setIsModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadFilterOptions() {
@@ -158,11 +189,44 @@ export default function StudentListPage() {
 
     try {
       await studentService.deleteStudent(studentId);
+      setSuccessMsg(`Student "${studentName}" deleted successfully.`);
       setReloadTrigger((prev) => prev + 1);
+      setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err) {
       alert("Failed to delete: " + (err.message || "Unknown error"));
     }
   }
+
+  const handleOpenCreate = () => {
+    setEditingStudentId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (studentId) => {
+    setEditingStudentId(studentId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingStudentId(null);
+    if (searchParams?.get("action") || searchParams?.get("edit")) {
+      router.replace("/dashboard/students", { scroll: false });
+    }
+  };
+
+  const handleStudentSaved = (savedStudent) => {
+    const sName = savedStudent?.first_name
+      ? `${savedStudent.first_name} ${savedStudent.last_name}`
+      : "Student";
+    setSuccessMsg(
+      editingStudentId
+        ? `Student "${sName}" record updated successfully!`
+        : `Student "${sName}" enrolled successfully!`
+    );
+    setReloadTrigger((prev) => prev + 1);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
 
   function renderStudentTable(groupStudents) {
     return (
@@ -186,8 +250,18 @@ export default function StudentListPage() {
               <td>
                 <div className={styles.actionButtons}>
                   <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>View</Link>
-                  <Link href={`/dashboard/students/${student.id}/edit`} className={styles.editLink}>Edit</Link>
-                  <button onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)} className={styles.deleteLink}>Delete</button>
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(student.id)}
+                        className={styles.editLink}
+                      >
+                        Edit
+                      </button>
+                      {canDelete && <button onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)} className={styles.deleteLink}>Delete</button>}
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
@@ -205,14 +279,22 @@ export default function StudentListPage() {
     <div className={styles.page}>
       <div className={styles.headerRow}>
         <div>
-          <h1>Student Management</h1>
-          <p>Manage admission, profile, status, and academic records.</p>
+          <h1>{isParent ? "My Children" : "Student Management"}</h1>
+          <p>{isParent ? "View and monitor your children's enrollment profiles and records." : "Manage admission, profile, status, and academic records."}</p>
         </div>
 
-        <Link href="/dashboard/students/new" className={styles.primaryButton}>
-          + Add Student
-        </Link>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className={styles.primaryButton}
+          >
+            + Add Student
+          </button>
+        )}
       </div>
+
+      {successMsg ? <div className={styles.successBox}>{successMsg}</div> : null}
 
       <div className={styles.summaryCard}>
         <div>
@@ -255,8 +337,8 @@ export default function StudentListPage() {
                       <group.icon />
                     </span>
                     <span>
-                    <strong>{group.label}</strong>
-                    {group.detail ? <small>{group.detail}</small> : null}
+                      <strong>{group.label}</strong>
+                      {group.detail ? <small>{group.detail}</small> : null}
                     </span>
                   </span>
                   <span className={styles.groupMeta}>
@@ -316,15 +398,23 @@ export default function StudentListPage() {
                     <Link href={`/dashboard/students/${student.id}`} className={styles.linkButton}>
                       View
                     </Link>
-                    <Link href={`/dashboard/students/${student.id}/edit`} className={styles.editLink}>
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
-                      className={styles.deleteLink}
-                    >
-                      Delete
-                    </button>
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(student.id)}
+                          className={styles.editLink}
+                        >
+                          Edit
+                        </button>
+                        {canDelete && <button
+                          onClick={() => handleDelete(student.id, `${student.first_name} ${student.last_name}`)}
+                          className={styles.deleteLink}
+                        >
+                          Delete
+                        </button>}
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -332,7 +422,23 @@ export default function StudentListPage() {
           </tbody>
         </table>
       </div>}
+
+      {/* Reusable Student Form Modal (Create & Edit) */}
+      <StudentFormModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        studentId={editingStudentId}
+        onSuccess={handleStudentSaved}
+      />
     </div>
+  );
+}
+
+export default function StudentListPage() {
+  return (
+    <Suspense fallback={<div className={styles.loading}>Loading students...</div>}>
+      <StudentListContent />
+    </Suspense>
   );
 }
 

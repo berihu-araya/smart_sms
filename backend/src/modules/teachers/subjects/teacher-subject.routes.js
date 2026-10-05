@@ -2,6 +2,7 @@ const express = require('express');
 
 const {
   listTeacherSubjects,
+  getMyOverview,
   getTeacherSubjectById,
   createTeacherSubject,
   updateTeacherSubject,
@@ -9,12 +10,15 @@ const {
   getTeachersBySubject,
 } = require('./teacher-subject.controller');
 
-const authMiddleware =
-  require('../../../middlewares/auth.middleware');
+const authMiddleware = require('../../../middlewares/auth.middleware');
+const { attachTeacherScope } = require('../../../middlewares/teacher.scope');
 
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(attachTeacherScope);
+
+router.get('/my-overview', getMyOverview);
 
 router.get('/', listTeacherSubjects);
 

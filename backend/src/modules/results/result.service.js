@@ -53,7 +53,7 @@ class ResultService {
     const studentResults = students.map((s) => {
       const studentMarks = marksByStudent[s.id] || {};
       let totalCompletedScore = 0;
-      let completedSubjectsCount = 0;
+      let evaluatedSubjectsCount = 0;
       let totalAssessedWeightAll = 0;
       const subjectBreakdown = {};
 
@@ -70,20 +70,23 @@ class ResultService {
           subAssessedWeight += weight;
         });
 
-        // 100% Completion Rule: Grade (A, B, C, D, F) is awarded ONLY when total assessed weight reaches 100%
+        // Progressive score calculation - visible immediately on mark update
         const isFullyAssessed = subAssessedWeight >= 100;
-        const roundedScore = Math.round(subTotalScore * 10) / 10;
+        const normalizedScore = subAssessedWeight > 0
+          ? Math.round((subTotalScore / subAssessedWeight) * 100 * 10) / 10
+          : 0;
+        const rawWeightedScore = Math.round(subTotalScore * 10) / 10;
 
         let gradeInfo;
-        if (isFullyAssessed) {
-          gradeInfo = this.mapScoreToGrade(roundedScore, gradingScales);
-          totalCompletedScore += roundedScore;
-          completedSubjectsCount += 1;
+        if (subAssessedWeight > 0) {
+          gradeInfo = this.mapScoreToGrade(normalizedScore, gradingScales);
+          totalCompletedScore += normalizedScore;
+          evaluatedSubjectsCount += 1;
         } else {
           gradeInfo = {
-            letter: 'PENDING',
+            letter: '—',
             gradePoint: null,
-            description: subAssessedWeight > 0 ? `Incomplete (${Math.round(subAssessedWeight)}% assessed)` : 'No marks entered',
+            description: 'No marks entered',
           };
         }
 
@@ -92,32 +95,39 @@ class ResultService {
         subjectBreakdown[sub.id] = {
           subjectName: sub.name,
           subjectCode: sub.code,
-          score: roundedScore,
+          score: normalizedScore,
+          rawWeightedScore,
           assessedWeight: subAssessedWeight,
           isFullyAssessed,
           grade: gradeInfo.letter,
           gradePoint: gradeInfo.gradePoint,
           isAbsent: subMarks.some((m) => m.is_absent),
-          remark: gradeInfo.description,
+          remark: subAssessedWeight >= 100
+            ? gradeInfo.description
+            : (subAssessedWeight > 0 ? `${gradeInfo.description} (${Math.round(subAssessedWeight)}% assessed)` : 'No marks entered'),
         };
       });
 
-      const isStudentComplete = subjects.length > 0 && completedSubjectsCount === subjects.length;
+      const isStudentComplete = subjects.length > 0 && evaluatedSubjectsCount === subjects.length && totalAssessedWeightAll >= (subjects.length * 100);
       
       const averageScore =
-        completedSubjectsCount > 0
-          ? Math.round((totalCompletedScore / completedSubjectsCount) * 10) / 10
+        evaluatedSubjectsCount > 0
+          ? Math.round((totalCompletedScore / evaluatedSubjectsCount) * 10) / 10
           : 0;
 
       let overallGrade;
       let status;
 
-      if (isStudentComplete) {
+      if (evaluatedSubjectsCount > 0) {
         overallGrade = this.mapScoreToGrade(averageScore, gradingScales).letter;
-        status = averageScore >= 50 ? 'PASSED / PROMOTED' : 'FAILED';
+        status = isStudentComplete
+          ? (averageScore >= 50 ? 'PASSED / PROMOTED' : 'FAILED')
+          : (averageScore >= 50
+              ? `IN PROGRESS (Passing - ${evaluatedSubjectsCount}/${subjects.length} Evaluated)`
+              : `IN PROGRESS (Needs Improvement - ${evaluatedSubjectsCount}/${subjects.length} Evaluated)`);
       } else {
-        overallGrade = 'INCOMPLETE';
-        status = `IN PROGRESS (${completedSubjectsCount}/${subjects.length} Completed)`;
+        overallGrade = '—';
+        status = 'NO MARKS RECORDED';
       }
 
       return {
@@ -131,17 +141,17 @@ class ResultService {
         averageScore,
         overallGrade,
         isComplete: isStudentComplete,
-        completedSubjectsCount,
+        completedSubjectsCount: evaluatedSubjectsCount,
         totalSubjectsCount: subjects.length,
         status,
         subjects: subjectBreakdown,
       };
     });
 
-    // Compute ranks based on complete average score
+    // Compute ranks based on progressive average score
     studentResults.sort((a, b) => {
-      if (a.isComplete && !b.isComplete) return -1;
-      if (!a.isComplete && b.isComplete) return 1;
+      if (a.completedSubjectsCount > 0 && b.completedSubjectsCount === 0) return -1;
+      if (a.completedSubjectsCount === 0 && b.completedSubjectsCount > 0) return 1;
       return b.averageScore - a.averageScore;
     });
 
@@ -154,26 +164,26 @@ class ResultService {
     }
 
     // Section overview statistics
-    const completedStudents = studentResults.filter((s) => s.isComplete);
+    const evaluatedStudents = studentResults.filter((s) => s.completedSubjectsCount > 0);
     const sectionAverage =
-      completedStudents.length > 0
+      evaluatedStudents.length > 0
         ? Math.round(
-            (completedStudents.reduce((acc, curr) => acc + curr.averageScore, 0) /
-              completedStudents.length) *
+            (evaluatedStudents.reduce((acc, curr) => acc + curr.averageScore, 0) /
+              evaluatedStudents.length) *
               10
           ) / 10
         : 0;
 
-    const passCount = completedStudents.filter((s) => s.averageScore >= 50).length;
-    const failCount = completedStudents.length - passCount;
+    const passCount = evaluatedStudents.filter((s) => s.averageScore >= 50).length;
+    const failCount = evaluatedStudents.length - passCount;
 
     return {
       sectionId,
       term: term || 'Semester 1',
       totalStudents: studentResults.length,
-      completedStudentsCount: completedStudents.length,
+      completedStudentsCount: evaluatedStudents.length,
       sectionAverage,
-      passRate: completedStudents.length ? Math.round((passCount / completedStudents.length) * 100) : 0,
+      passRate: evaluatedStudents.length ? Math.round((passCount / evaluatedStudents.length) * 100) : 0,
       passCount,
       failCount,
       subjects,
@@ -196,8 +206,29 @@ class ResultService {
 
     const gradingScales = await this.repository.getGradingScales();
 
+    // Initialize all section subjects if section_id is present
+    let sectionSubjects = [];
+    if (rawData.student.section_id) {
+      try {
+        sectionSubjects = await this.repository.getSectionSubjects(rawData.student.section_id, teacherId);
+      } catch (err) {
+        console.warn('Section subjects lookup fallback:', err.message);
+      }
+    }
+
     // Group marks by subject
     const subjectMap = {};
+    for (const sub of sectionSubjects) {
+      subjectMap[sub.id] = {
+        subjectId: sub.id,
+        subjectName: sub.name,
+        subjectCode: sub.code,
+        assessments: [],
+        totalScore: 0,
+        totalWeight: 0,
+      };
+    }
+
     for (const m of rawData.marks) {
       if (!subjectMap[m.subject_id]) {
         subjectMap[m.subject_id] = {
@@ -227,22 +258,25 @@ class ResultService {
     }
 
     let grandTotal = 0;
-    let completedCount = 0;
+    let evaluatedCount = 0;
 
     const subjectResults = Object.values(subjectMap).map((sub) => {
       const isFullyAssessed = sub.totalWeight >= 100;
-      const roundedScore = Math.round(sub.totalScore * 10) / 10;
+      const normalizedScore = sub.totalWeight > 0
+        ? Math.round((sub.totalScore / sub.totalWeight) * 100 * 10) / 10
+        : 0;
+      const rawWeightedScore = Math.round(sub.totalScore * 10) / 10;
 
       let gradeInfo;
-      if (isFullyAssessed) {
-        gradeInfo = this.mapScoreToGrade(roundedScore, gradingScales);
-        grandTotal += roundedScore;
-        completedCount += 1;
+      if (sub.totalWeight > 0) {
+        gradeInfo = this.mapScoreToGrade(normalizedScore, gradingScales);
+        grandTotal += normalizedScore;
+        evaluatedCount += 1;
       } else {
         gradeInfo = {
-          letter: 'PENDING',
+          letter: '—',
           gradePoint: null,
-          description: sub.totalWeight > 0 ? `Incomplete (${Math.round(sub.totalWeight)}% assessed)` : 'Not yet assessed',
+          description: 'Not yet assessed',
         };
       }
 
@@ -251,12 +285,15 @@ class ResultService {
         subjectName: sub.subjectName,
         subjectCode: sub.subjectCode,
         assessments: sub.assessments,
-        totalScore: roundedScore,
+        totalScore: normalizedScore,
+        rawWeightedScore,
         totalWeight: sub.totalWeight,
         isFullyAssessed,
         gradeLetter: gradeInfo.letter,
         gradePoint: gradeInfo.gradePoint,
-        remark: gradeInfo.description,
+        remark: isFullyAssessed
+          ? gradeInfo.description
+          : (sub.totalWeight > 0 ? `${gradeInfo.description} (${Math.round(sub.totalWeight)}% evaluated)` : 'Not yet assessed'),
       };
     });
 
@@ -280,23 +317,27 @@ class ResultService {
       }
     }
 
-    const isAllComplete = subjectResults.length > 0 && completedCount === subjectResults.length;
+    const isAllComplete = subjectResults.length > 0 && evaluatedCount === subjectResults.length && subjectResults.every((s) => s.isFullyAssessed);
     const averageScore =
-      completedCount > 0 ? Math.round((grandTotal / completedCount) * 10) / 10 : 0;
+      evaluatedCount > 0 ? Math.round((grandTotal / evaluatedCount) * 10) / 10 : 0;
 
     let finalGradeLetter;
     let finalGradePoint;
     let promotionStatus;
 
-    if (isAllComplete) {
+    if (evaluatedCount > 0) {
       const finalGrade = this.mapScoreToGrade(averageScore, gradingScales);
       finalGradeLetter = finalGrade.letter;
       finalGradePoint = finalGrade.gradePoint;
-      promotionStatus = averageScore >= 50 ? 'PASSED / PROMOTED' : 'REQUIRES REMEDIATION';
+      promotionStatus = isAllComplete
+        ? (averageScore >= 50 ? 'PASSED / PROMOTED' : 'REQUIRES REMEDIATION')
+        : (averageScore >= 50
+            ? `IN PROGRESS (Passing - ${evaluatedCount}/${subjectResults.length} Subjects Evaluated)`
+            : `IN PROGRESS (Needs Improvement - ${evaluatedCount}/${subjectResults.length} Subjects Evaluated)`);
     } else {
-      finalGradeLetter = 'PENDING';
+      finalGradeLetter = '—';
       finalGradePoint = null;
-      promotionStatus = `IN PROGRESS (${completedCount}/${subjectResults.length} Subjects Evaluated)`;
+      promotionStatus = 'NO MARKS RECORDED';
     }
 
     return {
@@ -304,9 +345,9 @@ class ResultService {
       school: rawData.school,
       attendance: rawData.attendance,
       academicSummary: {
-        term: term || 'Semester 1',
+        term: term || 'Current Term',
         totalSubjects: subjectResults.length,
-        completedSubjects: completedCount,
+        completedSubjects: evaluatedCount,
         isComplete: isAllComplete,
         grandTotal: Math.round(grandTotal * 10) / 10,
         averageScore,
@@ -324,3 +365,4 @@ class ResultService {
 }
 
 module.exports = ResultService;
+

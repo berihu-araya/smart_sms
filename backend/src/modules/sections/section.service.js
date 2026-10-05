@@ -22,6 +22,8 @@ class SectionService {
   async listSections({
     search = '',
     gradeId = '',
+    sectionId = null,
+    sectionIds = null,
     status = 'active',
     sortBy = 'name',
     sortOrder = 'ASC',
@@ -31,7 +33,7 @@ class SectionService {
     const parsedLimit = Math.max(1, Number(limit) || 20);
     const parsedOffset = Math.max(0, Number(offset) || 0);
 
-    const { items, total } = await this.repository.findAll({
+    const repositoryOptions = {
       search,
       gradeId,
       status,
@@ -39,7 +41,11 @@ class SectionService {
       sortOrder,
       limit: parsedLimit,
       offset: parsedOffset,
-    });
+    };
+    if (sectionId) repositoryOptions.sectionId = sectionId;
+    if (sectionIds !== null && Array.isArray(sectionIds)) repositoryOptions.sectionIds = sectionIds;
+
+    const { items, total } = await this.repository.findAll(repositoryOptions);
 
     return {
       page: Math.floor(parsedOffset / parsedLimit) + 1,
@@ -70,8 +76,8 @@ class SectionService {
     };
   }
 
-  async getSectionsByGrade(gradeId) {
-    const sections = await this.repository.findByGradeId(gradeId);
+  async getSectionsByGrade(gradeId, sectionIds = null) {
+    const sections = await this.repository.findByGradeId(gradeId, sectionIds);
     return sections;
   }
 

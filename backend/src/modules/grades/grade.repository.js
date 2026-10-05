@@ -1,3 +1,25 @@
+function getGradeSortValue(value) {
+  if (value === null || value === undefined) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  if (['kg', 'kindergarten', 'nursery', 'prep'].includes(normalized)) {
+    return 0;
+  }
+
+  const match = normalized.match(/(?:grade|class|level)\s*(\d+)/i) || normalized.match(/(\d+)/);
+  if (match) {
+    return Number(match[1]);
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
+
 class GradeRepository {
   constructor(database) {
     this.database = database;
@@ -8,6 +30,8 @@ class GradeRepository {
     status = 'active', // 'active' | 'inactive' | 'all'
     sortBy = 'name',
     sortOrder = 'ASC',
+    gradeId = null,
+    gradeIds = null,
     limit = 20,
     offset = 0,
   } = {}) {
@@ -22,6 +46,18 @@ class GradeRepository {
       conditions.push('g.deleted_at IS NOT NULL');
     }
     // if status === 'all', no deleted_at filter is added
+
+    if (gradeIds !== null && Array.isArray(gradeIds)) {
+      if (gradeIds.length === 0) {
+        conditions.push('1 = 0');
+      } else {
+        conditions.push(`g.id = ANY($${values.length + 1}::uuid[])`);
+        values.push(gradeIds);
+      }
+    } else if (gradeId) {
+      conditions.push(`g.id = $${values.length + 1}`);
+      values.push(gradeId);
+    }
 
     const statusClause = conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : '';
 
@@ -51,8 +87,20 @@ class GradeRepository {
       updated_at: 'g.updated_at',
       section_count: 'section_count',
     };
-    const sortCol = allowedSortColumns[sortBy] || 'g.name';
     const sortDir = String(sortOrder).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const normalizedSortBy = String(sortBy || 'name').toLowerCase();
+    const sortCol = allowedSortColumns[normalizedSortBy] || 'g.name';
+    const gradeNameSortExpression = `
+      CASE
+        WHEN LOWER(g.name) IN ('kg', 'kindergarten', 'nursery', 'prep') THEN 0
+        WHEN LOWER(g.name) ~ '^(grade|class|level)\\s*[0-9]+$' THEN CAST(regexp_replace(LOWER(g.name), '[^0-9]', '', 'g') AS INTEGER)
+        WHEN LOWER(g.name) ~ '^[0-9]+$' THEN CAST(g.name AS INTEGER)
+        ELSE 999999
+      END
+    `;
+    const finalOrderBy = normalizedSortBy === 'name'
+      ? `${gradeNameSortExpression} ${sortDir}, LOWER(g.name) ${sortDir}`
+      : `${sortCol} ${sortDir}`;
 
     // 3. Paginated items
     const limitIndex = values.length + 1;
@@ -74,7 +122,7 @@ class GradeRepository {
         (SELECT COUNT(*)::int FROM grade_subjects gs WHERE gs.grade_id = g.id AND gs.deleted_at IS NULL) AS subject_count
       FROM grades g
       ${whereClause}
-      ORDER BY ${sortCol} ${sortDir}
+      ORDER BY ${finalOrderBy}
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
       `,
       queryValues
@@ -247,3 +295,4 @@ class GradeRepository {
 }
 
 module.exports = GradeRepository;
+module.exports.getGradeSortValue = getGradeSortValue;

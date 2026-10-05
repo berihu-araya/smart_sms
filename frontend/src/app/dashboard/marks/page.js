@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import styles from './page.module.css';
 import { getMarksSheet, saveBatchMarks } from '@/services/markService';
 import { listGrades } from '@/services/gradeService';
@@ -24,8 +25,20 @@ import {
 } from 'react-icons/hi2';
 
 function MarksEntryContent() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const role = (user?.role || '').toLowerCase();
+  const isStudent = role === 'student';
+  const isParent = role === 'parent';
+
   const searchParams = useSearchParams();
   const urlExamId = searchParams.get('examId') || '';
+
+  useEffect(() => {
+    if (isStudent || isParent) {
+      router.replace('/dashboard/results/report-card');
+    }
+  }, [isStudent, isParent, router]);
 
   // Cascading Selection Hierarchy: Grade -> Section -> Subject -> Exam
   const [grades, setGrades] = useState([]);
@@ -56,10 +69,19 @@ function MarksEntryContent() {
         const gRes = await listGrades({ limit: 100 }).catch(() => ({ items: [] }));
         const gradeItems = gRes?.items || gRes?.data?.items || [];
 
-        setGrades(gradeItems);
+        const uniqueGrades = [];
+        const seenGradeIds = new Set();
+        gradeItems.forEach((g) => {
+          if (g?.id && !seenGradeIds.has(g.id)) {
+            seenGradeIds.add(g.id);
+            uniqueGrades.push(g);
+          }
+        });
 
-        if (gradeItems.length > 0) {
-          setSelectedGrade((current) => current || gradeItems[0].id);
+        setGrades(uniqueGrades);
+
+        if (uniqueGrades.length > 0) {
+          setSelectedGrade((current) => current || uniqueGrades[0].id);
         }
       } catch (err) {
         console.error('Failed to load grades:', err);
@@ -78,16 +100,25 @@ function MarksEntryContent() {
 
       try {
         const eRes = await listExams({ gradeId: selectedGrade, limit: 100 }).catch(() => []);
-        const examItems = eRes || [];
+        const examItems = Array.isArray(eRes) ? eRes : eRes?.items || [];
 
-        setExams(examItems);
+        const uniqueExams = [];
+        const seenExamIds = new Set();
+        examItems.forEach((ex) => {
+          if (ex?.id && !seenExamIds.has(ex.id)) {
+            seenExamIds.add(ex.id);
+            uniqueExams.push(ex);
+          }
+        });
 
-        if (urlExamId && examItems.some((exam) => exam.id === urlExamId)) {
+        setExams(uniqueExams);
+
+        if (urlExamId && uniqueExams.some((exam) => exam.id === urlExamId)) {
           setSelectedExam(urlExamId);
           return;
         }
 
-        setSelectedExam(examItems[0]?.id || '');
+        setSelectedExam(uniqueExams[0]?.id || '');
       } catch (err) {
         console.error('Failed to load exams for grade:', err);
         setExams([]);
@@ -118,14 +149,24 @@ function MarksEntryContent() {
         const gsItems = gsRes?.items || gsRes?.data?.items || [];
         const allSubjects = allSubRes?.items || allSubRes?.data?.items || [];
 
-        setSections(sectionItems);
-        if (sectionItems.length > 0) {
-          setSelectedSection(sectionItems[0].id);
+        const uniqueSections = [];
+        const seenSectionIds = new Set();
+        sectionItems.forEach((sec) => {
+          if (sec?.id && !seenSectionIds.has(sec.id)) {
+            seenSectionIds.add(sec.id);
+            uniqueSections.push(sec);
+          }
+        });
+
+        setSections(uniqueSections);
+        if (uniqueSections.length > 0) {
+          setSelectedSection(uniqueSections[0].id);
         } else {
           setSelectedSection('');
         }
 
         // Use grade-specific subjects if mapped, otherwise fallback to all subjects
+<<<<<<< HEAD
         let availableSubjects = [];
         if (gsItems.length > 0) {
           // Deduplicate subjects by ID since multiple grade-subject mappings may reference the same subject
@@ -144,10 +185,32 @@ function MarksEntryContent() {
         } else {
           availableSubjects = allSubjects;
         }
+=======
+        const rawSubjects = gsItems.length > 0
+          ? gsItems.map((gs) => ({
+              id: gs.subject_id || gs.subject?.id || gs.id,
+              subject_name: gs.subject_name || gs.subject?.subject_name || gs.name,
+              subject_code: gs.subject_code || gs.subject?.subject_code || gs.code,
+            }))
+          : allSubjects.map((s) => ({
+              id: s.id,
+              subject_name: s.subject_name || s.name,
+              subject_code: s.subject_code || s.code,
+            }));
+>>>>>>> Main
 
-        setSubjects(availableSubjects);
-        if (availableSubjects.length > 0) {
-          setSelectedSubject(availableSubjects[0].id);
+        const uniqueSubjects = [];
+        const seenSubjectIds = new Set();
+        rawSubjects.forEach((sub) => {
+          if (sub?.id && !seenSubjectIds.has(sub.id)) {
+            seenSubjectIds.add(sub.id);
+            uniqueSubjects.push(sub);
+          }
+        });
+
+        setSubjects(uniqueSubjects);
+        if (uniqueSubjects.length > 0) {
+          setSelectedSubject(uniqueSubjects[0].id);
         } else {
           setSelectedSubject('');
         }
@@ -202,9 +265,11 @@ function MarksEntryContent() {
   }, [selectedExam, selectedSubject, selectedSection, loadMarksSheet]);
 
   const maxMarks = sheetData?.exam?.maxMarks || 100;
+  const isReadOnly = Boolean(sheetData?.isReadOnly);
 
   // Handle Score Input
   const handleScoreChange = (studentId, value) => {
+    if (isReadOnly) return;
     if (value === '') {
       setMarksList((prev) =>
         prev.map((item) => (item.studentId === studentId ? { ...item, score: '' } : item))
@@ -224,6 +289,7 @@ function MarksEntryContent() {
 
   // Absent Toggle (auto-clears score and disables input)
   const handleAbsentToggle = (studentId, isAbsent) => {
+    if (isReadOnly) return;
     setMarksList((prev) =>
       prev.map((item) =>
         item.studentId === studentId
@@ -234,6 +300,7 @@ function MarksEntryContent() {
   };
 
   const handleRemarksChange = (studentId, remarks) => {
+    if (isReadOnly) return;
     setMarksList((prev) =>
       prev.map((item) =>
         item.studentId === studentId ? { ...item, remarks } : item
@@ -262,6 +329,7 @@ function MarksEntryContent() {
 
   // Bulk Quick Actions
   const handleFillAllMax = () => {
+    if (isReadOnly) return;
     if (!confirm(`Set score to maximum (${maxMarks}) for all non-absent students?`)) return;
     setMarksList((prev) =>
       prev.map((item) => (item.isAbsent ? item : { ...item, score: maxMarks }))
@@ -269,6 +337,7 @@ function MarksEntryContent() {
   };
 
   const handleClearAllScores = () => {
+    if (isReadOnly) return;
     if (!confirm('Clear all entered scores for this class?')) return;
     setMarksList((prev) =>
       prev.map((item) => ({ ...item, score: '', isAbsent: false, remarks: '' }))
@@ -277,6 +346,7 @@ function MarksEntryContent() {
 
   // Save Batch Marks
   const handleSaveMarks = async () => {
+    if (isReadOnly) return;
     if (!selectedExam || !selectedSubject || !selectedSection || marksList.length === 0) return;
 
     const hasInvalidScore = marksList.some(
@@ -347,6 +417,25 @@ function MarksEntryContent() {
       {message && <div className={`${styles.alert} ${styles.alertSuccess}`}><HiCheck /> {message}</div>}
       {error && <div className={`${styles.alert} ${styles.alertError}`}><HiXMark /> {error}</div>}
 
+      {/* Class Teacher Read-Only Notice */}
+      {isReadOnly && (
+        <div className={styles.readOnlyBanner}>
+          <div className={styles.readOnlyBannerText}>
+            <HiAcademicCap size={24} style={{ color: '#2563eb', flexShrink: 0 }} />
+            <div>
+              <span className={styles.readOnlyBannerStrong}>Class Teacher Review Mode:</span> You have full read-only access to view and verify student scores for this subject in your homeroom class. Entering and editing marks is reserved for the assigned subject teacher.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.btnViewResults}
+            onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+          >
+            Compute Section Ranks ➔
+          </button>
+        </div>
+      )}
+
       {/* ================= CASCADING ACADEMIC SELECTOR ================= */}
       <div className={styles.cascadeCard}>
         <div className={styles.stepHeader}>
@@ -374,8 +463,8 @@ function MarksEntryContent() {
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
             >
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
+              {grades.map((g, idx) => (
+                <option key={g.id ? `grade-${g.id}` : `grade-idx-${idx}`} value={g.id}>
                   {g.name}
                 </option>
               ))}
@@ -396,8 +485,8 @@ function MarksEntryContent() {
               {sections.length === 0 ? (
                 <option value="">No sections in grade</option>
               ) : (
-                sections.map((sec) => (
-                  <option key={sec.id} value={sec.id}>
+                sections.map((sec, idx) => (
+                  <option key={sec.id ? `sec-${sec.id}` : `sec-idx-${idx}`} value={sec.id}>
                     {sec.name} {sec.room_number ? `(${sec.room_number})` : ''}
                   </option>
                 ))
@@ -419,8 +508,8 @@ function MarksEntryContent() {
               {subjects.length === 0 ? (
                 <option value="">No subjects found</option>
               ) : (
-                subjects.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
+                subjects.map((sub, idx) => (
+                  <option key={sub.id ? `sub-${sub.id}` : `sub-idx-${idx}`} value={sub.id}>
                     {sub.subject_name || sub.name} ({sub.subject_code || sub.code})
                   </option>
                 ))
@@ -442,8 +531,8 @@ function MarksEntryContent() {
               {exams.length === 0 ? (
                 <option value="">No active exams scheduled</option>
               ) : (
-                exams.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
+                exams.map((ex, idx) => (
+                  <option key={ex.id ? `exam-${ex.id}` : `exam-idx-${idx}`} value={ex.id}>
                     {ex.title} ({ex.term_or_semester} • {ex.max_marks} pts • {ex.weight_percentage}% wt)
                   </option>
                 ))
@@ -487,9 +576,10 @@ function MarksEntryContent() {
         <div className={styles.sheetHeader}>
           <div className={styles.sheetHeaderTitle}>
             Student Roster Score Sheet ({marksList.length} Students)
+            {isReadOnly && <span className={styles.readOnlyBadge}>Read-Only Review</span>}
           </div>
 
-          {marksList.length > 0 && (
+          {marksList.length > 0 && !isReadOnly && (
             <div className={styles.quickTools}>
               <span className={styles.keyboardHint}>
                 💡 <strong>Tip:</strong> Press <strong>Enter</strong> or <strong>↓/↑</strong> to jump between rows quickly!
@@ -518,6 +608,18 @@ function MarksEntryContent() {
               >
                 <HiCheckCircle size={18} />
                 {saving ? 'Saving Records...' : 'Save & Calculate Marks'}
+              </button>
+            </div>
+          )}
+
+          {marksList.length > 0 && isReadOnly && (
+            <div className={styles.quickTools}>
+              <button
+                type="button"
+                className={styles.btnViewResults}
+                onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+              >
+                Go to Section Results & Rankings ➔
               </button>
             </div>
           )}
@@ -569,6 +671,7 @@ function MarksEntryContent() {
                           <input
                             type="checkbox"
                             checked={row.isAbsent}
+                            disabled={isReadOnly}
                             onChange={(e) => handleAbsentToggle(row.studentId, e.target.checked)}
                           />
                           <span style={{ color: row.isAbsent ? '#dc2626' : '#64748b' }}>
@@ -584,7 +687,8 @@ function MarksEntryContent() {
                             step="0.5"
                             min="0"
                             max={maxMarks}
-                            disabled={row.isAbsent}
+                            disabled={row.isAbsent || isReadOnly}
+                            readOnly={isReadOnly}
                             className={`${styles.scoreInput} ${isInvalid ? styles.invalid : ''}`}
                             value={row.isAbsent ? '' : row.score}
                             placeholder={row.isAbsent ? 'ABS' : '0.0'}
@@ -602,9 +706,11 @@ function MarksEntryContent() {
                       <td>
                         <input
                           type="text"
-                          placeholder="Optional feedback..."
+                          placeholder={isReadOnly ? 'No feedback recorded' : 'Optional feedback...'}
                           className={styles.remarksInput}
                           value={row.remarks}
+                          disabled={isReadOnly}
+                          readOnly={isReadOnly}
                           onChange={(e) => handleRemarksChange(row.studentId, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, idx)}
                         />
@@ -620,16 +726,26 @@ function MarksEntryContent() {
         {marksList.length > 0 && (
           <div className={styles.footerActions}>
             <div style={{ fontSize: '0.88rem', color: '#64748b' }}>
-              Recording marks for <strong>{marksList.length}</strong> students.
+              Viewing marks for <strong>{marksList.length}</strong> students. {isReadOnly && '(Class Teacher Read-Only Mode)'}
             </div>
-            <button
-              className={styles.btnSave}
-              onClick={handleSaveMarks}
-              disabled={saving || loading}
-            >
-              <HiCheckCircle size={18} />
-              {saving ? 'Saving...' : 'Save & Calculate All Marks'}
-            </button>
+            {!isReadOnly ? (
+              <button
+                className={styles.btnSave}
+                onClick={handleSaveMarks}
+                disabled={saving || loading}
+              >
+                <HiCheckCircle size={18} />
+                {saving ? 'Saving...' : 'Save & Calculate All Marks'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.btnViewResults}
+                onClick={() => router.push(`/dashboard/results?sectionId=${selectedSection}`)}
+              >
+                Compute Section Ranks & Results ➔
+              </button>
+            )}
           </div>
         )}
       </div>

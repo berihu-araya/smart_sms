@@ -11,13 +11,22 @@ const studentService = new StudentService(new StudentRepository(db));
 
 async function listStudents(req, res, next) {
   try {
+    const role = (req.user?.role || '').toLowerCase().trim();
+    const isTeacher = role === 'teacher';
+    const isParent = role === 'parent';
+    const parentId = isParent ? (req.parentScope?.parent_id || '00000000-0000-0000-0000-000000000000') : null;
+    const sectionIds = isTeacher ? req.teacherScope?.all_accessible_section_ids : null;
+
     const data = await studentService.listStudents({
       search: req.query.search || '',
       name: req.query.name || '',
       gender: req.query.gender || '',
       gradeId: req.query.gradeId || req.query.grade_id || '',
       sectionId: req.query.sectionId || req.query.section_id || '',
+      sectionIds,
       status: req.query.status || '',
+      studentId: req.studentScope?.student_id || null,
+      parentId,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0),
     });
@@ -39,8 +48,28 @@ async function getStudentById(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
+  }
+
   try {
     const data = await studentService.getStudentById(id);
+
+    if (isTeacher && !req.teacherScope?.canAccessStudent(data.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access students in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -173,8 +202,28 @@ async function getStudentProfile(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
+  }
+
   try {
     const data = await studentService.getStudentProfile(id);
+
+    if (isTeacher && !req.teacherScope?.canAccessStudent(data.academicInfo?.sectionId || data.student?.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access student profiles in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -193,7 +242,28 @@ async function getStudentGuardian(req, res, next) {
     return res.status(400).json({ success: false, message: 'Validation failed', data: errors });
   }
 
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const isParent = role === 'parent';
+  const isTeacher = role === 'teacher';
+
+  if (isParent && !req.parentScope?.child_student_ids.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Parents can only access records of their own linked children',
+      data: null,
+    });
+  }
+
   try {
+    const rawStudent = await studentService.getStudentById(id);
+    if (isTeacher && !req.teacherScope?.canAccessStudent(rawStudent.section_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Teachers can only access student guardians in their assigned classes or homeroom section',
+        data: null,
+      });
+    }
+
     const data = await studentService.getStudentGuardian(id);
 
     return res.status(200).json({
@@ -206,9 +276,33 @@ async function getStudentGuardian(req, res, next) {
   }
 }
 
+async function getOwnStudentProfile(req, res, next) {
+  try {
+    const studentId = req.studentScope?.student_id;
+    if (!studentId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student profile is not linked to this account',
+        data: null,
+      });
+    }
+
+    const data = await studentService.getStudentProfile(studentId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Student profile loaded successfully.',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listStudents,
   getStudentById,
+  getOwnStudentProfile,
   createStudent,
   updateStudent,
   deleteStudent,

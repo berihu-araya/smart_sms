@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import gradeService from "@/services/gradeService";
+import { useAuth } from "@/hooks/useAuth";
+import { GradeFormModal, GradeDeleteModal } from "@/components/grades";
 import styles from "./page.module.css";
 import {
   HiAcademicCap,
@@ -25,6 +27,12 @@ import {
 } from "react-icons/hi2";
 
 export default function GradeListPage() {
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const isStudent = role === "student";
+  const isTeacher = role.includes("teacher") && !role.includes("admin");
+  const canManage = !isStudent && !isTeacher;
+
   const [grades, setGrades] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -85,26 +93,6 @@ export default function GradeListPage() {
     loadGrades();
   }, [loadGrades]);
 
-  // Lock body scroll and handle Escape key for modals
-  useEffect(() => {
-    if (!isModalOpen && !isConfirmOpen) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-        setIsConfirmOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isModalOpen, isConfirmOpen]);
 
   const handleSearchChange = (val) => {
     setSearch(val);
@@ -239,8 +227,12 @@ export default function GradeListPage() {
       {/* Header */}
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
-          <h1>Grade Management</h1>
-          <p>Create, configure, and manage academic grade levels and their curriculum linkages.</p>
+          <h1>{isTeacher ? "My Assigned Grades" : "Grade Management"}</h1>
+          <p>
+            {isTeacher
+              ? "Academic grade levels where you have assigned homeroom classes or teaching subjects."
+              : "Create, configure, and manage academic grade levels and their curriculum linkages."}
+          </p>
         </div>
       </div>
 
@@ -263,7 +255,7 @@ export default function GradeListPage() {
             <HiMagnifyingGlass className={styles.searchIcon} />
             <input
               type="text"
-              placeholder="Search grade by name or description..."
+              placeholder="Search grade by name..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               className={styles.searchInput}
@@ -280,22 +272,24 @@ export default function GradeListPage() {
             )}
           </div>
 
-          <div className={styles.statusTabs}>
-            {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
-              { label: "All", value: "all" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {canManage && (
+            <div className={styles.statusTabs}>
+              {[
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+                { label: "All", value: "all" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.statusTab} ${status === opt.value ? styles.statusTabActive : ""}`}
+                  onClick={() => handleStatusChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.toolbarRight}>
@@ -308,14 +302,15 @@ export default function GradeListPage() {
             <HiArrowPath size={17} />
           </button>
 
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleOpenAdd}
-          >
-            <HiPlus size={18} />
-            <span>+ Add Grade</span>
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleOpenAdd}
+            >
+              <span>+ Add Grade</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -383,17 +378,21 @@ export default function GradeListPage() {
                       <HiInbox className={styles.emptyIcon} />
                       <h3 className={styles.emptyTitle}>No grades found</h3>
                       <p className={styles.emptyText}>
-                        No grade levels match your active filters. Click &ldquo;+ Add Grade&rdquo; to create one.
+                        {isTeacher
+                          ? "You are not currently assigned to any active grade levels."
+                          : "No grade levels match your active filters. Click \"+ Add Grade\" to create one."}
                       </p>
-                      <button
-                        type="button"
-                        className={styles.btnPrimary}
-                        onClick={handleOpenAdd}
-                        style={{ marginTop: "8px" }}
-                      >
-                        <HiPlus size={18} />
-                        <span>+ Add Grade</span>
-                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className={styles.btnPrimary}
+                          onClick={handleOpenAdd}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <HiPlus size={18} />
+                          <span>+ Add Grade</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -446,9 +445,8 @@ export default function GradeListPage() {
                     </td>
                     <td className={styles.td}>
                       <span
-                        className={`${styles.statusPill} ${
-                          grade.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
-                        }`}
+                        className={`${styles.statusPill} ${grade.status === "ACTIVE" ? styles.statusActive : styles.statusInactive
+                          }`}
                       >
                         <span className={styles.statusDot}></span>
                         {grade.status === "ACTIVE" ? "Active" : "Inactive"}
@@ -463,32 +461,36 @@ export default function GradeListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <button
-                          type="button"
-                          className={styles.actionBtn}
-                          onClick={() => handleOpenEdit(grade)}
-                          title="Edit Grade"
-                        >
-                          <HiPencilSquare size={15} />
-                        </button>
-                        {grade.status === "INACTIVE" || grade.deleted_at ? (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
-                            onClick={() => handleRestore(grade)}
-                            title="Restore / Reactivate Grade"
-                          >
-                            <HiArrowPath size={15} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
-                            onClick={() => handleInitiateDelete(grade)}
-                            title="Deactivate Grade"
-                          >
-                            <HiTrash size={15} />
-                          </button>
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(grade)}
+                              title="Edit Grade"
+                            >
+                              <HiPencilSquare size={15} />
+                            </button>
+                            {grade.status === "INACTIVE" || grade.deleted_at ? (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnRestore}`}
+                                onClick={() => handleRestore(grade)}
+                                title="Restore / Reactivate Grade"
+                              >
+                                <HiArrowPath size={15} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                                onClick={() => handleInitiateDelete(grade)}
+                                title="Deactivate Grade"
+                              >
+                                <HiTrash size={15} />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -552,197 +554,34 @@ export default function GradeListPage() {
 
       {/* Add / Edit Grade Modal */}
       {isModalOpen && (
-        <div
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false);
+        <GradeFormModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingGrade(null);
           }}
-        >
-          <div className={styles.modalDialog} role="dialog" aria-modal="true">
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleArea}>
-                <h2>{editingGrade ? `Edit ${editingGrade.name}` : "Create New Grade"}</h2>
-                <p>
-                  {editingGrade
-                    ? "Update grade level details and configuration"
-                    : "Define a new grade level for the school roster"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsModalOpen(false)}
-                aria-label="Close dialog"
-              >
-                <HiXMark size={20} />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <form onSubmit={handleFormSubmit} className={styles.form}>
-                {formApiError && (
-                  <div className={styles.alertError} style={{ margin: 0 }}>
-                    <HiXMark size={18} />
-                    <span>{formApiError}</span>
-                  </div>
-                )}
-
-                <div className={styles.formField}>
-                  <label className={styles.label}>
-                    Grade Name <span className={styles.requiredStar}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Grade 9, Grade 10, Kindergarten"
-                    value={formData.name}
-                    onChange={(e) => {
-                      setFormData((prev) => ({ ...prev, name: e.target.value }));
-                      if (formErrors.name) setFormErrors((prev) => ({ ...prev, name: "" }));
-                    }}
-                    className={`${styles.input} ${formErrors.name ? styles.inputError : ""}`}
-                    autoFocus
-                  />
-                  {formErrors.name && (
-                    <span className={styles.errorMessage}>{formErrors.name}</span>
-                  )}
-                </div>
-
-                <div className={styles.formField}>
-                  <label className={styles.label}>Description / Notes</label>
-                  <textarea
-                    placeholder="Optional overview or stage of education (e.g. Secondary Level)"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, description: e.target.value }))
-                    }
-                    className={styles.textarea}
-                    rows={3}
-                  />
-                </div>
-
-                <div className={styles.modalActions}>
-                  <button
-                    type="button"
-                    className={styles.btnSecondary}
-                    onClick={() => setIsModalOpen(false)}
-                    disabled={formSubmitting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className={styles.btnPrimary}
-                    disabled={formSubmitting}
-                  >
-                    {formSubmitting ? (
-                      <>
-                        <span className={styles.spinner}></span> Saving...
-                      </>
-                    ) : editingGrade ? (
-                      "Update Grade"
-                    ) : (
-                      "Create Grade"
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+          grade={editingGrade}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadGrades();
+          }}
+        />
       )}
 
-      {/* Deactivate Confirm Dialog with Reference Breakdown */}
+      {/* Deactivate / Delete Confirm Dialog with Reference Breakdown */}
       {isConfirmOpen && (
-        <div
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !deleteLoading) setIsConfirmOpen(false);
+        <GradeDeleteModal
+          isOpen={isConfirmOpen}
+          onClose={() => {
+            setIsConfirmOpen(false);
+            setDeleteTarget(null);
           }}
-        >
-          <div className={styles.modalDialog} role="dialog" aria-modal="true">
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleArea}>
-                <h2>Deactivate Grade Level</h2>
-                <p>Review dependency impact before deactivating</p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsConfirmOpen(false)}
-                disabled={deleteLoading}
-              >
-                <HiXMark size={20} />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <p style={{ margin: "0 0 12px", fontSize: "14px", color: "#334155", lineHeight: 1.5 }}>
-                Are you sure you want to deactivate grade{" "}
-                <strong style={{ color: "#0f172a" }}>&ldquo;{deleteTarget?.name}&rdquo;</strong>?
-                This will soft-delete the grade and hide it from active selectors.
-              </p>
-
-              {deleteReferences && deleteReferences.hasReferences && (
-                <div className={styles.warningCallout}>
-                  <div className={styles.warningCalloutTitle}>
-                    <HiExclamationTriangle size={17} />
-                    <span>Active Dependencies Detected ({deleteReferences.totalReferences} records)</span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: "12px", color: "#78350f" }}>
-                    This grade is currently referenced by other active academic modules:
-                  </p>
-                  <div className={styles.refBadgeList}>
-                    {deleteReferences.sections > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.sections}</strong> Section(s)
-                      </span>
-                    )}
-                    {deleteReferences.students > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.students}</strong> Student(s)
-                      </span>
-                    )}
-                    {deleteReferences.gradeSubjects > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.gradeSubjects}</strong> Subject Mapping(s)
-                      </span>
-                    )}
-                    {deleteReferences.exams > 0 && (
-                      <span className={styles.refBadgeItem}>
-                        <strong>{deleteReferences.exams}</strong> Exam(s)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsConfirmOpen(false)}
-                  disabled={deleteLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className={styles.btnDanger}
-                  onClick={handleConfirmDelete}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? (
-                    <>
-                      <span className={styles.spinner}></span> Deactivating...
-                    </>
-                  ) : (
-                    "Confirm Deactivation"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          grade={deleteTarget}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadGrades();
+          }}
+        />
       )}
     </div>
   );

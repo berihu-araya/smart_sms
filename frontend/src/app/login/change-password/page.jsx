@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import authService from "@/services/authService";
-import styles from "../Login.module.css";
+import styles from "./ChangePassword.module.css";
 
 export default function ChangePasswordPage() {
   const [form, setForm] = useState({
@@ -52,21 +52,23 @@ export default function ChangePasswordPage() {
 
   return (
     <main className={styles.wrapper}>
-      <section className={styles.card}>
-        <div className={styles.logo} aria-hidden="true">
-          🔒
+      <section className={styles.card} aria-labelledby="change-password-title">
+        <div className={styles.header}>
+          <div className={styles.icon} aria-hidden="true">⌁</div>
+          <div>
+            <p className={styles.eyebrow}>Account security</p>
+            <h1 id="change-password-title">Change password</h1>
+          </div>
         </div>
-
-        <h1>Change Password</h1>
-        <p>Update your password by entering your current password first.</p>
+        <p className={styles.intro}>Keep your account protected with a password only you know.</p>
 
         {submitted ? (
           <>
             <div className={styles.success} role="status">
               Your password has been changed successfully.
             </div>
-            <Link href="/login" className={styles.loginButton}>
-              Back to Login
+            <Link href="/login/profile" className={styles.submitButton}>
+              Return to profile
             </Link>
           </>
         ) : (
@@ -121,13 +123,13 @@ export default function ChangePasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className={styles.loginButton}
+              className={styles.submitButton}
             >
               {loading ? "Changing..." : "Change Password"}
             </button>
 
-            <Link href="/login" className={styles.backLink}>
-              Back to Login
+            <Link href="/login/profile" className={styles.backLink}>
+              Cancel and return to profile
             </Link>
           </form>
         )}

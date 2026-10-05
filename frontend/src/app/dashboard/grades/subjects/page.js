@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import gradeSubjectService from "@/services/gradeSubjectService";
 import gradeService from "@/services/gradeService";
 import subjectService from "@/services/subjectService";
 import academicYearService from "@/services/academicYearService";
+import teacherService from "@/services/teacherService";
+import Modal from "@/components/common/Modal";
+import {
+  GradeSubjectFormModal,
+  GradeSubjectDeleteModal,
+} from "@/components/grades";
 import styles from "./page.module.css";
 import {
   HiAcademicCap,
@@ -26,12 +33,15 @@ import {
   HiOutlineCheck,
 } from "react-icons/hi2";
 
-export default function GradeSubjectListPage() {
+function GradeSubjectListContent() {
+  const searchParams = useSearchParams();
+
   const [assignments, setAssignments] = useState([]);
   const [grades, setGrades] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [activeYearId, setActiveYearId] = useState("");
   const [allSubjects, setAllSubjects] = useState([]);
+  const [teachers, setTeachers] = useState([]);
 
   // Filters & View State
   const [selectedGrade, setSelectedGrade] = useState("");
@@ -48,6 +58,14 @@ export default function GradeSubjectListPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [error, setError] = useState("");
+
+  // Grade Subject Allocation Modal State (Create & Edit)
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState(null);
+
+  // Grade Subject Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Bulk Allocator Modal State
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -67,26 +85,60 @@ export default function GradeSubjectListPage() {
   const [cloneTargetGrade, setCloneTargetGrade] = useState("");
   const [cloneTargetYear, setCloneTargetYear] = useState("");
 
-  // 1. Initial Load: Academic Years, Active Year, Grades, All Subjects
+  // Support ?new=1 query param
+  useEffect(() => {
+    const isNew = searchParams.get("new");
+    if (isNew === "1" || isNew === "true") {
+      setEditingAssignment(null);
+      setIsAllocationModalOpen(true);
+    }
+  }, [searchParams]);
+
+  // Support ?edit=[id] query param
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (editId && assignments.length > 0) {
+      const target = assignments.find((a) => a.id === editId);
+      if (target) {
+        setEditingAssignment(target);
+        setIsAllocationModalOpen(true);
+      }
+    }
+  }, [searchParams, assignments]);
+
+  // 1. Initial Load: Academic Years, Active Year, Grades, All Subjects, Teachers
   useEffect(() => {
     async function loadMasterData() {
       try {
-        const [gradesData, yearsData, activeYear, subjectsData] = await Promise.all([
-          gradeService.listGrades({ limit: 100 }).catch(() => ({ items: [] })),
-          academicYearService.listAcademicYears({ limit: 100 }).catch(() => ({ items: [] })),
-          academicYearService.getActiveAcademicYear().catch(() => null),
-          subjectService.listSubjects({ limit: 200 }).catch(() => ({ items: [] })),
-        ]);
+        const [gradesData, yearsData, activeYear, subjectsData, teachersData] =
+          await Promise.all([
+            gradeService.listGrades({ limit: 100 }).catch(() => ({ items: [] })),
+            academicYearService
+              .listAcademicYears({ limit: 100 })
+              .catch(() => ({ items: [] })),
+            academicYearService.getActiveAcademicYear().catch(() => null),
+            subjectService.listSubjects({ limit: 200 }).catch(() => ({ items: [] })),
+            teacherService.listTeachers({ limit: 200 }).catch(() => ({ items: [] })),
+          ]);
 
         const gList = gradesData.items || gradesData.data?.items || [];
         const yList = yearsData.items || yearsData.data?.items || [];
         const subList = subjectsData.items || subjectsData.data?.items || [];
+        const tList =
+          teachersData.items ||
+          teachersData.data?.items ||
+          (Array.isArray(teachersData) ? teachersData : []);
 
         setGrades(gList);
         setAcademicYears(yList);
         setAllSubjects(subList);
+        setTeachers(tList);
 
-        const currentActive = activeYear?.data?.id || (yList.find((y) => y.is_active)?.id) || yList[0]?.id || "";
+        const currentActive =
+          activeYear?.data?.id ||
+          yList.find((y) => y.is_active)?.id ||
+          yList[0]?.id ||
+          "";
         setActiveYearId(currentActive);
         setSelectedAcademicYear(currentActive);
         setBulkYearId(currentActive);
@@ -121,10 +173,12 @@ export default function GradeSubjectListPage() {
           limit: 200,
           offset: 0,
         }),
-        gradeSubjectService.getCurriculumStats({
-          gradeId: selectedGrade || undefined,
-          academicYearId: selectedAcademicYear || undefined,
-        }).catch(() => null),
+        gradeSubjectService
+          .getCurriculumStats({
+            gradeId: selectedGrade || undefined,
+            academicYearId: selectedAcademicYear || undefined,
+          })
+          .catch(() => null),
       ]);
 
       setAssignments(res.items || []);
@@ -149,22 +203,22 @@ export default function GradeSubjectListPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Delete Assignment
-  const handleDelete = async (id, subjectName, gradeName) => {
-    if (!window.confirm(`Remove "${subjectName}" from ${gradeName}'s curriculum?`)) {
-      return;
-    }
+  // Open New Assignment Modal
+  const handleOpenNewAssignment = () => {
+    setEditingAssignment(null);
+    setIsAllocationModalOpen(true);
+  };
 
-    try {
-      setActionLoading(true);
-      await gradeSubjectService.deleteGradeSubject(id);
-      showToast(`Subject "${subjectName}" removed from ${gradeName}`);
-      loadData();
-    } catch (err) {
-      alert(err.message || "Failed to remove subject");
-    } finally {
-      setActionLoading(false);
-    }
+  // Open Edit Assignment Modal
+  const handleOpenEditAssignment = (item) => {
+    setEditingAssignment(item);
+    setIsAllocationModalOpen(true);
+  };
+
+  // Open Delete Confirmation Modal
+  const handleOpenDeleteModal = (item) => {
+    setDeleteTarget(item);
+    setIsDeleteModalOpen(true);
   };
 
   // Toggle Compulsory Status quickly
@@ -174,7 +228,11 @@ export default function GradeSubjectListPage() {
       await gradeSubjectService.updateGradeSubject(item.id, {
         isCompulsory: !item.is_compulsory,
       });
-      showToast(`Updated "${item.subject_name}" to ${!item.is_compulsory ? "Compulsory" : "Elective"}`);
+      showToast(
+        `Updated "${item.subject_name}" to ${
+          !item.is_compulsory ? "Compulsory" : "Elective"
+        }`
+      );
       loadData();
     } catch (err) {
       alert(err.message || "Failed to update subject status");
@@ -216,14 +274,18 @@ export default function GradeSubjectListPage() {
 
     try {
       setActionLoading(true);
-      const subjectsPayload = Array.from(selectedSubjectIds).map((subId, idx) => ({
-        subject_id: subId,
-        is_compulsory: bulkDefaultCompulsory,
-        weekly_periods: bulkDefaultPeriods ? Number(bulkDefaultPeriods) : null,
-        total_marks: bulkDefaultTotalMarks ? Number(bulkDefaultTotalMarks) : null,
-        pass_marks: bulkDefaultPassMarks ? Number(bulkDefaultPassMarks) : null,
-        display_order: idx + 1,
-      }));
+      const subjectsPayload = Array.from(selectedSubjectIds).map(
+        (subId, idx) => ({
+          subject_id: subId,
+          is_compulsory: bulkDefaultCompulsory,
+          weekly_periods: bulkDefaultPeriods ? Number(bulkDefaultPeriods) : null,
+          total_marks: bulkDefaultTotalMarks
+            ? Number(bulkDefaultTotalMarks)
+            : null,
+          pass_marks: bulkDefaultPassMarks ? Number(bulkDefaultPassMarks) : null,
+          display_order: idx + 1,
+        })
+      );
 
       await gradeSubjectService.bulkAssignGradeSubjects({
         gradeId: bulkGradeId,
@@ -232,7 +294,9 @@ export default function GradeSubjectListPage() {
       });
 
       setIsBulkOpen(false);
-      showToast(`Successfully mapped ${subjectsPayload.length} subject(s) to grade!`);
+      showToast(
+        `Successfully mapped ${subjectsPayload.length} subject(s) to grade!`
+      );
       loadData();
     } catch (err) {
       alert(err.message || "Failed to allocate subjects in bulk");
@@ -244,11 +308,19 @@ export default function GradeSubjectListPage() {
   // Submit Clone Curriculum
   const handleSaveClone = async (e) => {
     e.preventDefault();
-    if (!cloneSourceGrade || !cloneSourceYear || !cloneTargetGrade || !cloneTargetYear) {
+    if (
+      !cloneSourceGrade ||
+      !cloneSourceYear ||
+      !cloneTargetGrade ||
+      !cloneTargetYear
+    ) {
       alert("Please specify both source and target grade and academic years.");
       return;
     }
-    if (cloneSourceGrade === cloneTargetGrade && cloneSourceYear === cloneTargetYear) {
+    if (
+      cloneSourceGrade === cloneTargetGrade &&
+      cloneSourceYear === cloneTargetYear
+    ) {
       alert("Source and target cannot be identical.");
       return;
     }
@@ -263,7 +335,9 @@ export default function GradeSubjectListPage() {
       });
 
       setIsCloneOpen(false);
-      showToast(`Successfully cloned ${res.clonedCount} subject(s) to target grade!`);
+      showToast(
+        `Successfully cloned ${res.clonedCount || 0} subject(s) to target grade!`
+      );
       loadData();
     } catch (err) {
       alert(err.message || "Failed to clone curriculum");
@@ -307,7 +381,10 @@ export default function GradeSubjectListPage() {
       <div className={styles.headerRow}>
         <div className={styles.titleArea}>
           <h1>Subject-Class Curriculum Mapping</h1>
-          <p>Define and manage curriculum structures, instructional periods, and mark boundaries per grade level.</p>
+          <p>
+            Define and manage curriculum structures, instructional periods, and
+            mark boundaries per grade level.
+          </p>
         </div>
 
         <div className={styles.headerActions}>
@@ -329,9 +406,14 @@ export default function GradeSubjectListPage() {
             <HiSparkles size={17} style={{ color: "#2563eb" }} /> Bulk Allocator
           </button>
 
-          <Link href="/dashboard/grades/subjects/new" className={styles.btnPrimary}>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={handleOpenNewAssignment}
+            title="Assign single subject with customized parameters"
+          >
             <HiPlus size={18} /> New Assignment
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -356,7 +438,9 @@ export default function GradeSubjectListPage() {
           <div className={styles.kpiInfo}>
             <span className={styles.kpiLabel}>Total Mapped Subjects</span>
             <span className={styles.kpiValue}>
-              {stats?.total_assignments !== undefined ? stats.total_assignments : assignments.length}
+              {stats?.total_assignments !== undefined
+                ? stats.total_assignments
+                : assignments.length}
             </span>
             <span className={styles.kpiSub}>
               {stats?.unique_subjects || assignments.length} unique subject courses
@@ -371,8 +455,11 @@ export default function GradeSubjectListPage() {
           <div className={styles.kpiInfo}>
             <span className={styles.kpiLabel}>Compulsory vs Elective</span>
             <span className={styles.kpiValue}>
-              {stats?.compulsory_count ?? assignments.filter((a) => a.is_compulsory).length} /{" "}
-              {stats?.elective_count ?? assignments.filter((a) => !a.is_compulsory).length}
+              {stats?.compulsory_count ??
+                assignments.filter((a) => a.is_compulsory).length}{" "}
+              /{" "}
+              {stats?.elective_count ??
+                assignments.filter((a) => !a.is_compulsory).length}
             </span>
             <span className={styles.kpiSub}>Core curriculum requirements</span>
           </div>
@@ -386,7 +473,10 @@ export default function GradeSubjectListPage() {
             <span className={styles.kpiLabel}>Weekly Periods</span>
             <span className={styles.kpiValue}>
               {stats?.total_weekly_periods ??
-                assignments.reduce((sum, a) => sum + (Number(a.weekly_periods) || 0), 0)}
+                assignments.reduce(
+                  (sum, a) => sum + (Number(a.weekly_periods) || 0),
+                  0
+                )}
             </span>
             <span className={styles.kpiSub}>Total instructional hours/week</span>
           </div>
@@ -399,10 +489,13 @@ export default function GradeSubjectListPage() {
           <div className={styles.kpiInfo}>
             <span className={styles.kpiLabel}>Curriculum Marks</span>
             <span className={styles.kpiValue}>
-              {stats?.total_curriculum_marks ? Math.round(stats.total_curriculum_marks) : "—"}
+              {stats?.total_curriculum_marks
+                ? Math.round(stats.total_curriculum_marks)
+                : "—"}
             </span>
             <span className={styles.kpiSub}>
-              Avg Pass Mark: {stats?.avg_pass_marks ? `${stats.avg_pass_marks} pts` : "40%"}
+              Avg Pass Mark:{" "}
+              {stats?.avg_pass_marks ? `${stats.avg_pass_marks} pts` : "40%"}
             </span>
           </div>
         </div>
@@ -433,10 +526,12 @@ export default function GradeSubjectListPage() {
             >
               <option value="">All Grades ({grades.length})</option>
               {grades.map((g) => {
-                const count = assignments.filter((a) => a.grade_id === g.id).length;
+                const count = assignments.filter(
+                  (a) => a.grade_id === g.id
+                ).length;
                 return (
                   <option key={g.id} value={g.id}>
-                    {g.name} {count > 0 ? `(${count} subjects)` : "(no subjects)"}
+                    {g.name} ({count} subject{count === 1 ? "" : "s"})
                   </option>
                 );
               })}
@@ -472,7 +567,9 @@ export default function GradeSubjectListPage() {
           <div className={styles.viewToggle}>
             <button
               type="button"
-              className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
+              className={`${styles.viewBtn} ${
+                viewMode === "grid" ? styles.viewBtnActive : ""
+              }`}
               onClick={() => setViewMode("grid")}
               title="Curriculum Grid Cards"
             >
@@ -480,7 +577,9 @@ export default function GradeSubjectListPage() {
             </button>
             <button
               type="button"
-              className={`${styles.viewBtn} ${viewMode === "table" ? styles.viewBtnActive : ""}`}
+              className={`${styles.viewBtn} ${
+                viewMode === "table" ? styles.viewBtnActive : ""
+              }`}
               onClick={() => setViewMode("table")}
               title="Spreadsheet Table View"
             >
@@ -498,18 +597,37 @@ export default function GradeSubjectListPage() {
       ) : assignments.length === 0 ? (
         <div className={styles.emptyState}>
           <HiAcademicCap className={styles.emptyIcon} />
-          <h3 className={styles.emptyTitle}>No Subjects Mapped for {selectedGradeName}</h3>
+          <h3 className={styles.emptyTitle}>
+            No Subjects Mapped for {selectedGradeName}
+          </h3>
           <p className={styles.emptyText}>
-            Get started by using the <strong>Bulk Allocator</strong> or <strong>New Assignment</strong> to define the subjects
-            taught in this grade level.
+            Get started by using the <strong>New Assignment</strong> modal or{" "}
+            <strong>Bulk Allocator</strong> to define the subjects taught in this
+            grade level.
           </p>
-          <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              marginTop: "14px",
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
             <button
               type="button"
               className={styles.btnPrimary}
+              onClick={handleOpenNewAssignment}
+            >
+              <HiPlus size={18} /> New Assignment
+            </button>
+            <button
+              type="button"
+              className={styles.btnSecondary}
               onClick={() => handleOpenBulkModal(selectedGrade)}
             >
-              <HiSparkles size={17} /> Bulk Allocate Subjects Now
+              <HiSparkles size={17} style={{ color: "#2563eb" }} /> Bulk
+              Allocate Subjects
             </button>
           </div>
         </div>
@@ -520,7 +638,9 @@ export default function GradeSubjectListPage() {
             <div key={item.id} className={styles.subjectCard}>
               <div className={styles.subjectCardTop}>
                 <div className={styles.subjectTitleArea}>
-                  <span className={styles.subjectCodeBadge}>{item.subject_code}</span>
+                  <span className={styles.subjectCodeBadge}>
+                    {item.subject_code}
+                  </span>
                   <h3 className={styles.subjectName}>{item.subject_name}</h3>
                   <span className={styles.gradeBadge}>
                     {item.grade_name} &bull; {item.academic_year_name}
@@ -532,16 +652,44 @@ export default function GradeSubjectListPage() {
               <div className={styles.cardMetricsGrid}>
                 <div className={styles.cardMetricItem}>
                   <span className={styles.metricItemLabel}>Periods</span>
-                  <span className={styles.metricItemVal}>{item.weekly_periods ?? "—"}/wk</span>
+                  <span className={styles.metricItemVal}>
+                    {item.weekly_periods ?? "—"}/wk
+                  </span>
                 </div>
                 <div className={styles.cardMetricItem}>
                   <span className={styles.metricItemLabel}>Total Marks</span>
-                  <span className={styles.metricItemVal}>{item.total_marks ?? "100"} pts</span>
+                  <span className={styles.metricItemVal}>
+                    {item.total_marks ?? "100"} pts
+                  </span>
                 </div>
                 <div className={styles.cardMetricItem}>
                   <span className={styles.metricItemLabel}>Pass Mark</span>
-                  <span className={styles.metricItemVal}>{item.pass_marks ?? "40"} pts</span>
+                  <span className={styles.metricItemVal}>
+                    {item.pass_marks ?? "40"} pts
+                  </span>
                 </div>
+              </div>
+
+              {/* Teacher Info */}
+              <div
+                style={{
+                  padding: "8px 14px",
+                  background: "#f8fafc",
+                  borderRadius: "8px",
+                  margin: "0 14px 10px",
+                  fontSize: "13px",
+                }}
+              >
+                <span style={{ color: "#64748b", fontWeight: 500 }}>
+                  Assigned Teacher:{" "}
+                </span>
+                <strong
+                  style={{
+                    color: item.teacher_name ? "#1e40af" : "#94a3b8",
+                  }}
+                >
+                  {item.teacher_name ? `👨‍🏫 ${item.teacher_name}` : "Not Assigned"}
+                </strong>
               </div>
 
               {/* Footer & Actions */}
@@ -551,7 +699,9 @@ export default function GradeSubjectListPage() {
                   onClick={() => handleToggleCompulsory(item)}
                   disabled={actionLoading}
                   className={`${styles.compulsoryBadge} ${
-                    item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
+                    item.is_compulsory
+                      ? styles.badgeCompulsory
+                      : styles.badgeElective
                   }`}
                   style={{ border: "none", cursor: "pointer" }}
                   title="Click to toggle Compulsory / Elective"
@@ -567,17 +717,18 @@ export default function GradeSubjectListPage() {
                   >
                     <HiEye size={15} />
                   </Link>
-                  <Link
-                    href={`/dashboard/grades/subjects/${item.id}/edit`}
+                  <button
+                    type="button"
                     className={styles.iconBtn}
+                    onClick={() => handleOpenEditAssignment(item)}
                     title="Edit Settings"
                   >
                     <HiPencilSquare size={15} />
-                  </Link>
+                  </button>
                   <button
                     type="button"
                     className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                    onClick={() => handleDelete(item.id, item.subject_name, item.grade_name)}
+                    onClick={() => handleOpenDeleteModal(item)}
                     disabled={actionLoading}
                     title="Remove from Grade"
                   >
@@ -598,6 +749,7 @@ export default function GradeSubjectListPage() {
                   <th>Order</th>
                   <th>Grade</th>
                   <th>Subject Code & Name</th>
+                  <th>Assigned Teacher</th>
                   <th>Academic Session</th>
                   <th>Type</th>
                   <th>Weekly Periods</th>
@@ -613,15 +765,48 @@ export default function GradeSubjectListPage() {
                       {item.display_order || idx + 1}
                     </td>
                     <td>
-                      <strong style={{ color: "#0f172a" }}>{item.grade_name}</strong>
+                      <strong style={{ color: "#0f172a" }}>
+                        {item.grade_name}
+                      </strong>
                     </td>
                     <td>
                       <div>
                         <strong>{item.subject_name}</strong>
-                        <span style={{ color: "#64748b", marginLeft: "6px", fontSize: "12px" }}>
+                        <span
+                          style={{
+                            color: "#64748b",
+                            marginLeft: "6px",
+                            fontSize: "12px",
+                          }}
+                        >
                           ({item.subject_code})
                         </span>
                       </div>
+                    </td>
+                    <td>
+                      {item.teacher_name ? (
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: "#1e40af",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          👨‍🏫 {item.teacher_name}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            color: "#94a3b8",
+                            fontStyle: "italic",
+                            fontSize: "13px",
+                          }}
+                        >
+                          Not Assigned
+                        </span>
+                      )}
                     </td>
                     <td>
                       {item.academic_year_name}
@@ -643,7 +828,9 @@ export default function GradeSubjectListPage() {
                     <td>
                       <span
                         className={`${styles.compulsoryBadge} ${
-                          item.is_compulsory ? styles.badgeCompulsory : styles.badgeElective
+                          item.is_compulsory
+                            ? styles.badgeCompulsory
+                            : styles.badgeElective
                         }`}
                       >
                         {item.is_compulsory ? "Compulsory" : "Elective"}
@@ -660,14 +847,18 @@ export default function GradeSubjectListPage() {
                         style={{
                           fontSize: "12px",
                           fontWeight: 700,
-                          color: item.status === "ACTIVE" ? "#16a34a" : "#94a3b8",
+                          color:
+                            item.status === "ACTIVE" ? "#16a34a" : "#94a3b8",
                         }}
                       >
                         {item.status || "ACTIVE"}
                       </span>
                     </td>
                     <td>
-                      <div className={styles.actionsCell} style={{ justifyContent: "flex-end" }}>
+                      <div
+                        className={styles.actionsCell}
+                        style={{ justifyContent: "flex-end" }}
+                      >
                         <Link
                           href={`/dashboard/grades/subjects/${item.id}`}
                           className={styles.iconBtn}
@@ -675,17 +866,18 @@ export default function GradeSubjectListPage() {
                         >
                           <HiEye size={15} />
                         </Link>
-                        <Link
-                          href={`/dashboard/grades/subjects/${item.id}/edit`}
+                        <button
+                          type="button"
                           className={styles.iconBtn}
+                          onClick={() => handleOpenEditAssignment(item)}
                           title="Edit"
                         >
                           <HiPencilSquare size={15} />
-                        </Link>
+                        </button>
                         <button
                           type="button"
                           className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
-                          onClick={() => handleDelete(item.id, item.subject_name, item.grade_name)}
+                          onClick={() => handleOpenDeleteModal(item)}
                           disabled={actionLoading}
                           title="Delete"
                         >
@@ -701,296 +893,398 @@ export default function GradeSubjectListPage() {
         </div>
       )}
 
+      {/* ================= GRADE SUBJECT ALLOCATION MODAL (CREATE & EDIT) ================= */}
+      <GradeSubjectFormModal
+        isOpen={isAllocationModalOpen}
+        onClose={() => {
+          setIsAllocationModalOpen(false);
+          setEditingAssignment(null);
+        }}
+        assignment={editingAssignment}
+        defaultGradeId={selectedGrade || grades[0]?.id || ""}
+        defaultAcademicYearId={selectedAcademicYear || activeYearId}
+        grades={grades}
+        subjects={allSubjects}
+        academicYears={academicYears}
+        teachers={teachers}
+        onSuccess={(msg) => {
+          showToast(msg || "Subject assignment updated successfully!");
+          loadData();
+        }}
+      />
+
+      {/* ================= GRADE SUBJECT DELETE MODAL ================= */}
+      {isDeleteModalOpen && (
+        <GradeSubjectDeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setDeleteTarget(null);
+          }}
+          assignment={deleteTarget}
+          onSuccess={(msg) => {
+            showToast(msg);
+            loadData();
+          }}
+        />
+      )}
+
       {/* ================= BULK ALLOCATOR MODAL ================= */}
-      {isBulkOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsBulkOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h2>⚡ Batch Subject Allocator</h2>
-                <p>Select multiple subjects to map to a grade level in a single transaction.</p>
+      <Modal
+        isOpen={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        title="⚡ Batch Subject Allocator"
+        subtitle="Select multiple subjects to map to a grade level in a single transaction."
+        icon={HiSparkles}
+        size="lg"
+      >
+        <form onSubmit={handleSaveBulkAllocation}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Target Grade & Year */}
+            <div className={styles.formGrid2}>
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>Target Grade *</label>
+                <select
+                  value={bulkGradeId}
+                  onChange={(e) => setBulkGradeId(e.target.value)}
+                  className={styles.select}
+                  required
+                >
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsBulkOpen(false)}
-              >
-                ✕
-              </button>
+
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>Academic Year *</label>
+                <select
+                  value={bulkYearId}
+                  onChange={(e) => setBulkYearId(e.target.value)}
+                  className={styles.select}
+                  required
+                >
+                  {academicYears.map((y) => (
+                    <option key={y.id} value={y.id}>
+                      {y.name} {y.is_active ? "★ (Active)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveBulkAllocation}>
-              <div className={styles.modalBody}>
-                {/* Target Grade & Year */}
-                <div className={styles.formGrid2}>
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Target Grade *</label>
-                    <select
-                      value={bulkGradeId}
-                      onChange={(e) => setBulkGradeId(e.target.value)}
-                      className={styles.select}
-                      required
-                    >
-                      {grades.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            {/* Default Curriculum Parameters */}
+            <div
+              className={styles.formGrid2}
+              style={{
+                background: "#f8fafc",
+                padding: "12px",
+                borderRadius: "10px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>Weekly Periods</label>
+                <input
+                  type="number"
+                  value={bulkDefaultPeriods}
+                  onChange={(e) => setBulkDefaultPeriods(e.target.value)}
+                  placeholder="e.g. 4"
+                  className={styles.searchInput}
+                  style={{ paddingLeft: "12px" }}
+                />
+              </div>
 
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Academic Year *</label>
-                    <select
-                      value={bulkYearId}
-                      onChange={(e) => setBulkYearId(e.target.value)}
-                      className={styles.select}
-                      required
-                    >
-                      {academicYears.map((y) => (
-                        <option key={y.id} value={y.id}>
-                          {y.name} {y.is_active ? "★ (Active)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div className={styles.formField}>
+                <label className={styles.fieldLabel}>Total / Pass Marks</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="number"
+                    value={bulkDefaultTotalMarks}
+                    onChange={(e) => setBulkDefaultTotalMarks(e.target.value)}
+                    placeholder="Max 100"
+                    className={styles.searchInput}
+                    style={{ paddingLeft: "12px" }}
+                  />
+                  <input
+                    type="number"
+                    value={bulkDefaultPassMarks}
+                    onChange={(e) => setBulkDefaultPassMarks(e.target.value)}
+                    placeholder="Pass 40"
+                    className={styles.searchInput}
+                    style={{ paddingLeft: "12px" }}
+                  />
                 </div>
+              </div>
+            </div>
 
-                {/* Default Curriculum Parameters */}
-                <div className={styles.formGrid2} style={{ background: "#f8fafc", padding: "12px", borderRadius: "10px" }}>
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Weekly Periods</label>
-                    <input
-                      type="number"
-                      value={bulkDefaultPeriods}
-                      onChange={(e) => setBulkDefaultPeriods(e.target.value)}
-                      placeholder="e.g. 4"
-                      className={styles.searchInput}
-                      style={{ paddingLeft: "12px" }}
-                    />
-                  </div>
+            {/* Subject Selector Checklist */}
+            <div className={styles.formField}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "6px",
+                }}
+              >
+                <label className={styles.fieldLabel} style={{ marginBottom: 0 }}>
+                  Select Subjects ({selectedSubjectIds.size} selected) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter subjects..."
+                  value={bulkSearch}
+                  onChange={(e) => setBulkSearch(e.target.value)}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    outline: "none",
+                  }}
+                />
+              </div>
 
-                  <div className={styles.formField}>
-                    <label className={styles.fieldLabel}>Total / Pass Marks</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="number"
-                        value={bulkDefaultTotalMarks}
-                        onChange={(e) => setBulkDefaultTotalMarks(e.target.value)}
-                        placeholder="Max 100"
-                        className={styles.searchInput}
-                        style={{ paddingLeft: "12px" }}
-                      />
-                      <input
-                        type="number"
-                        value={bulkDefaultPassMarks}
-                        onChange={(e) => setBulkDefaultPassMarks(e.target.value)}
-                        placeholder="Pass 40"
-                        className={styles.searchInput}
-                        style={{ paddingLeft: "12px" }}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className={styles.subjectsChecklist}>
+                {filteredBulkSubjects.map((sub) => {
+                  const isSelected = selectedSubjectIds.has(sub.id);
+                  const isAlreadyMapped = alreadyMappedSubjectIds.has(sub.id);
 
-                {/* Subject Selector Checklist */}
-                <div className={styles.formField}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <label className={styles.fieldLabel}>
-                      Select Subjects ({selectedSubjectIds.size} selected) *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Filter subjects..."
-                      value={bulkSearch}
-                      onChange={(e) => setBulkSearch(e.target.value)}
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: "12px",
-                        borderRadius: "6px",
-                        border: "1px solid #cbd5e1",
-                      }}
-                    />
-                  </div>
-
-                  <div className={styles.subjectsChecklist}>
-                    {filteredBulkSubjects.map((sub) => {
-                      const isSelected = selectedSubjectIds.has(sub.id);
-                      const isAlreadyMapped = alreadyMappedSubjectIds.has(sub.id);
-
-                      return (
-                        <div
-                          key={sub.id}
-                          className={`${styles.subjectCheckItem} ${
-                            isSelected ? styles.subjectCheckItemActive : ""
-                          }`}
-                          onClick={() => handleToggleSubjectSelection(sub.id)}
-                        >
-                          <div className={styles.checkLeft}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className={styles.checkbox}
-                            />
-                            <div>
-                              <strong style={{ fontSize: "14px", color: "#0f172a" }}>
-                                {sub.subject_name}
-                              </strong>
-                              <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "6px" }}>
-                                ({sub.subject_code})
-                              </span>
-                            </div>
-                          </div>
-
-                          {isAlreadyMapped && (
-                            <span className={styles.alreadyMappedTag}>Already Mapped</span>
-                          )}
+                  return (
+                    <div
+                      key={sub.id}
+                      className={`${styles.subjectCheckItem} ${
+                        isSelected ? styles.subjectCheckItemActive : ""
+                      }`}
+                      onClick={() => handleToggleSubjectSelection(sub.id)}
+                    >
+                      <div className={styles.checkLeft}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className={styles.checkbox}
+                        />
+                        <div>
+                          <strong
+                            style={{ fontSize: "14px", color: "#0f172a" }}
+                          >
+                            {sub.subject_name}
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              color: "#64748b",
+                              marginLeft: "6px",
+                            }}
+                          >
+                            ({sub.subject_code})
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+                      </div>
 
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsBulkOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading || selectedSubjectIds.size === 0}
-                  className={styles.btnPrimary}
-                >
-                  {actionLoading ? "Saving..." : `Allocate ${selectedSubjectIds.size} Subjects`}
-                </button>
+                      {isAlreadyMapped && (
+                        <span className={styles.alreadyMappedTag}>
+                          Already Mapped
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "10px",
+              marginTop: "20px",
+              paddingTop: "14px",
+              borderTop: "1px solid #f1f5f9",
+            }}
+          >
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => setIsBulkOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={actionLoading || selectedSubjectIds.size === 0}
+              className={styles.btnPrimary}
+            >
+              {actionLoading
+                ? "Saving..."
+                : `Allocate ${selectedSubjectIds.size} Subjects`}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ================= CLONE CURRICULUM MODAL ================= */}
-      {isCloneOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsCloneOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h2>📋 Replicate Curriculum Structure</h2>
-                <p>Copy all mapped subjects, periods, and mark configurations from one grade to another.</p>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsCloneOpen(false)}
+      <Modal
+        isOpen={isCloneOpen}
+        onClose={() => setIsCloneOpen(false)}
+        title="📋 Replicate Curriculum Structure"
+        subtitle="Copy all mapped subjects, periods, and mark configurations from one grade to another."
+        icon={HiDocumentDuplicate}
+        size="md"
+      >
+        <form onSubmit={handleSaveClone}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Source */}
+            <div
+              style={{
+                background: "#f8fafc",
+                padding: "16px",
+                borderRadius: "12px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "14px",
+                  color: "#0f172a",
+                }}
               >
-                ✕
-              </button>
+                Source Curriculum (Copy From):
+              </h4>
+              <div className={styles.formGrid2}>
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Source Grade</label>
+                  <select
+                    value={cloneSourceGrade}
+                    onChange={(e) => setCloneSourceGrade(e.target.value)}
+                    className={styles.select}
+                  >
+                    {grades.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>
+                    Source Academic Year
+                  </label>
+                  <select
+                    value={cloneSourceYear}
+                    onChange={(e) => setCloneSourceYear(e.target.value)}
+                    className={styles.select}
+                  >
+                    {academicYears.map((y) => (
+                      <option key={y.id} value={y.id}>
+                        {y.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveClone}>
-              <div className={styles.modalBody}>
-                {/* Source */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "12px" }}>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#0f172a" }}>
-                    Source Curriculum (Copy From):
-                  </h4>
-                  <div className={styles.formGrid2}>
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Source Grade</label>
-                      <select
-                        value={cloneSourceGrade}
-                        onChange={(e) => setCloneSourceGrade(e.target.value)}
-                        className={styles.select}
-                      >
-                        {grades.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Source Academic Year</label>
-                      <select
-                        value={cloneSourceYear}
-                        onChange={(e) => setCloneSourceYear(e.target.value)}
-                        className={styles.select}
-                      >
-                        {academicYears.map((y) => (
-                          <option key={y.id} value={y.id}>
-                            {y.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+            {/* Target */}
+            <div
+              style={{
+                background: "#eff6ff",
+                padding: "16px",
+                borderRadius: "12px",
+                border: "1px solid #bfdbfe",
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "14px",
+                  color: "#1e3a8a",
+                }}
+              >
+                Target Curriculum (Paste To):
+              </h4>
+              <div className={styles.formGrid2}>
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>Target Grade</label>
+                  <select
+                    value={cloneTargetGrade}
+                    onChange={(e) => setCloneTargetGrade(e.target.value)}
+                    className={styles.select}
+                  >
+                    {grades.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Target */}
-                <div style={{ background: "#eff6ff", padding: "16px", borderRadius: "12px", border: "1px solid #bfdbfe" }}>
-                  <h4 style={{ margin: "0 0 10px", fontSize: "14px", color: "#1e3a8a" }}>
-                    Target Curriculum (Paste To):
-                  </h4>
-                  <div className={styles.formGrid2}>
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Target Grade</label>
-                      <select
-                        value={cloneTargetGrade}
-                        onChange={(e) => setCloneTargetGrade(e.target.value)}
-                        className={styles.select}
-                      >
-                        {grades.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className={styles.formField}>
-                      <label className={styles.fieldLabel}>Target Academic Year</label>
-                      <select
-                        value={cloneTargetYear}
-                        onChange={(e) => setCloneTargetYear(e.target.value)}
-                        className={styles.select}
-                      >
-                        {academicYears.map((y) => (
-                          <option key={y.id} value={y.id}>
-                            {y.name} {y.is_active ? "★ (Active)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                <div className={styles.formField}>
+                  <label className={styles.fieldLabel}>
+                    Target Academic Year
+                  </label>
+                  <select
+                    value={cloneTargetYear}
+                    onChange={(e) => setCloneTargetYear(e.target.value)}
+                    className={styles.select}
+                  >
+                    {academicYears.map((y) => (
+                      <option key={y.id} value={y.id}>
+                        {y.name} {y.is_active ? "★ (Active)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.btnSecondary}
-                  onClick={() => setIsCloneOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className={styles.btnPrimary}
-                >
-                  {actionLoading ? "Cloning..." : "Execute Curriculum Clone"}
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "10px",
+              marginTop: "20px",
+              paddingTop: "14px",
+              borderTop: "1px solid #f1f5f9",
+            }}
+          >
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={() => setIsCloneOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={actionLoading}
+              className={styles.btnPrimary}
+            >
+              {actionLoading ? "Cloning..." : "Execute Curriculum Clone"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
+  );
+}
+
+export default function GradeSubjectListPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ padding: "28px" }}>Loading curriculum mappings...</div>
+      }
+    >
+      <GradeSubjectListContent />
+    </Suspense>
   );
 }

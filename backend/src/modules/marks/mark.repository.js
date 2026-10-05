@@ -13,10 +13,30 @@ class MarkRepository {
       WHERE ts.teacher_id = $1
         AND ts.subject_id = $2
         AND ts.section_id = $3
+        AND ts.status = 'ACTIVE'
         AND ts.deleted_at IS NULL
       LIMIT 1
       `,
       [teacherId, subjectId, sectionId]
+    );
+
+    return result.rows.length > 0;
+  }
+
+  async isClassTeacherOfSection({ teacherId, sectionId }) {
+    if (!teacherId || !sectionId) return false;
+
+    const result = await this.database.query(
+      `
+      SELECT 1
+      FROM class_teachers ct
+      WHERE ct.teacher_id = $1
+        AND ct.section_id = $2
+        AND ct.status = 'ACTIVE'
+        AND ct.deleted_at IS NULL
+      LIMIT 1
+      `,
+      [teacherId, sectionId]
     );
 
     return result.rows.length > 0;

@@ -18,7 +18,19 @@ export async function getStudentReportCard(studentId, { academicYearId, term } =
   return response.data;
 }
 
-export default {
+export async function getOwnReportCard({ academicYearId, term } = {}) {
+  const params = {};
+  if (academicYearId) params.academicYearId = academicYearId;
+  if (term) params.term = term;
+  const query = new URLSearchParams(params).toString();
+  const response = await request(`/api/v1/results/report-card/me?${query}`);
+  return response.data;
+}
+
+const resultService = {
   getSectionResults,
   getStudentReportCard,
+  getOwnReportCard,
 };
+
+export default resultService;

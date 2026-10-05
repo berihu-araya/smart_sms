@@ -44,3 +44,22 @@
 - [x] `docker-compose.prod.yml` multi-container production topology (Postgres 17, Redis 7, Backend, Frontend, Nginx)
 - [x] Nginx reverse proxy configuration with SSL termination & security headers (`docker/nginx/conf.d/default.conf`)
 - [x] Automated database backup shell script with retention pruning (`docker/scripts/backup-db.sh`)
+
+### ✅ Phase 7: Assignments & Homework Management System
+- [x] Database Migration: `assignments` and `assignment_submissions` tables with tenant isolation & constraints
+- [x] Backend Module: Repository, Service, Controller, Routes & Validation (`/api/v1/assignments`)
+- [x] Backend Submissions & Inline Grading Engine with boundary validation and teacher feedback
+- [x] Frontend Assignments Suite: Role-aware interface for Teachers, Admins, Students, and Parents (`/dashboard/assignments`)
+- [x] Frontend Submissions Roster Drawer with live grading, status filtering, and CSV export
+- [x] Frontend Student Submission Workspace with due date countdowns, file attachments, and feedback review
+
+### ✅ Phase 8: Financial Administration & Fee Management Suite
+- [x] Database Migration: 17 relational tables (`fee_categories`, `fee_structures`, `fee_discounts`, `student_fee_invoices`, `student_fee_invoice_items`, `fee_payments`, `bank_slip_submissions`, `expense_categories`, `expenses`, `income_categories`, `incomes`, `salary_structures`, `payroll_runs`, `payslips`, `payslip_items`, `finance_settings`)
+- [x] Backend Architecture: Repository, Service with ACID transactions, Controller, Routes with RBAC role guards, and Validation (`/api/v1/finance`)
+- [x] Fee Management: Batch invoicing, multi-channel payment recording, balance tracking, sequential receipts, and parent bank slip review workflow
+- [x] Expense & Income Suites: Departmental budget meters, voucher logging with attachments, non-tuition revenue tracking
+- [x] Payroll Engine: Staff salary structures, progressive income tax & pension calculation, monthly batch payslip runner, bank CSV export
+- [x] Financial Analytics & Reporting: Annual P&L statement, fee collection rate %, aging defaulters list, cashier shift register
+- [x] Frontend Interfaces: `/dashboard/fees`, `/dashboard/expenses`, `/dashboard/income`, `/dashboard/payroll`, and `/dashboard/reports/financial`
+- [x] Print Engine: `@media print` layouts for 80mm thermal receipts, A4 tax invoices, and staff payslips
+

@@ -46,10 +46,38 @@ import {
   FaSlidersH,
 } from "react-icons/fa";
 
-const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff"];
+const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff", "Librarian", "Driver"];
 const ADMIN_ONLY = ["School Admin", "Admin"];
-const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff"];
-const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff"];
+const ADMIN_AND_STAFF = ["School Admin", "Admin", "Staff", "Librarian", "Driver"];
+const ACADEMIC_STAFF = ["School Admin", "Admin", "Teacher", "Staff", "Librarian"];
+
+export function roleIsAllowed(allowedRoles = [], role) {
+  const currentRole = (role || "").trim().toLowerCase();
+
+  return allowedRoles.length === 0 || allowedRoles.some((allowedRole) => {
+    const normalizedRole = allowedRole.toLowerCase();
+    return normalizedRole === currentRole ||
+      (normalizedRole === "admin" && currentRole === "school admin") ||
+      (normalizedRole === "school admin" && currentRole === "admin");
+  });
+}
+
+export function findMenuItemForPath(items, pathname, match = null) {
+  for (const item of items) {
+    const matchesPath = item.link &&
+      (pathname === item.link || pathname.startsWith(`${item.link}/`));
+    const nextMatch = matchesPath ? item : match;
+
+    if (item.children?.length) {
+      const childMatch = findMenuItemForPath(item.children, pathname, nextMatch);
+      if (childMatch) return childMatch;
+    }
+
+    if (matchesPath) return item;
+  }
+
+  return match;
+}
 
 const menuData = [
   {
@@ -73,13 +101,13 @@ const menuData = [
       {
         title: "Teachers",
         icon: FaChalkboardTeacher,
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
         children: [
           {
             title: "All Teachers",
             icon: FaChalkboardTeacher,
             link: "/dashboard/teachers",
-            roles: ["School Admin", "Admin", "Staff"],
+            roles: ["School Admin", "Admin", "Student", "Staff"],
           },
           {
             title: "Teacher Subjects",
@@ -99,7 +127,7 @@ const menuData = [
         title: "Staff",
         icon: FaUserTie,
         link: "/dashboard/staff",
-        roles: ["School Admin", "Admin", "Staff"],
+        roles: ["School Admin", "Admin", "Student", "Staff"],
       },
       {
         title: "Create User",
@@ -119,25 +147,25 @@ const menuData = [
         title: "Grades",
         icon: FaLayerGroup,
         link: "/dashboard/grades",
-        roles: ["School Admin", "Admin", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Staff"],
       },
       {
         title: "Sections",
         icon: FaSchool,
         link: "/dashboard/sections",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
       },
       {
         title: "Subjects",
         icon: FaBook,
         link: "/dashboard/subjects",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Staff"],
       },
       {
         title: "Subject Allocation",
         icon: FaClipboardList,
         link: "/dashboard/grades/subjects",
-        roles: ["School Admin", "Admin", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Staff"],
       },
       {
         title: "Timetable",
@@ -155,13 +183,13 @@ const menuData = [
         title: "Assignments",
         icon: FaTasks,
         link: "/dashboard/assignments",
-        roles: ["School Admin", "Admin", "Teacher", "Student"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Parent"],
       },
       {
         title: "Exams",
         icon: FaFileAlt,
         link: "/dashboard/exams",
-        roles: ["School Admin", "Admin", "Teacher", "Student"],
+        roles: ["School Admin", "Admin", "Teacher", "Student", "Parent"],
       },
       {
         title: "Marks Entry",
@@ -213,13 +241,13 @@ const menuData = [
   {
     title: "Campus Services",
     icon: HiBuildingLibrary,
-    roles: ["School Admin", "Admin", "Student", "Staff"],
+    roles: ["School Admin", "Admin", "Librarian", "Student", "Teacher", "Staff"],
     children: [
       {
         title: "Library",
         icon: FaBookReader,
         link: "/dashboard/library",
-        roles: ["School Admin", "Admin", "Student", "Teacher", "Staff"],
+        roles: ["School Admin", "Admin", "Librarian", "Student", "Teacher", "Staff"],
       },
       {
         title: "Hostel",
@@ -231,7 +259,7 @@ const menuData = [
         title: "Transport",
         icon: FaBus,
         link: "/dashboard/transport",
-        roles: ADMIN_AND_STAFF,
+        roles: ALL_ROLES,
       },
     ],
   },

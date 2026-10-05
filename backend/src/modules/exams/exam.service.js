@@ -3,8 +3,8 @@ class ExamService {
     this.repository = repository;
   }
 
-  async listExams({ search = '', academicYearId = null, gradeId = null, teacherId = null, limit = 50, offset = 0 } = {}) {
-    return await this.repository.findAll({ search, academicYearId, gradeId, teacherId, limit, offset });
+  async listExams({ search = '', academicYearId = null, gradeId = null, gradeIds = null, teacherId = null, teacherScope = null, publishedOnly = false, limit = 50, offset = 0 } = {}) {
+    return await this.repository.findAll({ search, academicYearId, gradeId, gradeIds, teacherId, teacherScope, publishedOnly, limit, offset });
   }
 
   async getExamById(id) {

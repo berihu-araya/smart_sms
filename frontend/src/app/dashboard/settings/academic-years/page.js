@@ -33,6 +33,10 @@ export default function AcademicYearListPage() {
   async function handleSetActive(id) {
     try {
       await academicYearService.setActiveAcademicYear(id);
+      // Notify header and components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("smart-sms-academic-year-change"));
+      }
       // Reload list to reflect changes
       const data = await academicYearService.listAcademicYears({ search, limit: 50, offset: 0 });
       setYears(data.items || []);
@@ -46,6 +50,9 @@ export default function AcademicYearListPage() {
 
     try {
       await academicYearService.deleteAcademicYear(id);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("smart-sms-academic-year-change"));
+      }
       setYears((prev) => prev.filter((y) => y.id !== id));
     } catch (err) {
       setError(err.message || "Failed to delete academic year");

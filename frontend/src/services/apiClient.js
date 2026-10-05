@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5200";
 
 function getToken() {
   if (typeof window === "undefined") {
@@ -18,10 +18,17 @@ async function request(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new Error(
+      "The backend service is not running yet. Please make sure the backend server is started."
+    );
+  }
 
   const payload = await response.json().catch(() => null);
 
@@ -33,4 +40,39 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export { API_BASE_URL, request };
+async function downloadFile(path, fallbackFilename) {
+  const token = getToken();
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  } catch (error) {
+    throw new Error(
+      "The backend service is not running yet. Please make sure the backend server is started."
+    );
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.message || response.statusText || "Download failed");
+  }
+
+  const filename = response.headers
+    .get("Content-Disposition")
+    ?.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export { API_BASE_URL, request, downloadFile };

@@ -241,6 +241,7 @@
 .badgeQuiz { background: #d1fae5; color: #047857; }
 .badgeAssignment { background: #ede9fe; color: #6d28d9; }
 .badgeProject { background: #cffafe; color: #0e7490; }
+.badgeTest { background: #ffe4e6; color: #be123c; }
 
 .statusPublished {
   color: #059669;
@@ -608,3 +609,13 @@
   border-bottom-left-radius: 20px;
   border-bottom-right-radius: 20px;
 }
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
