@@ -289,7 +289,7 @@
     margin: 1cm;
   }
 
-  body {
+  body:has(.container) {
     background: #ffffff !important;
     color: #000000 !important;
   }

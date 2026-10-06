@@ -481,7 +481,7 @@
 }
 
 @media print {
-  body * {
+  body *:not(.payslipPrintContainer):not(.payslipPrintContainer *) {
     visibility: hidden;
   }
 

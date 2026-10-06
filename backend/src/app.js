@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const helmet = require("helmet");
-const dashboardRoutes = require('./routes/dashboard.routes');
+const helmet = require("helmet"); // this helmet package helps you secure your Express apps by setting various HTTP headers. It's not a silver bullet, but it can help!
+const dashboardRoutes = require('./routes/dashboard.routes');// this is the route for the dashboard, which is the main page of the application. It will show the user a summary of the data in the application.
 const authRoutes = require('./modules/auth/auth.routes');
 const studentRoutes = require('./modules/students/student.routes');
 const gradeRoutes = require('./modules/grades/grade.routes');
@@ -45,7 +45,7 @@ app.set('authorizationService', authorizationService);
 
 app.use(cors()); // Enable CORS for all routes
 app.use(helmet());// Enable Helmet for security headers
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.json({

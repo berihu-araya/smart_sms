@@ -220,7 +220,7 @@
 }
 
 @media print {
-  body {
+  body:has(.container) {
     background: white !important;
   }
   .header, .navTabs, .childSelectorBar, .switcherBar, .toast {
@@ -238,4 +238,3 @@
     border: 1px solid #333 !important;
   }
 }
-
