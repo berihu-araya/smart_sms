@@ -622,7 +622,7 @@
 }
 
 @media print {
-  body * {
+  body *:not(.receiptPrintContainer):not(.receiptPrintContainer *) {
     visibility: hidden;
   }
   .receiptPrintContainer, .receiptPrintContainer * {

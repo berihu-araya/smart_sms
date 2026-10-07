@@ -21,12 +21,12 @@ describe('Salary structure update', () => {
 
     assert.equal(updated.id, 'structure-1');
     assert.match(calls[0][0], /^UPDATE salary_structures/);
-    assert.match(calls[0][0], /WHERE id = \$17/);
-    assert.match(calls[0][0], /school_id = \$18/);
+    assert.match(calls[0][0], /WHERE id = \$21/);
+    assert.match(calls[0][0], /school_id = \$22/);
     assert.doesNotMatch(calls[0][0], /INSERT INTO salary_structures/);
     assert.equal(calls[0][1][0], 15000);
-    assert.equal(calls[0][1][16], 'structure-1');
-    assert.equal(calls[0][1][17], 'school-1');
+    assert.equal(calls[0][1][20], 'structure-1');
+    assert.equal(calls[0][1][21], 'school-1');
   });
 
   it('returns no record when the selected structure is not active or accessible', async () => {

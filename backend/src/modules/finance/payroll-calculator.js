@@ -1,6 +1,7 @@
 /**
  * Ethiopian Payroll Calculation Engine
- * Implements statutory Ethiopian monthly PAYE tax brackets, pension deductions, and configurable earning components.
+ * Implements statutory Ethiopian monthly PAYE tax brackets, pension deductions,
+ * contract date proration, and configurable earning/deduction components.
  */
 
 const DEFAULT_TAX_BRACKETS = [
@@ -17,7 +18,156 @@ const DEFAULT_PENSION_EMPLOYEE_RATE = 7.00;
 const DEFAULT_PENSION_EMPLOYER_RATE = 11.00;
 
 function round2(val) {
-  return Math.round((Number(val) + Number.EPSILON) * 100) / 100; // the purpose of adding Number.EPSILON is to avoid floating point rounding errors and round to 2 decimal places.
+  return Math.round((Number(val) + Number.EPSILON) * 100) / 100;
+}
+
+function round4(val) {
+  return Math.round((Number(val) + Number.EPSILON) * 10000) / 10000;
+}
+
+/**
+ * Returns the exact number of days in a given calendar month/year
+ * @param {number} year - e.g. 2026
+ * @param {number} month - 1 to 12
+ * @returns {number} days count (e.g. 28, 29, 30, 31)
+ */
+function getDaysInMonth(year, month) {
+  const y = Number(year);
+  const m = Number(month);
+  if (!y || !m || m < 1 || m > 12) return 30;
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+/**
+ * Formats a Date object or string to YYYY-MM-DD
+ */
+function formatDateToYYYYMMDD(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return null;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Calculates contract eligibility and proration factor for a specific payroll period.
+ * @param {string|Date} contractStartDate
+ * @param {string|Date|null} contractEndDate
+ * @param {number} year
+ * @param {number} month
+ * @returns {Object} proration details
+ */
+function calculateContractProration(contractStartDate, contractEndDate, year, month) {
+  const totalDays = getDaysInMonth(year, month);
+  const y = Number(year);
+  const m = Number(month);
+
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m - 1, totalDays));
+
+  // If no contract start date provided, assume active full month
+  if (!contractStartDate) {
+    return {
+      isEligible: true,
+      workedDays: totalDays,
+      totalDays,
+      prorationFactor: 1.0,
+      isProrated: false,
+      contractStartDate: formatDateToYYYYMMDD(monthStart),
+      contractEndDate: contractEndDate ? formatDateToYYYYMMDD(contractEndDate) : null,
+      effectiveStartDate: formatDateToYYYYMMDD(monthStart),
+      effectiveEndDate: formatDateToYYYYMMDD(monthEnd),
+    };
+  }
+
+  const rawStart = new Date(contractStartDate);
+  const start = new Date(Date.UTC(rawStart.getUTCFullYear(), rawStart.getUTCMonth(), rawStart.getUTCDate()));
+
+  let end = null;
+  if (contractEndDate) {
+    const rawEnd = new Date(contractEndDate);
+    if (!isNaN(rawEnd.getTime())) {
+      end = new Date(Date.UTC(rawEnd.getUTCFullYear(), rawEnd.getUTCMonth(), rawEnd.getUTCDate()));
+    }
+  }
+
+  // 1. Employee contract starts AFTER the payroll month ends -> NOT eligible
+  if (start > monthEnd) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+      contractStartDate: formatDateToYYYYMMDD(start),
+      contractEndDate: end ? formatDateToYYYYMMDD(end) : null,
+      reason: 'Contract starts after payroll period',
+    };
+  }
+
+  // 2. Employee contract ended BEFORE the payroll month starts -> NOT eligible
+  if (end && end < monthStart) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+      contractStartDate: formatDateToYYYYMMDD(start),
+      contractEndDate: formatDateToYYYYMMDD(end),
+      reason: 'Contract ended before payroll period',
+    };
+  }
+
+  // 3. Active in this month: determine effective worked range
+  const effectiveStart = start > monthStart ? start : monthStart;
+  const effectiveEnd = end && end < monthEnd ? end : monthEnd;
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const workedDays = Math.max(0, Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / msPerDay) + 1);
+
+  if (workedDays <= 0) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+      contractStartDate: formatDateToYYYYMMDD(start),
+      contractEndDate: end ? formatDateToYYYYMMDD(end) : null,
+      reason: 'Zero active days in period',
+    };
+  }
+
+  if (workedDays >= totalDays) {
+    return {
+      isEligible: true,
+      workedDays: totalDays,
+      totalDays,
+      prorationFactor: 1.0,
+      isProrated: false,
+      contractStartDate: formatDateToYYYYMMDD(start),
+      contractEndDate: end ? formatDateToYYYYMMDD(end) : null,
+      effectiveStartDate: formatDateToYYYYMMDD(effectiveStart),
+      effectiveEndDate: formatDateToYYYYMMDD(effectiveEnd),
+    };
+  }
+
+  const prorationFactor = round4(workedDays / totalDays);
+
+  return {
+    isEligible: true,
+    workedDays,
+    totalDays,
+    prorationFactor,
+    isProrated: true,
+    contractStartDate: formatDateToYYYYMMDD(start),
+    contractEndDate: end ? formatDateToYYYYMMDD(end) : null,
+    effectiveStartDate: formatDateToYYYYMMDD(effectiveStart),
+    effectiveEndDate: formatDateToYYYYMMDD(effectiveEnd),
+  };
 }
 
 /**
@@ -60,7 +210,8 @@ function calculateProgressivePAYE(taxableIncome, brackets = DEFAULT_TAX_BRACKETS
 }
 
 /**
- * Calculates full monthly employee compensation, deductions, taxes, and net salary.
+ * Calculates full monthly employee compensation, deductions, taxes, and net salary,
+ * supporting contract-based mid-month proration.
  * @param {Object} params
  * @returns {Object} itemized breakdown
  */
@@ -77,17 +228,65 @@ function calculateEmployeeSalary({
   pensionEmployeeRate = DEFAULT_PENSION_EMPLOYEE_RATE,
   pensionEmployerRate = DEFAULT_PENSION_EMPLOYER_RATE,
   taxBrackets = DEFAULT_TAX_BRACKETS,
+  contractStartDate = null,
+  contractEndDate = null,
+  contractType = 'PERMANENT',
+  workedDays = null,
+  totalDaysInMonth = null,
+  prorationFactor = null,
+  isProrated = null,
 } = {}) {
-  const basic = round2(Math.max(0, Number(basicSalary) || 0));
-  const transport = round2(Math.max(0, Number(transportAllowance) || 0));
-  const professional = round2(Math.max(0, Number(professionalAllowance) || 0));
-  const housing = round2(Math.max(0, Number(housingAllowance) || 0));
-  const medical = round2(Math.max(0, Number(medicalAllowance) || 0));
-  const other = round2(Math.max(0, Number(otherAllowances) || 0));
+  const rawBasic = round2(Math.max(0, Number(basicSalary) || 0));
+  const rawTransport = round2(Math.max(0, Number(transportAllowance) || 0));
+  const rawProfessional = round2(Math.max(0, Number(professionalAllowance) || 0));
+  const rawHousing = round2(Math.max(0, Number(housingAllowance) || 0));
+  const rawMedical = round2(Math.max(0, Number(medicalAllowance) || 0));
+  const rawOther = round2(Math.max(0, Number(otherAllowances) || 0));
 
-  // Configurable transport tax exemption
-  const exemptionLimit = Number(transportExemptionLimit) >= 0 ? Number(transportExemptionLimit) : DEFAULT_TRANSPORT_EXEMPTION;
-  const transportExemption = round2(Math.min(transport, exemptionLimit));
+  // Determine proration factor
+  let factor = 1.0;
+  let hasProration = false;
+  let finalWorkedDays = totalDaysInMonth || 30;
+  let finalTotalDays = totalDaysInMonth || 30;
+
+  if (prorationFactor !== null && prorationFactor !== undefined) {
+    factor = Math.max(0, Math.min(1.0, Number(prorationFactor)));
+    hasProration = factor < 1.0 || isProrated === true;
+    finalWorkedDays = workedDays !== null ? Number(workedDays) : Math.round(factor * finalTotalDays);
+  } else if (workedDays !== null && totalDaysInMonth !== null && Number(totalDaysInMonth) > 0) {
+    finalWorkedDays = Number(workedDays);
+    finalTotalDays = Number(totalDaysInMonth);
+    if (finalWorkedDays < finalTotalDays) {
+      factor = round4(finalWorkedDays / finalTotalDays);
+      hasProration = true;
+    }
+  }
+
+  // Calculate unprorated gross for audit/records
+  let unproratedCustomAllowancesSum = 0;
+  if (Array.isArray(customEarnings)) {
+    for (const earn of customEarnings) {
+      const amt = round2(Number(earn.amount) || 0);
+      if (amt > 0 && earn.included_in_gross !== false) {
+        unproratedCustomAllowancesSum += amt;
+      }
+    }
+  }
+  const unproratedTotalAllowances = round2(rawTransport + rawProfessional + rawHousing + rawMedical + rawOther + unproratedCustomAllowancesSum);
+  const unproratedGrossSalary = round2(rawBasic + unproratedTotalAllowances);
+
+  // Apply proration factor to basic salary and allowances
+  const basic = hasProration ? round2(rawBasic * factor) : rawBasic;
+  const transport = hasProration ? round2(rawTransport * factor) : rawTransport;
+  const professional = hasProration ? round2(rawProfessional * factor) : rawProfessional;
+  const housing = hasProration ? round2(rawHousing * factor) : rawHousing;
+  const medical = hasProration ? round2(rawMedical * factor) : rawMedical;
+  const other = hasProration ? round2(rawOther * factor) : rawOther;
+
+  // Transport tax exemption (also scaled by proration factor if prorated)
+  const baseExemptionLimit = Number(transportExemptionLimit) >= 0 ? Number(transportExemptionLimit) : DEFAULT_TRANSPORT_EXEMPTION;
+  const effectiveExemptionLimit = hasProration ? round2(baseExemptionLimit * factor) : baseExemptionLimit;
+  const transportExemption = round2(Math.min(transport, effectiveExemptionLimit));
   const taxableTransport = round2(Math.max(0, transport - transportExemption));
 
   // Parse custom earnings
@@ -98,8 +297,9 @@ function calculateEmployeeSalary({
 
   if (Array.isArray(customEarnings)) {
     for (const earn of customEarnings) {
-      const amt = round2(Number(earn.amount) || 0);
-      if (amt > 0) {
+      const fullAmt = round2(Number(earn.amount) || 0);
+      if (fullAmt > 0) {
+        const amt = hasProration ? round2(fullAmt * factor) : fullAmt;
         const isIncludedInGross = earn.included_in_gross !== false;
         const isTaxable = earn.is_taxable !== false;
         const isPensionable = earn.is_pensionable === true;
@@ -110,10 +310,12 @@ function calculateEmployeeSalary({
 
         normalizedEarnings.push({
           name: earn.name || 'Custom Allowance',
+          fullAmount: fullAmt,
           amount: amt,
           is_taxable: isTaxable,
           is_pensionable: isPensionable,
           included_in_gross: isIncludedInGross,
+          is_prorated: hasProration,
         });
       }
     }
@@ -125,12 +327,15 @@ function calculateEmployeeSalary({
 
   if (Array.isArray(customDeductions)) {
     for (const ded of customDeductions) {
-      const amt = round2(Number(ded.amount) || 0);
-      if (amt > 0) {
+      const fullAmt = round2(Number(ded.amount) || 0);
+      if (fullAmt > 0) {
+        const amt = (hasProration && ded.is_fixed !== true) ? round2(fullAmt * factor) : fullAmt;
         customDeductionsSum += amt;
         normalizedDeductions.push({
           name: ded.name || 'Custom Deduction',
+          fullAmount: fullAmt,
           amount: amt,
+          is_prorated: hasProration && ded.is_fixed !== true,
         });
       }
     }
@@ -140,7 +345,7 @@ function calculateEmployeeSalary({
   const totalAllowances = round2(standardAllowances + customAllowancesSum);
   const grossSalary = round2(basic + totalAllowances);
 
-  // Pensionable Base (Default is Basic Salary + any configured pensionable allowances)
+  // Pensionable Base (Default is Basic Salary + configured pensionable allowances)
   const pensionableBase = round2(basic + customPensionableSum);
   const empRate = Number(pensionEmployeeRate) >= 0 ? Number(pensionEmployeeRate) : DEFAULT_PENSION_EMPLOYEE_RATE;
   const emplrRate = Number(pensionEmployerRate) >= 0 ? Number(pensionEmployerRate) : DEFAULT_PENSION_EMPLOYER_RATE;
@@ -160,29 +365,93 @@ function calculateEmployeeSalary({
   const otherDeductions = round2(customDeductionsSum);
   const totalDeductions = round2(pensionEmployee + payeTax + otherDeductions);
 
-  // Net Take-home Salary (Employer pension is paid by employer and does NOT reduce employee net salary)
+  // Net Take-home Salary
   const netSalary = round2(Math.max(0, grossSalary - totalDeductions));
 
   // Build itemized breakdown lines for payslips and UI
   const itemizedAllowances = [];
-  if (housing > 0) itemizedAllowances.push({ name: 'Housing Allowance', amount: housing, type: 'ALLOWANCE' });
-  if (transport > 0) itemizedAllowances.push({ name: 'Transport Allowance', amount: transport, exemption: transportExemption, type: 'ALLOWANCE' });
-  if (professional > 0) itemizedAllowances.push({ name: 'Professional Allowance', amount: professional, type: 'ALLOWANCE' });
-  if (medical > 0) itemizedAllowances.push({ name: 'Medical Allowance', amount: medical, type: 'ALLOWANCE' });
-  if (other > 0) itemizedAllowances.push({ name: 'Other Allowances', amount: other, type: 'ALLOWANCE' });
+  if (housing > 0) {
+    itemizedAllowances.push({
+      name: hasProration ? `Housing Allowance (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : 'Housing Allowance',
+      amount: housing,
+      fullAmount: rawHousing,
+      type: 'ALLOWANCE',
+    });
+  }
+  if (transport > 0) {
+    itemizedAllowances.push({
+      name: hasProration ? `Transport Allowance (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : 'Transport Allowance',
+      amount: transport,
+      fullAmount: rawTransport,
+      exemption: transportExemption,
+      type: 'ALLOWANCE',
+    });
+  }
+  if (professional > 0) {
+    itemizedAllowances.push({
+      name: hasProration ? `Professional Allowance (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : 'Professional Allowance',
+      amount: professional,
+      fullAmount: rawProfessional,
+      type: 'ALLOWANCE',
+    });
+  }
+  if (medical > 0) {
+    itemizedAllowances.push({
+      name: hasProration ? `Medical Allowance (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : 'Medical Allowance',
+      amount: medical,
+      fullAmount: rawMedical,
+      type: 'ALLOWANCE',
+    });
+  }
+  if (other > 0) {
+    itemizedAllowances.push({
+      name: hasProration ? `Other Allowances (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : 'Other Allowances',
+      amount: other,
+      fullAmount: rawOther,
+      type: 'ALLOWANCE',
+    });
+  }
   for (const ce of normalizedEarnings) {
-    itemizedAllowances.push({ name: ce.name, amount: ce.amount, type: 'ALLOWANCE' });
+    itemizedAllowances.push({
+      name: hasProration ? `${ce.name} (Prorated ${finalWorkedDays}/${finalTotalDays}d)` : ce.name,
+      amount: ce.amount,
+      fullAmount: ce.fullAmount,
+      type: 'ALLOWANCE',
+    });
   }
 
   const itemizedDeductions = [
-    { name: `Employee Pension (${empRate}%)`, amount: pensionEmployee, type: 'DEDUCTION' },
-    { name: 'Employment Income Tax (PAYE)', amount: payeTax, type: 'DEDUCTION' },
+    {
+      name: `Employee Pension (${empRate}%)`,
+      amount: pensionEmployee,
+      type: 'DEDUCTION',
+    },
+    {
+      name: 'Employment Income Tax (PAYE)',
+      amount: payeTax,
+      type: 'DEDUCTION',
+    },
   ];
   for (const cd of normalizedDeductions) {
-    itemizedDeductions.push({ name: cd.name, amount: cd.amount, type: 'DEDUCTION' });
+    itemizedDeductions.push({
+      name: cd.name,
+      amount: cd.amount,
+      fullAmount: cd.fullAmount,
+      type: 'DEDUCTION',
+    });
   }
 
   return {
+    contractType: contractType || 'PERMANENT',
+    contractStartDate: formatDateToYYYYMMDD(contractStartDate),
+    contractEndDate: formatDateToYYYYMMDD(contractEndDate),
+    workedDays: finalWorkedDays,
+    totalDaysInMonth: finalTotalDays,
+    prorationFactor: factor,
+    isProrated: hasProration,
+    unproratedBaseSalary: rawBasic,
+    unproratedTotalAllowances,
+    unproratedGrossSalary,
     basicSalary: basic,
     transportAllowance: transport,
     transportExemption,
@@ -215,7 +484,10 @@ module.exports = {
   DEFAULT_TRANSPORT_EXEMPTION,
   DEFAULT_PENSION_EMPLOYEE_RATE,
   DEFAULT_PENSION_EMPLOYER_RATE,
+  getDaysInMonth,
+  calculateContractProration,
   calculateProgressivePAYE,
   calculateEmployeeSalary,
   round2,
+  round4,
 };

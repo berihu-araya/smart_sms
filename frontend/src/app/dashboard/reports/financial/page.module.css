@@ -235,7 +235,7 @@
 }
 
 @media print {
-  body * {
+  body *:not(.printableReport):not(.printableReport *) {
     visibility: hidden;
   }
   .printableReport, .printableReport * {

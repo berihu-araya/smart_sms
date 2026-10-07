@@ -3,13 +3,13 @@
  * Enforces business rules, transactions, and domain calculations.
  */
 
-const { calculateEmployeeSalary, calculateProgressivePAYE } = require('./payroll-calculator');
+const { calculateEmployeeSalary, calculateProgressivePAYE, calculateContractProration } = require('./payroll-calculator');
 
 class FinanceService {
   constructor(repository, database) {
     this.repo = repository;
     this.db = database;
-  }
+  }// this constructor used for initializing the FinanceService class with a repository and database connection. The repository is used for data access, and the database is used for executing transactions.
 
   // ==========================================
   // 1. INVOICE CREATION & BATCH GENERATION
@@ -35,23 +35,23 @@ class FinanceService {
         `SELECT COUNT(*) FROM student_fee_invoices WHERE (school_id = $1 OR school_id IS NULL)`,
         [schoolId]
       );
-      const count = Number(countRes.rows[0].count) + 1;
+      const count = Number(countRes.rows[0].count) + 1; 
       const yearMonth = new Date().toISOString().slice(0, 7).replace('-', '');
-      const invoiceNumber = `INV-${yearMonth}-${String(count).padStart(5, '0')}`;
+      const invoiceNumber = `INV-${yearMonth}-${String(count).padStart(5, '0')}`; // this generates a unique invoice number based on the current year and month, followed by a sequential count padded to 5 digits.
 
       // Calculate totals from items
       let subtotal = 0;
       let totalDiscount = 0;
       const processedItems = [];
 
-      for (const item of data.items) {
+      for (const item of data.items) { // this loop iterates over each item in the invoice data, calculating the base amount, discount, and final amount for each item. It also checks if a fee discount is applicable and adjusts the discount accordingly.
         const base = Number(item.base_amount) || 0;
         let discount = Number(item.discount_amount) || 0;
 
         if (item.fee_discount_id) {
           const discRes = await client.query(
             `SELECT * FROM fee_discounts WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL`,
-            [item.fee_discount_id, schoolId]
+            [item.fee_discount_id, schoolId] // this query fetches the fee discount details from the database based on the provided fee_discount_id and schoolId. It checks if the discount exists and is applicable to the school, and if so, it calculates the discount amount based on whether it's a percentage or fixed value.
           );
           if (discRes.rows.length > 0) {
             const disc = discRes.rows[0];
@@ -86,7 +86,7 @@ class FinanceService {
         `INSERT INTO student_fee_invoices 
          (school_id, invoice_number, student_id, academic_year_id, grade_id, section_id, title, month, term_name, issue_date, due_date, subtotal_amount, discount_amount, fine_amount, total_amount, paid_amount, balance_amount, status, notes, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 0.00, $15, 'UNPAID', $16, $17)
-         RETURNING *`,
+         RETURNING *`, 
         [
           schoolId,
           invoiceNumber,
@@ -105,7 +105,7 @@ class FinanceService {
           totalAmount,
           data.notes || null,
           userId,
-        ]
+        ] // this query inserts a new invoice record into the student_fee_invoices table with all the calculated amounts and details. It returns the newly created invoice record for further processing, such as inserting line items associated with the invoice.
       );
       const invoice = invRes.rows[0];
 
@@ -129,9 +129,9 @@ class FinanceService {
       }
 
       await client.query('COMMIT');
-      return invoice;
+      return invoice; 
     } catch (error) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK'); 
       throw error;
     } finally {
       client.release();
@@ -196,7 +196,7 @@ class FinanceService {
       const countRes = await client.query(
         `SELECT COUNT(*) FROM student_fee_invoices WHERE (school_id = $1 OR school_id IS NULL)`,
         [schoolId]
-      );
+      ); // this query counts the total number of existing invoices for the school to generate sequential invoice numbers for the new batch of invoices. It ensures that each invoice has a unique identifier based on the current count, year, and month.
       let runningCount = Number(countRes.rows[0].count);
       const yearMonth = new Date().toISOString().slice(0, 7).replace('-', '');
 
@@ -249,7 +249,7 @@ class FinanceService {
             batchData.due_date,
             subtotal,
             userId,
-          ]
+          ] // this query inserts a new invoice record for each student in the batch, calculating the subtotal based on the applicable fee structures. It returns the newly created invoice ID for inserting the associated line items.
         );
         const invoiceId = invRes.rows[0].id;
 
@@ -296,11 +296,11 @@ class FinanceService {
         `SELECT * FROM student_fee_invoices 
          WHERE id = $1 AND (school_id = $2 OR school_id IS NULL) AND deleted_at IS NULL 
          FOR UPDATE`,
-        [invoiceId, schoolId]
+        [invoiceId, schoolId] 
       );
       if (invRes.rows.length === 0) {
         throw new Error('Invoice not found');
-      }
+      } // this query fetches the invoice record for the given invoiceId and schoolId, locking it for update to prevent concurrent modifications. It checks if the invoice exists and is not deleted before proceeding with the cancellation process.
       const inv = invRes.rows[0];
       if (Number(inv.paid_amount) > 0) {
         throw new Error('Cannot cancel an invoice with recorded payments. Please refund or reverse payments first.');
@@ -624,6 +624,19 @@ class FinanceService {
       let payslipCounter = 0;
 
       for (const struct of structuresRes.rows) {
+        // Contract eligibility and proration check
+        const proration = calculateContractProration(
+          struct.contract_start_date || struct.effective_from,
+          struct.contract_end_date,
+          run.year,
+          run.month
+        );
+
+        // If employee is not eligible (starts in future or ended in past), skip for this run
+        if (!proration.isEligible || proration.workedDays <= 0) {
+          continue;
+        }
+
         payslipCounter++;
         const payslipNumber = `PS-${run.year}${String(run.month).padStart(2, '0')}-${String(payslipCounter).padStart(4, '0')}`;
         const calc = calculateEmployeeSalary({
@@ -639,12 +652,19 @@ class FinanceService {
           pensionEmployeeRate: struct.pension_employee_percentage !== null ? struct.pension_employee_percentage : settings.pension_employee_rate,
           pensionEmployerRate: struct.pension_employer_percentage !== null ? struct.pension_employer_percentage : settings.pension_employer_rate,
           taxBrackets: settings.tax_brackets_json,
+          contractStartDate: proration.contractStartDate,
+          contractEndDate: proration.contractEndDate,
+          contractType: struct.contract_type || 'PERMANENT',
+          workedDays: proration.workedDays,
+          totalDaysInMonth: proration.totalDays,
+          prorationFactor: proration.prorationFactor,
+          isProrated: proration.isProrated,
         });
 
         const payslipRes = await client.query(
           `INSERT INTO payslips
-           (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED')
+           (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status, contract_type, contract_start_date, contract_end_date, worked_days, total_days_in_month, proration_factor, is_prorated, unprorated_base_salary, unprorated_gross_salary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED', $18, $19, $20, $21, $22, $23, $24, $25, $26)
            RETURNING id`,
           [
             runId,
@@ -664,6 +684,15 @@ class FinanceService {
             calc.totalDeductions,
             calc.netSalary,
             struct.bank_account_number || null,
+            struct.contract_type || 'PERMANENT',
+            proration.contractStartDate || null,
+            proration.contractEndDate || null,
+            calc.workedDays,
+            calc.totalDaysInMonth,
+            calc.prorationFactor,
+            calc.isProrated,
+            calc.unproratedBaseSalary,
+            calc.unproratedGrossSalary,
           ]
         );
 
@@ -678,6 +707,10 @@ class FinanceService {
         totalGross += calc.grossSalary;
         totalDeductions += calc.totalDeductions;
         totalNet += calc.netSalary;
+      }
+
+      if (payslipCounter === 0) {
+        throw new Error(`No active staff members are eligible for the ${run.month}/${run.year} payroll period based on their contract dates.`);
       }
 
       await client.query(
@@ -771,7 +804,7 @@ class FinanceService {
           `UPDATE payslips
            SET status = 'PAID', payment_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP
            WHERE payroll_run_id = $1`,
-          [runId]
+          [runId] // this query updates all payslips associated with the payroll run to mark them as paid, setting the payment date to the current date and updating the timestamp. It ensures that all payslips reflect the disbursement of funds after the payroll run has been marked as PAID.
         );
       } else {
         await client.query(

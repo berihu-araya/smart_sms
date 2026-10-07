@@ -1309,4 +1309,704 @@
   }
 }
 
+/* -------------------------------------------------
+   Tone Extensions for Metrics
+--------------------------------------------------*/
+.metricEmerald { color: #059669; }
+.metricPurple { color: #7c3aed; }
+.metricIndigo { color: #4f46e5; }
+
+/* -------------------------------------------------
+   Dashboard View Mode Tabs / Filter
+--------------------------------------------------*/
+.dashboardTabsWrap {
+  max-width: 1440px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.viewModeTabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  background: #e8eee8;
+  border-radius: 10px;
+}
+
+.viewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  color: #556667;
+  font-size: 0.8rem;
+  font-weight: 750;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.viewModeBtn:hover:not(.viewModeBtnActive) {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.viewModeBtnActive {
+  background: var(--white);
+  color: #0c5f5a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.viewModeBtn svg {
+  font-size: 1rem;
+}
+
+/* -------------------------------------------------
+   Finance & Payroll Panels
+--------------------------------------------------*/
+.financeHeroPanel {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fcfa 100%);
+  border: 1px solid #dbe6e0;
+}
+
+.cashFlowHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #edf2ee;
+}
+
+.cashFlowHeadline {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.cashFlowValue {
+  display: flex;
+  flex-direction: column;
+}
+
+.cashFlowValue span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.cashFlowValue strong {
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.cashFlowBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.cashFlowPositive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.cashFlowNegative {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.efficiencyMeterWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f2f7f4;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+}
+
+.efficiencyMeterWrap span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #556667;
+}
+
+.efficiencyMeterWrap b {
+  font-size: 0.95rem;
+  color: #059669;
+}
+
+.financeCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.financeMiniCard {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.financeMiniCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(21, 42, 43, 0.06);
+}
+
+.financeMiniCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.cardFee::before { background: #059669; }
+.cardIncome::before { background: #0284c7; }
+.cardExpense::before { background: #d97706; }
+.cardPayroll::before { background: #7c3aed; }
+
+.miniCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.miniCardIcon {
+  font-size: 1.1rem;
+}
+
+.cardFee .miniCardIcon { color: #059669; }
+.cardIncome .miniCardIcon { color: #0284c7; }
+.cardExpense .miniCardIcon { color: #d97706; }
+.cardPayroll .miniCardIcon { color: #7c3aed; }
+
+.financeMiniCard strong {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.financeMiniCard small {
+  font-size: 0.72rem;
+  color: #718184;
+}
+
+/* -------------------------------------------------
+   Invoice Billing Status Breakdown
+--------------------------------------------------*/
+.invoiceStackedTrack {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef2ef;
+  margin: 1.1rem 0 0.85rem;
+  gap: 2px;
+}
+
+.stackPaid { background: #10b981; }
+.stackPartial { background: #38bdf8; }
+.stackUnpaid { background: #f59e0b; }
+.stackOverdue { background: #ef4444; }
+
+.invoiceLegendGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.invoiceLegendCard {
+  padding: 0.75rem 0.85rem;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: #fbfdfc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.legendCardTop {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 750;
+  color: #657577;
+  text-transform: uppercase;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.invoiceLegendCard strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.bankSlipAlert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.15rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  margin-top: 1rem;
+  color: #92400e;
+  font-size: 0.82rem;
+}
+
+.bankSlipAlert span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.bankSlipAlert a {
+  padding: 0.35rem 0.75rem;
+  background: #d97706;
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 750;
+  text-decoration: none;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.bankSlipAlert a:hover {
+  background: #b45309;
+}
+
+/* -------------------------------------------------
+   Payroll Pulse & Runs Panel
+--------------------------------------------------*/
+.payrollActiveCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.payrollActiveTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.payrollBatchInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.payrollBatchInfo strong {
+  font-size: 1.05rem;
+  color: #1e293b;
+}
+
+.payrollBatchInfo span {
+  padding: 0.2rem 0.55rem;
+  border-radius: 5px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.payrollStatusTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statusDraft { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+.statusCalculated { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.statusReviewed { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+.statusApproved { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.statusPaid { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.statusClosed { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+
+.payrollMetricsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.payrollMetricItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.payrollMetricItem span {
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.payrollMetricItem strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.payrollRunsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.payrollRunRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--white);
+  transition: background 160ms ease;
+}
+
+.payrollRunRow:hover {
+  background: #f8faf9;
+}
+
+.payrollRunLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.payrollRunLeft strong {
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.payrollRunLeft small {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.payrollRunRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.payrollRunRight strong {
+  font-size: 0.95rem;
+  color: #0c5f5a;
+  font-weight: 800;
+}
+
+/* -------------------------------------------------
+   Monthly Financial Cash-Flow Chart
+--------------------------------------------------*/
+.financeChartBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: 180px;
+  padding: 1.5rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.financeBarGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.barTrackTwin {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 130px;
+  width: 100%;
+  justify-content: center;
+}
+
+.barIncome {
+  width: 12px;
+  background: #10b981;
+  border-radius: 3px 3px 0 0;
+  transition: height 300ms ease;
+  min-height: 4px;
+}
+
+.barExpense {
+  width: 12px;
+  background: #f43f5e;
+  border-radius: 3px 3px 0 0;
+  transition: height 300ms ease;
+  min-height: 4px;
+}
+
+.financeBarGroup small {
+  font-size: 0.68rem;
+  font-weight: 750;
+  color: #718184;
+}
+
+.financeChartLegend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.85rem;
+  font-size: 0.74rem;
+  color: #556667;
+}
+
+.financeChartLegend span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* -------------------------------------------------
+   Recent Financial Transactions
+--------------------------------------------------*/
+.txHeaderTabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.txTabBtn {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--line);
+  background: var(--white);
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 750;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.txTabBtnActive {
+  background: #0c5f5a;
+  border-color: #0c5f5a;
+  color: #ffffff;
+}
+
+.txList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.txRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fbfdfc;
+  gap: 0.75rem;
+}
+
+.txIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.txIconIncome { background: #ecfdf5; color: #059669; }
+.txIconExpense { background: #fff1f2; color: #e11d48; }
+
+.txInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.txInfo strong {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txInfo small {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.txAmount {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.txAmount strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.txAmountPositive { color: #059669; }
+.txAmountNegative { color: #e11d48; }
+
+.txAmount time {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+/* -------------------------------------------------
+   Student/Parent Fee Summary Card
+--------------------------------------------------*/
+.studentFeeCard {
+  background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%);
+  border: 1.5px solid #99f6e4;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.studentFeeTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.studentFeeTop h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.studentFeeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.studentFeeItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.studentFeeItem span {
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  color: #657577;
+}
+
+.studentFeeItem strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.studentFeeItem.due strong {
+  color: #b91c1c;
+}
+
+.studentFeeItem.paid strong {
+  color: #059669;
+}
+
+@media (max-width: 1024px) {
+  .financeCardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .invoiceLegendGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .payrollMetricsRow {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .financeCardsGrid {
+    grid-template-columns: 1fr;
+  }
+  .cashFlowHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .studentFeeGrid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+
 

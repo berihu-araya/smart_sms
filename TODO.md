@@ -58,7 +58,7 @@
 - [x] Backend Architecture: Repository, Service with ACID transactions, Controller, Routes with RBAC role guards, and Validation (`/api/v1/finance`)
 - [x] Fee Management: Batch invoicing, multi-channel payment recording, balance tracking, sequential receipts, and parent bank slip review workflow
 - [x] Expense & Income Suites: Departmental budget meters, voucher logging with attachments, non-tuition revenue tracking
-- [x] Payroll Engine: Staff salary structures, progressive income tax & pension calculation, monthly batch payslip runner, bank CSV export
+- [x] Payroll Engine: Staff contracts & salary structures, contract start & end dates, calendar days mid-month proration, progressive income tax (PAYE) & pension calculation, monthly batch payslip runner, bank CSV export, official printable payslips
 - [x] Financial Analytics & Reporting: Annual P&L statement, fee collection rate %, aging defaulters list, cashier shift register
 - [x] Frontend Interfaces: `/dashboard/fees`, `/dashboard/expenses`, `/dashboard/income`, `/dashboard/payroll`, and `/dashboard/reports/financial`
 - [x] Print Engine: `@media print` layouts for 80mm thermal receipts, A4 tax invoices, and staff payslips

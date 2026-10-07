@@ -27,7 +27,7 @@ npm install
 npm run migrate:up
 npm run dev
 ```
-Backend runs at `http://localhost:5000`.
+Backend runs at `http://localhost:5200`.
 
 ### 3. Frontend (Next.js 16 + React 19)
 ```bash
