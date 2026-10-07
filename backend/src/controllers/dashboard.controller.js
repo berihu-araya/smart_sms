@@ -119,6 +119,8 @@ async function getStudentDashboard(req, res) {
       exams,
       marks,
       todaySchedule,
+      studentFeeSummary,
+      studentRecentInvoices,
     ] = await Promise.all([
       student.grade_id
         ? safeQuery(
@@ -280,7 +282,35 @@ async function getStudentDashboard(req, res) {
           'student today schedule'
         )
         : Promise.resolve([]),
+      student.id
+        ? safeQuery(
+          `SELECT 
+             COALESCE(SUM(total_amount), 0)::float AS total_invoiced,
+             COALESCE(SUM(paid_amount), 0)::float AS total_paid,
+             COALESCE(SUM(balance_amount), 0)::float AS outstanding_balance,
+             COUNT(*)::int AS total_invoices,
+             COUNT(CASE WHEN status = 'PAID' THEN 1 END)::int AS paid_invoices_count,
+             COUNT(CASE WHEN status IN ('UNPAID', 'PARTIALLY_PAID') THEN 1 END)::int AS pending_invoices_count
+           FROM student_fee_invoices
+           WHERE student_id = $1 AND deleted_at IS NULL`,
+          [student.id],
+          'student fee summary'
+        )
+        : Promise.resolve([]),
+      student.id
+        ? safeQuery(
+          `SELECT id, invoice_number, title, total_amount, paid_amount, balance_amount, status, due_date
+           FROM student_fee_invoices
+           WHERE student_id = $1 AND deleted_at IS NULL
+           ORDER BY due_date DESC, created_at DESC
+           LIMIT 4`,
+          [student.id],
+          'student recent invoices'
+        )
+        : Promise.resolve([]),
     ]);
+
+    const studentFee = studentFeeSummary[0] || {};
 
     const payload = buildStudentDashboardPayload({
       student,
@@ -291,6 +321,14 @@ async function getStudentDashboard(req, res) {
       exams,
       marks,
       todaySchedule,
+      finance: {
+        totalInvoiced: Number(studentFee.total_invoiced || 0),
+        totalPaid: Number(studentFee.total_paid || 0),
+        outstandingBalance: Number(studentFee.outstanding_balance || 0),
+        pendingInvoicesCount: Number(studentFee.pending_invoices_count || 0),
+        paidInvoicesCount: Number(studentFee.paid_invoices_count || 0),
+        recentInvoices: studentRecentInvoices,
+      },
     });
 
     return res.status(200).json(payload);
@@ -358,7 +396,7 @@ async function getTeacherDashboard(req, res) {
       LEFT JOIN rooms r ON r.id = te.room_id AND r.deleted_at IS NULL
       WHERE ${timetableWhere}`;
 
-    const [todayTimetable, weeklySchedule, teachingAssignments, homeroomRows, studentCountRows] = await Promise.all([
+    const [todayTimetable, weeklySchedule, teachingAssignments, homeroomRows, studentCountRows, teacherPayslips] = await Promise.all([
       todayDayName ? safeQuery(`${timetableBase} AND te.day_of_week = $3 ORDER BY p.period_order ASC, p.start_time ASC`, [...timetableValues, todayDayName], 'teacher today timetable') : Promise.resolve([]),
       safeQuery(`${timetableBase} ORDER BY CASE te.day_of_week WHEN 'MONDAY' THEN 1 WHEN 'TUESDAY' THEN 2 WHEN 'WEDNESDAY' THEN 3 WHEN 'THURSDAY' THEN 4 WHEN 'FRIDAY' THEN 5 WHEN 'SATURDAY' THEN 6 WHEN 'SUNDAY' THEN 7 END, p.period_order ASC, p.start_time ASC`, timetableValues, 'teacher weekly timetable'),
       teacher.id && academicYear.id ? safeQuery(
@@ -410,6 +448,16 @@ async function getTeacherDashboard(req, res) {
         [teacher.id, academicYear.id],
         'teacher distinct student count'
       ) : Promise.resolve([]),
+      userSub ? safeQuery(
+        `SELECT p.id, p.payslip_number, p.gross_salary, p.total_deductions, p.net_salary, p.status, pr.month, pr.year, pr.batch_reference, p.created_at
+         FROM payslips p
+         JOIN payroll_runs pr ON pr.id = p.payroll_run_id AND pr.deleted_at IS NULL
+         WHERE p.user_id = $1 AND p.deleted_at IS NULL
+         ORDER BY pr.year DESC, pr.month DESC, p.created_at DESC
+         LIMIT 4`,
+        [userSub],
+        'teacher recent payslips'
+      ) : Promise.resolve([]),
     ]);
 
     const homeroomClass = homeroomRows[0] || null;
@@ -433,6 +481,7 @@ async function getTeacherDashboard(req, res) {
       teachingAssignments,
       homeroomClass,
       homeroomCourses,
+      recentPayslips: teacherPayslips,
       activeAcademicYear: academicYear.name,
       currentDayOfWeek: todayDayName,
       currentDate: databaseDate.current_date,
@@ -541,7 +590,7 @@ async function getTeacherDashboard(req, res) {
         const databaseCalendar = await getDatabaseCalendar('parent database date');
         const todayDayName = databaseCalendar.day_of_week;
 
-        // 3. For each child, load their detailed academic dataset in parallel
+        // 3. For each child, load their detailed academic & financial dataset in parallel
         const childrenData = await Promise.all(
           childrenRows.map(async (student) => {
             const [
@@ -552,6 +601,8 @@ async function getTeacherDashboard(req, res) {
               exams,
               marks,
               todaySchedule,
+              childFeeSummary,
+              childRecentInvoices,
             ] = await Promise.all([
               student.grade_id
                 ? safeQuery(
@@ -713,7 +764,35 @@ async function getTeacherDashboard(req, res) {
                   'child today schedule'
                 )
                 : Promise.resolve([]),
+              student.id
+                ? safeQuery(
+                  `SELECT 
+                     COALESCE(SUM(total_amount), 0)::float AS total_invoiced,
+                     COALESCE(SUM(paid_amount), 0)::float AS total_paid,
+                     COALESCE(SUM(balance_amount), 0)::float AS outstanding_balance,
+                     COUNT(*)::int AS total_invoices,
+                     COUNT(CASE WHEN status = 'PAID' THEN 1 END)::int AS paid_invoices_count,
+                     COUNT(CASE WHEN status IN ('UNPAID', 'PARTIALLY_PAID') THEN 1 END)::int AS pending_invoices_count
+                   FROM student_fee_invoices
+                   WHERE student_id = $1 AND deleted_at IS NULL`,
+                  [student.id],
+                  'child fee summary'
+                )
+                : Promise.resolve([]),
+              student.id
+                ? safeQuery(
+                  `SELECT id, invoice_number, title, total_amount, paid_amount, balance_amount, status, due_date
+                   FROM student_fee_invoices
+                   WHERE student_id = $1 AND deleted_at IS NULL
+                   ORDER BY due_date DESC, created_at DESC
+                   LIMIT 4`,
+                  [student.id],
+                  'child recent invoices'
+                )
+                : Promise.resolve([]),
             ]);
+
+            const feeSum = childFeeSummary[0] || {};
 
             return {
               student,
@@ -724,6 +803,14 @@ async function getTeacherDashboard(req, res) {
               exams,
               marks,
               todaySchedule,
+              finance: {
+                totalInvoiced: Number(feeSum.total_invoiced || 0),
+                totalPaid: Number(feeSum.total_paid || 0),
+                outstandingBalance: Number(feeSum.outstanding_balance || 0),
+                pendingInvoicesCount: Number(feeSum.pending_invoices_count || 0),
+                paidInvoicesCount: Number(feeSum.paid_invoices_count || 0),
+                recentInvoices: childRecentInvoices,
+              },
             };
           })
         );
@@ -804,7 +891,36 @@ async function getTeacherDashboard(req, res) {
         const { values } = scope;
         const count = (rows) => Number(rows[0]?.count || 0);
 
-        const [studentRows, teacherRows, schoolRows, yearRows, sectionRows, assignmentRows, termRows, attendanceSummary, attendanceTrend, performanceSummary, performanceDistribution, enrollmentTrend, sectionOverview, recentStudents, recentTeachers, recentExams] = await Promise.all([
+        const [
+          studentRows,
+          teacherRows,
+          schoolRows,
+          yearRows,
+          sectionRows,
+          assignmentRows,
+          termRows,
+          attendanceSummary,
+          attendanceTrend,
+          performanceSummary,
+          performanceDistribution,
+          enrollmentTrend,
+          sectionOverview,
+          recentStudents,
+          recentTeachers,
+          recentExams,
+          invoiceSummaryRows,
+          incomeRows,
+          expenseRows,
+          payrollSummaryRows,
+          salaryStructureRows,
+          bankSlipRows,
+          settingsRows,
+          latestPayrollRows,
+          recentPayrollRunsRows,
+          recentPaymentsRows,
+          recentExpensesRows,
+          monthlyFinanceTrendRows,
+        ] = await Promise.all([
           safeQuery(`SELECT COUNT(*)::int AS count FROM students WHERE ${active('students')}`, values, 'students'),
           safeQuery(`SELECT COUNT(*)::int AS count FROM teachers WHERE ${active('teachers')}`, values, 'teachers'),
           safeQuery(`SELECT COUNT(*)::int AS count FROM schools WHERE ${active('schools')}`, values, 'schools'),
@@ -813,58 +929,217 @@ async function getTeacherDashboard(req, res) {
           safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects WHERE ${active('teacher_subjects')}`, values, 'teacher assignments'),
           safeQuery(`SELECT name FROM academic_years WHERE ${active('academic_years')} ORDER BY start_date DESC, created_at DESC LIMIT 1`, values, 'active academic year'),
           safeQuery(`
-        SELECT
-          COUNT(*) FILTER (WHERE status = 'PRESENT')::int AS present,
-          COUNT(*) FILTER (WHERE status = 'ABSENT')::int AS absent,
-          COUNT(*) FILTER (WHERE status = 'LATE')::int AS late,
-          COUNT(*) FILTER (WHERE status = 'EXCUSED')::int AS excused,
-          COUNT(*)::int AS total
-        FROM attendance
-        WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '30 days' AND CURRENT_DATE
-      `, values, 'attendance summary'),
+            SELECT
+              COUNT(*) FILTER (WHERE status = 'PRESENT')::int AS present,
+              COUNT(*) FILTER (WHERE status = 'ABSENT')::int AS absent,
+              COUNT(*) FILTER (WHERE status = 'LATE')::int AS late,
+              COUNT(*) FILTER (WHERE status = 'EXCUSED')::int AS excused,
+              COUNT(*)::int AS total
+            FROM attendance
+            WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '30 days' AND CURRENT_DATE
+          `, values, 'attendance summary'),
           safeQuery(`
-        SELECT TO_CHAR(date_trunc('week', date), 'Mon DD') AS label,
-          ROUND(100.0 * COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE')) / NULLIF(COUNT(*), 0), 1)::float AS rate
-        FROM attendance
-        WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '35 days' AND CURRENT_DATE
-        GROUP BY date_trunc('week', date)
-        ORDER BY date_trunc('week', date)
-      `, values, 'attendance trend'),
+            SELECT TO_CHAR(date_trunc('week', date), 'Mon DD') AS label,
+              ROUND(100.0 * COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE')) / NULLIF(COUNT(*), 0), 1)::float AS rate
+            FROM attendance
+            WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '35 days' AND CURRENT_DATE
+            GROUP BY date_trunc('week', date)
+            ORDER BY date_trunc('week', date)
+          `, values, 'attendance trend'),
           safeQuery(`
-        SELECT ROUND(AVG(score), 1)::float AS average_score,
-          ROUND(100.0 * COUNT(*) FILTER (WHERE score >= 50) / NULLIF(COUNT(*), 0), 1)::float AS pass_rate
-        FROM marks
-        WHERE ${scope.clause}
-      `, values, 'performance summary'),
+            SELECT ROUND(AVG(score), 1)::float AS average_score,
+              ROUND(100.0 * COUNT(*) FILTER (WHERE score >= 50) / NULLIF(COUNT(*), 0), 1)::float AS pass_rate
+            FROM marks
+            WHERE ${scope.clause}
+          `, values, 'performance summary'),
           safeQuery(`
-        SELECT bucket AS label, COUNT(*)::int AS count
-        FROM (
-          SELECT CASE WHEN score >= 85 THEN '85-100' WHEN score >= 70 THEN '70-84' WHEN score >= 50 THEN '50-69' ELSE 'Below 50' END AS bucket
-          FROM marks
-          WHERE ${scope.clause}
-        ) scores
-        GROUP BY bucket
-        ORDER BY CASE bucket WHEN '85-100' THEN 1 WHEN '70-84' THEN 2 WHEN '50-69' THEN 3 ELSE 4 END
-      `, values, 'performance distribution'),
+            SELECT bucket AS label, COUNT(*)::int AS count
+            FROM (
+              SELECT CASE WHEN score >= 85 THEN '85-100' WHEN score >= 70 THEN '70-84' WHEN score >= 50 THEN '50-69' ELSE 'Below 50' END AS bucket
+              FROM marks
+              WHERE ${scope.clause}
+            ) scores
+            GROUP BY bucket
+            ORDER BY CASE bucket WHEN '85-100' THEN 1 WHEN '70-84' THEN 2 WHEN '50-69' THEN 3 ELSE 4 END
+          `, values, 'performance distribution'),
           safeQuery(`
-        SELECT TO_CHAR(date_trunc('month', admission_date), 'Mon') AS label, COUNT(*)::int AS count
-        FROM students
-        WHERE ${active('students')} AND admission_date BETWEEN CURRENT_DATE - INTERVAL '6 months' AND CURRENT_DATE
-        GROUP BY date_trunc('month', admission_date)
-        ORDER BY date_trunc('month', admission_date)
-      `, values, 'enrollment trend'),
+            SELECT TO_CHAR(date_trunc('month', admission_date), 'Mon') AS label, COUNT(*)::int AS count
+            FROM students
+            WHERE ${active('students')} AND admission_date BETWEEN CURRENT_DATE - INTERVAL '6 months' AND CURRENT_DATE
+            GROUP BY date_trunc('month', admission_date)
+            ORDER BY date_trunc('month', admission_date)
+          `, values, 'enrollment trend'),
           safeQuery(`
-        SELECT sections.id, sections.name, COUNT(students.id)::int AS students
-        FROM sections
-        LEFT JOIN students ON students.section_id = sections.id AND students.deleted_at IS NULL
-        WHERE ${active('sections')}
-        GROUP BY sections.id, sections.name
-        ORDER BY students DESC, sections.name
-        LIMIT 6
-      `, values, 'section overview'),
+            SELECT sections.id, sections.name, COUNT(students.id)::int AS students
+            FROM sections
+            LEFT JOIN students ON students.section_id = sections.id AND students.deleted_at IS NULL
+            WHERE ${active('sections')}
+            GROUP BY sections.id, sections.name
+            ORDER BY students DESC, sections.name
+            LIMIT 6
+          `, values, 'section overview'),
           safeQuery(`SELECT id, first_name, last_name, created_at FROM students WHERE ${active('students')} ORDER BY created_at DESC LIMIT 3`, values, 'recent students'),
           safeQuery(`SELECT id, first_name, last_name, created_at FROM teachers WHERE ${active('teachers')} ORDER BY created_at DESC LIMIT 3`, values, 'recent teachers'),
           safeQuery(`SELECT id, title, created_at FROM exams WHERE ${active('exams')} ORDER BY created_at DESC LIMIT 3`, values, 'recent exams'),
+          safeQuery(
+            `SELECT 
+               COALESCE(SUM(total_amount), 0)::float AS total_invoiced,
+               COALESCE(SUM(paid_amount), 0)::float AS total_collected,
+               COALESCE(SUM(balance_amount), 0)::float AS total_outstanding,
+               COUNT(*)::int AS total_invoices,
+               COUNT(CASE WHEN status = 'PAID' THEN 1 END)::int AS paid_invoices_count,
+               COUNT(CASE WHEN status = 'PARTIALLY_PAID' THEN 1 END)::int AS partial_invoices_count,
+               COUNT(CASE WHEN status = 'UNPAID' THEN 1 END)::int AS unpaid_invoices_count,
+               COUNT(CASE WHEN due_date < CURRENT_DATE AND status NOT IN ('PAID', 'CANCELLED') THEN 1 END)::int AS overdue_invoices_count
+             FROM student_fee_invoices
+             WHERE ${active('student_fee_invoices')}`,
+            values,
+            'finance invoices summary'
+          ),
+          safeQuery(
+            `SELECT COALESCE(SUM(amount), 0)::float AS total_other_income
+             FROM incomes
+             WHERE ${active('incomes')}`,
+            values,
+            'finance direct income'
+          ),
+          safeQuery(
+            `SELECT COALESCE(SUM(amount), 0)::float AS total_expenses
+             FROM expenses
+             WHERE ${active('expenses')} AND status = 'APPROVED'`,
+            values,
+            'finance expenses'
+          ),
+          safeQuery(
+            `SELECT 
+               COALESCE(SUM(total_net_amount), 0)::float AS total_payroll_disbursed,
+               COALESCE(SUM(total_gross_amount), 0)::float AS total_payroll_gross,
+               COALESCE(SUM(total_deductions_amount), 0)::float AS total_payroll_deductions,
+               COUNT(*)::int AS total_payroll_runs
+             FROM payroll_runs
+             WHERE ${active('payroll_runs')} AND status IN ('PAID', 'DONE', 'DISBURSED')`,
+            values,
+            'payroll disbursed'
+          ),
+          safeQuery(
+            `SELECT 
+               COUNT(*)::int AS active_salary_structures_count,
+               COALESCE(SUM(base_salary + housing_allowance + transport_allowance + medical_allowance + other_allowances), 0)::float AS monthly_payroll_commitment
+             FROM salary_structures
+             WHERE ${active('salary_structures')} AND is_active = TRUE`,
+            values,
+            'salary structures'
+          ),
+          safeQuery(
+            `SELECT COUNT(*)::int AS pending_slips_count
+             FROM bank_slip_submissions
+             WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL)' : 'TRUE'} AND status = 'PENDING'`,
+            values,
+            'pending bank slips'
+          ),
+          safeQuery(
+            `SELECT currency_symbol, currency_code FROM finance_settings WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL)' : 'TRUE'} LIMIT 1`,
+            values,
+            'finance settings'
+          ),
+          safeQuery(
+            `SELECT id, batch_reference, month, year, total_staff_count, total_gross_amount, total_deductions_amount, total_net_amount, status, created_at, reviewed_at, closed_at
+             FROM payroll_runs
+             WHERE ${active('payroll_runs')}
+             ORDER BY year DESC, month DESC, created_at DESC
+             LIMIT 1`,
+            values,
+            'latest payroll run'
+          ),
+          safeQuery(
+            `SELECT id, batch_reference, month, year, total_staff_count, total_gross_amount, total_deductions_amount, total_net_amount, status, created_at
+             FROM payroll_runs
+             WHERE ${active('payroll_runs')}
+             ORDER BY year DESC, month DESC, created_at DESC
+             LIMIT 5`,
+            values,
+            'recent payroll runs'
+          ),
+          safeQuery(
+            `SELECT p.id, p.receipt_number, p.amount, p.payment_method, p.payment_date, p.created_at,
+                    s.first_name AS student_first_name, s.last_name AS student_last_name, s.admission_number
+             FROM fee_payments p
+             LEFT JOIN students s ON s.id = p.student_id
+             WHERE ${scope.schoolId ? '(p.school_id = $1 OR p.school_id IS NULL)' : 'TRUE'} AND p.deleted_at IS NULL
+             ORDER BY p.payment_date DESC, p.created_at DESC
+             LIMIT 4`,
+            values,
+            'recent fee payments'
+          ),
+          safeQuery(
+            `SELECT e.id, e.voucher_number, e.title, e.payee, e.amount, e.payment_method, e.expense_date, e.status,
+                    ec.name AS category_name
+             FROM expenses e
+             LEFT JOIN expense_categories ec ON ec.id = e.expense_category_id
+             WHERE ${scope.schoolId ? '(e.school_id = $1 OR e.school_id IS NULL)' : 'TRUE'} AND e.deleted_at IS NULL
+             ORDER BY e.expense_date DESC, e.created_at DESC
+             LIMIT 4`,
+            values,
+            'recent expenses'
+          ),
+          safeQuery(
+            `
+            WITH months AS (
+              SELECT generate_series(1, 12) AS month
+            ),
+            fee_coll AS (
+              SELECT EXTRACT(MONTH FROM payment_date)::int AS month, SUM(amount) AS fee_amount
+              FROM fee_payments
+              WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL)' : 'TRUE'} 
+                AND deleted_at IS NULL 
+                AND EXTRACT(YEAR FROM payment_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+              GROUP BY EXTRACT(MONTH FROM payment_date)
+            ),
+            other_inc AS (
+              SELECT EXTRACT(MONTH FROM income_date)::int AS month, SUM(amount) AS other_inc_amount
+              FROM incomes
+              WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL)' : 'TRUE'} 
+                AND deleted_at IS NULL 
+                AND EXTRACT(YEAR FROM income_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+              GROUP BY EXTRACT(MONTH FROM income_date)
+            ),
+            exp AS (
+              SELECT EXTRACT(MONTH FROM expense_date)::int AS month, SUM(amount) AS exp_amount
+              FROM expenses
+              WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL)' : 'TRUE'} 
+                AND deleted_at IS NULL 
+                AND status = 'APPROVED'
+                AND EXTRACT(YEAR FROM expense_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+              GROUP BY EXTRACT(MONTH FROM expense_date)
+            ),
+            pay AS (
+              SELECT pr.month, SUM(pr.total_net_amount) AS payroll_amount
+              FROM payroll_runs pr
+              WHERE ${scope.schoolId ? '(pr.school_id = $1 OR pr.school_id IS NULL)' : 'TRUE'} 
+                AND pr.deleted_at IS NULL 
+                AND pr.year = EXTRACT(YEAR FROM CURRENT_DATE)
+                AND pr.status IN ('PAID', 'DONE', 'DISBURSED')
+              GROUP BY pr.month
+            )
+            SELECT 
+              m.month,
+              COALESCE(fc.fee_amount, 0)::float AS fee_collections,
+              COALESCE(oi.other_inc_amount, 0)::float AS direct_incomes,
+              (COALESCE(fc.fee_amount, 0) + COALESCE(oi.other_inc_amount, 0))::float AS total_income,
+              COALESCE(e.exp_amount, 0)::float AS operational_expenses,
+              COALESCE(p.payroll_amount, 0)::float AS payroll_expenses,
+              (COALESCE(e.exp_amount, 0) + COALESCE(p.payroll_amount, 0))::float AS total_expense,
+              ((COALESCE(fc.fee_amount, 0) + COALESCE(oi.other_inc_amount, 0)) - (COALESCE(e.exp_amount, 0) + COALESCE(p.payroll_amount, 0)))::float AS net_profit_loss
+            FROM months m
+            LEFT JOIN fee_coll fc ON fc.month = m.month
+            LEFT JOIN other_inc oi ON oi.month = m.month
+            LEFT JOIN exp e ON e.month = m.month
+            LEFT JOIN pay p ON p.month = m.month
+            ORDER BY m.month ASC
+            `,
+            values,
+            'monthly finance trend'
+          ),
         ]);
 
         const attendance = attendanceSummary[0] || {};
@@ -874,6 +1149,77 @@ async function getTeacherDashboard(req, res) {
           ...recentTeachers.map((row) => ({ id: `teacher-${row.id}`, title: 'Teacher profile updated', description: `${row.first_name} ${row.last_name} joined the staff directory`, timestamp: row.created_at })),
           ...recentExams.map((row) => ({ id: `exam-${row.id}`, title: 'Assessment created', description: row.title, timestamp: row.created_at })),
         ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 6);
+
+        // Process Finance & Payroll aggregates
+        const inv = invoiceSummaryRows[0] || {};
+        const totalInvoiced = Number(inv.total_invoiced || 0);
+        const totalCollected = Number(inv.total_collected || 0);
+        const totalOutstanding = Number(inv.total_outstanding || 0);
+        const collectionEfficiency = totalInvoiced > 0 ? Math.round(((totalCollected / totalInvoiced) * 100) * 10) / 10 : 100;
+
+        const totalOtherIncome = Number(incomeRows[0]?.total_other_income || 0);
+        const totalExpenses = Number(expenseRows[0]?.total_expenses || 0);
+        const totalPayroll = Number(payrollSummaryRows[0]?.total_payroll_disbursed || 0);
+        const totalOutflow = totalExpenses + totalPayroll;
+        const netCashFlow = (totalCollected + totalOtherIncome) - totalOutflow;
+        const pendingBankSlipsCount = Number(bankSlipRows[0]?.pending_slips_count || 0);
+        const currency = settingsRows[0]?.currency_symbol || 'ETB';
+
+        const salaryStruct = salaryStructureRows[0] || {};
+        const activeSalaryStructuresCount = Number(salaryStruct.active_salary_structures_count || 0);
+        const monthlyPayrollCommitment = Number(salaryStruct.monthly_payroll_commitment || 0);
+
+        const latestPayroll = latestPayrollRows[0] ? {
+          id: latestPayrollRows[0].id,
+          batchReference: latestPayrollRows[0].batch_reference,
+          month: latestPayrollRows[0].month,
+          year: latestPayrollRows[0].year,
+          totalStaffCount: Number(latestPayrollRows[0].total_staff_count || 0),
+          totalGrossAmount: Number(latestPayrollRows[0].total_gross_amount || 0),
+          totalDeductionsAmount: Number(latestPayrollRows[0].total_deductions_amount || 0),
+          totalNetAmount: Number(latestPayrollRows[0].total_net_amount || 0),
+          status: latestPayrollRows[0].status,
+          createdAt: latestPayrollRows[0].created_at,
+          reviewedAt: latestPayrollRows[0].reviewed_at,
+          closedAt: latestPayrollRows[0].closed_at,
+        } : null;
+
+        const recentPayrollRuns = (recentPayrollRunsRows || []).map((r) => ({
+          id: r.id,
+          batchReference: r.batch_reference,
+          month: r.month,
+          year: r.year,
+          totalStaffCount: Number(r.total_staff_count || 0),
+          totalGrossAmount: Number(r.total_gross_amount || 0),
+          totalDeductionsAmount: Number(r.total_deductions_amount || 0),
+          totalNetAmount: Number(r.total_net_amount || 0),
+          status: r.status,
+          createdAt: r.created_at,
+        }));
+
+        const recentPaymentsFormatted = (recentPaymentsRows || []).map((p) => ({
+          id: p.id,
+          receiptNumber: p.receipt_number,
+          amount: Number(p.amount || 0),
+          paymentMethod: p.payment_method,
+          paymentDate: p.payment_date,
+          studentName: `${p.student_first_name || ''} ${p.student_last_name || ''}`.trim() || 'Student',
+          admissionNumber: p.admission_number,
+          createdAt: p.created_at,
+        }));
+
+        const recentExpensesFormatted = (recentExpensesRows || []).map((e) => ({
+          id: e.id,
+          voucherNumber: e.voucher_number,
+          title: e.title,
+          payee: e.payee,
+          amount: Number(e.amount || 0),
+          paymentMethod: e.payment_method,
+          expenseDate: e.expense_date,
+          status: e.status,
+          categoryName: e.category_name || 'General',
+          createdAt: e.created_at,
+        }));
 
         const payload = buildDashboardPayload({
           students: count(studentRows),
@@ -897,6 +1243,35 @@ async function getTeacherDashboard(req, res) {
           sectionOverview,
           publishedExams: count(await safeQuery(`SELECT COUNT(*)::int AS count FROM exams WHERE ${active('exams')} AND is_published = TRUE`, values, 'published exams')),
           activities,
+          finance: {
+            currency,
+            totalInvoiced,
+            totalCollected,
+            totalOutstanding,
+            collectionEfficiency,
+            totalOtherIncome,
+            totalExpenses,
+            totalPayroll,
+            totalOutflow,
+            netCashFlow,
+            pendingBankSlipsCount,
+            totalInvoicesCount: Number(inv.total_invoices || 0),
+            paidInvoicesCount: Number(inv.paid_invoices_count || 0),
+            partialInvoicesCount: Number(inv.partial_invoices_count || 0),
+            unpaidInvoicesCount: Number(inv.unpaid_invoices_count || 0),
+            overdueInvoicesCount: Number(inv.overdue_invoices_count || 0),
+            monthlyTrend: monthlyFinanceTrendRows || [],
+            recentPayments: recentPaymentsFormatted,
+            recentExpenses: recentExpensesFormatted,
+          },
+          payroll: {
+            currency,
+            activeSalaryStructuresCount,
+            monthlyPayrollCommitment,
+            totalDisbursedAllTime: totalPayroll,
+            latestRun: latestPayroll,
+            recentRuns: recentPayrollRuns,
+          },
         });
 
         res.status(200).json(payload);
@@ -911,4 +1286,7 @@ async function getTeacherDashboard(req, res) {
 
     module.exports = {
       getDashboard,
+      getStudentDashboard,
+      getParentDashboard,
+      getTeacherDashboard,
     };
