@@ -14,7 +14,7 @@ class FinanceRepository {
   async getSettings(schoolId) {
     const res = await this.db.query(
       `SELECT * FROM finance_settings WHERE (school_id = $1 OR school_id IS NULL) LIMIT 1`,
-      [schoolId]
+      [schoolId] // this query retrieves the finance settings for a specific school from the finance_settings table. If no settings are found for the given school_id, it will return the default settings (where school_id is NULL). The LIMIT 1 ensures that only one record is returned, even if multiple records exist for the same school_id.
     );
     if (res.rows.length > 0) {
       const row = res.rows[0];
@@ -112,7 +112,7 @@ class FinanceRepository {
        FROM fee_categories fc
        WHERE (fc.school_id = $1 OR fc.school_id IS NULL) AND fc.deleted_at IS NULL
        ORDER BY fc.name ASC`,
-      [schoolId]
+      [schoolId] // this query retrieves all fee categories for a specific school from the fee_categories table, including a count of associated fee structures for each category. It filters out any deleted categories and orders the results alphabetically by category name. The use of a subquery allows for counting the number of fee structures linked to each category without requiring a separate query.
     );
     return res.rows;
   }
@@ -138,7 +138,7 @@ class FinanceRepository {
         data.description || null,
         data.is_refundable || false,
         data.is_active !== undefined ? data.is_active : true,
-      ]
+      ] // this query inserts a new fee category into the fee_categories table for a specific school. It takes the school ID and category details (name, code, description, refundable status, and active status) as parameters. The name is trimmed to remove extra whitespace, and the code is converted to uppercase for consistency. The query returns the newly created fee category record for further processing or confirmation.
     );
     return res.rows[0];
   }
@@ -181,7 +181,7 @@ class FinanceRepository {
   // ==========================================
   // 3. FEE STRUCTURES (Fee Master)
   // ==========================================
-  async listFeeStructures(schoolId, filters = {}) {
+  async listFeeStructures(schoolId, filters = {}) { // this function retrieves a list of fee structures for a specific school, applying optional filters such as academic year, grade, fee category, and active status. It constructs a dynamic SQL query based on the provided filters and returns the matching fee structures along with their associated category, grade, and academic year details. The results are ordered by grade name and structure name for easy reference.
     let query = `
       SELECT fs.*,
              fc.name as category_name, fc.code as category_code,
@@ -231,7 +231,7 @@ class FinanceRepository {
       [id, schoolId]
     );
     return res.rows[0] || null;
-  }
+  } 
 
   async createFeeStructure(schoolId, data) {
     const res = await this.db.query(
@@ -253,7 +253,7 @@ class FinanceRepository {
         Number(data.late_fine_amount) || 0,
         Number(data.grace_period_days) || 0,
         data.is_active !== undefined ? data.is_active : true,
-      ]
+      ] 
     );
     return res.rows[0];
   }
@@ -387,7 +387,7 @@ class FinanceRepository {
   // ==========================================
   // 5. STUDENT FEE INVOICES
   // ==========================================
-  async listInvoices(schoolId, filters = {}) {
+  async listInvoices(schoolId, filters = {}) { // this function retrieves a list of student fee invoices for a specific school, applying optional filters such as student ID, grade ID, section ID, academic year ID, invoice status, and search terms. It constructs a dynamic SQL query based on the provided filters and returns the matching invoices along with associated student, grade, section, academic year, and parent details. The results are paginated and ordered by due date and creation date for easy reference.
     let query = `
       SELECT inv.*,
              s.first_name as student_first_name, s.last_name as student_last_name,
@@ -435,7 +435,7 @@ class FinanceRepository {
         LOWER(s.last_name) LIKE $${params.length} OR
         LOWER(s.admission_number) LIKE $${params.length}
       )`;
-    }
+    } 
 
     // Count for pagination
     const countRes = await this.db.query(`SELECT COUNT(*) FROM (${query}) q`, params);
@@ -1182,6 +1182,26 @@ class FinanceRepository {
   }
 
   async updateSalaryStructure(id, schoolId, data) {
+    const formatToDateOnly = (val) => {
+      if (!val) return null;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        if (trimmed.includes('T')) return trimmed.split('T')[0];
+        return trimmed;
+      }
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const yyyy = val.getFullYear();
+        const mm = String(val.getMonth() + 1).padStart(2, '0');
+        const dd = String(val.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return val;
+    };
+
+    const contractStartDate = formatToDateOnly(data.contract_start_date || data.effective_from) || new Date().toISOString().split('T')[0];
+    const contractEndDate = formatToDateOnly(data.contract_end_date);
+
     const res = await this.db.query(
       `UPDATE salary_structures
        SET base_salary = $1,
@@ -1200,9 +1220,13 @@ class FinanceRepository {
            bank_account_name = $14,
            effective_from = $15,
            is_active = $16,
+           contract_type = $17,
+           contract_start_date = $18,
+           contract_end_date = $19,
+           employment_type = $20,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $17
-         AND (school_id = $18 OR school_id IS NULL)
+       WHERE id = $21
+         AND (school_id = $22 OR school_id IS NULL)
          AND deleted_at IS NULL
        RETURNING *`,
       [
@@ -1220,8 +1244,12 @@ class FinanceRepository {
         data.bank_name || null,
         data.bank_account_number || null,
         data.bank_account_name || null,
-        data.effective_from || new Date(),
+        contractStartDate,
         data.is_active !== undefined ? data.is_active : true,
+        data.contract_type || 'PERMANENT',
+        contractStartDate,
+        contractEndDate,
+        data.employment_type || 'FULL_TIME',
         id,
         schoolId,
       ]
@@ -1230,10 +1258,30 @@ class FinanceRepository {
   }
 
   async upsertSalaryStructure(schoolId, data) {
+    const formatToDateOnly = (val) => {
+      if (!val) return null;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        if (trimmed.includes('T')) return trimmed.split('T')[0];
+        return trimmed;
+      }
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const yyyy = val.getFullYear();
+        const mm = String(val.getMonth() + 1).padStart(2, '0');
+        const dd = String(val.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return val;
+    };
+
+    const contractStartDate = formatToDateOnly(data.contract_start_date || data.effective_from) || new Date().toISOString().split('T')[0];
+    const contractEndDate = formatToDateOnly(data.contract_end_date);
+
     const res = await this.db.query(
       `INSERT INTO salary_structures 
-       (school_id, user_id, base_salary, housing_allowance, transport_allowance, professional_allowance, medical_allowance, other_allowances, custom_earnings, custom_deductions, tax_rate_percentage, pension_employee_percentage, pension_employer_percentage, bank_name, bank_account_number, bank_account_name, effective_from, is_active, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP)
+       (school_id, user_id, base_salary, housing_allowance, transport_allowance, professional_allowance, medical_allowance, other_allowances, custom_earnings, custom_deductions, tax_rate_percentage, pension_employee_percentage, pension_employer_percentage, bank_name, bank_account_number, bank_account_name, effective_from, is_active, contract_type, contract_start_date, contract_end_date, employment_type, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, CURRENT_TIMESTAMP)
        ON CONFLICT (school_id, user_id) WHERE deleted_at IS NULL DO UPDATE SET
          base_salary = EXCLUDED.base_salary,
          housing_allowance = EXCLUDED.housing_allowance,
@@ -1251,6 +1299,10 @@ class FinanceRepository {
          bank_account_name = EXCLUDED.bank_account_name,
          effective_from = EXCLUDED.effective_from,
          is_active = EXCLUDED.is_active,
+         contract_type = EXCLUDED.contract_type,
+         contract_start_date = EXCLUDED.contract_start_date,
+         contract_end_date = EXCLUDED.contract_end_date,
+         employment_type = EXCLUDED.employment_type,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [
@@ -1270,8 +1322,12 @@ class FinanceRepository {
         data.bank_name || null,
         data.bank_account_number || null,
         data.bank_account_name || null,
-        data.effective_from || new Date(),
+        contractStartDate,
         data.is_active !== undefined ? data.is_active : true,
+        data.contract_type || 'PERMANENT',
+        contractStartDate,
+        contractEndDate,
+        data.employment_type || 'FULL_TIME',
       ]
     );
     return res.rows[0];

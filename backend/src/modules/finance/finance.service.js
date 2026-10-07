@@ -3,7 +3,7 @@
  * Enforces business rules, transactions, and domain calculations.
  */
 
-const { calculateEmployeeSalary, calculateProgressivePAYE } = require('./payroll-calculator');
+const { calculateEmployeeSalary, calculateProgressivePAYE, calculateContractProration } = require('./payroll-calculator');
 
 class FinanceService {
   constructor(repository, database) {
@@ -624,6 +624,19 @@ class FinanceService {
       let payslipCounter = 0;
 
       for (const struct of structuresRes.rows) {
+        // Contract eligibility and proration check
+        const proration = calculateContractProration(
+          struct.contract_start_date || struct.effective_from,
+          struct.contract_end_date,
+          run.year,
+          run.month
+        );
+
+        // If employee is not eligible (starts in future or ended in past), skip for this run
+        if (!proration.isEligible || proration.workedDays <= 0) {
+          continue;
+        }
+
         payslipCounter++;
         const payslipNumber = `PS-${run.year}${String(run.month).padStart(2, '0')}-${String(payslipCounter).padStart(4, '0')}`;
         const calc = calculateEmployeeSalary({
@@ -639,12 +652,19 @@ class FinanceService {
           pensionEmployeeRate: struct.pension_employee_percentage !== null ? struct.pension_employee_percentage : settings.pension_employee_rate,
           pensionEmployerRate: struct.pension_employer_percentage !== null ? struct.pension_employer_percentage : settings.pension_employer_rate,
           taxBrackets: settings.tax_brackets_json,
+          contractStartDate: proration.contractStartDate,
+          contractEndDate: proration.contractEndDate,
+          contractType: struct.contract_type || 'PERMANENT',
+          workedDays: proration.workedDays,
+          totalDaysInMonth: proration.totalDays,
+          prorationFactor: proration.prorationFactor,
+          isProrated: proration.isProrated,
         });
 
         const payslipRes = await client.query(
           `INSERT INTO payslips
-           (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED')
+           (payroll_run_id, school_id, user_id, payslip_number, base_salary, professional_allowance, transport_exemption, taxable_income, total_allowances, gross_salary, tax_deduction, pension_employee_deduction, pension_employer_contribution, other_deductions, total_deductions, net_salary, payment_method, bank_account_number, status, contract_type, contract_start_date, contract_end_date, worked_days, total_days_in_month, proration_factor, is_prorated, unprorated_base_salary, unprorated_gross_salary)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'BANK_TRANSFER', $17, 'GENERATED', $18, $19, $20, $21, $22, $23, $24, $25, $26)
            RETURNING id`,
           [
             runId,
@@ -664,6 +684,15 @@ class FinanceService {
             calc.totalDeductions,
             calc.netSalary,
             struct.bank_account_number || null,
+            struct.contract_type || 'PERMANENT',
+            proration.contractStartDate || null,
+            proration.contractEndDate || null,
+            calc.workedDays,
+            calc.totalDaysInMonth,
+            calc.prorationFactor,
+            calc.isProrated,
+            calc.unproratedBaseSalary,
+            calc.unproratedGrossSalary,
           ]
         );
 
@@ -678,6 +707,10 @@ class FinanceService {
         totalGross += calc.grossSalary;
         totalDeductions += calc.totalDeductions;
         totalNet += calc.netSalary;
+      }
+
+      if (payslipCounter === 0) {
+        throw new Error(`No active staff members are eligible for the ${run.month}/${run.year} payroll period based on their contract dates.`);
       }
 
       await client.query(

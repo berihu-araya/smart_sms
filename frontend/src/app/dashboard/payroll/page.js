@@ -20,11 +20,12 @@ import {
   FaTrash,
   FaSearch,
   FaCalculator,
+  FaFileContract,
 } from 'react-icons/fa';
 import { HiOutlineArrowPath } from 'react-icons/hi2';
 
 function subscribeToClient() {
-  return () => {};
+  return () => { };
 }
 
 function getClientSnapshot() {
@@ -78,6 +79,106 @@ function ModalPortal({ isOpen, onClose, children }) {
 }
 
 /**
+ * Returns total days in a given calendar month
+ */
+function getDaysInMonth(year, month) {
+  const y = Number(year);
+  const m = Number(month);
+  if (!y || !m || m < 1 || m > 12) return 30;
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+/**
+ * Calculates contract eligibility and proration factor for a given month and year
+ */
+function calculateContractProration(contractStartDate, contractEndDate, year, month) {
+  const totalDays = getDaysInMonth(year, month);
+  const y = Number(year);
+  const m = Number(month);
+
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m - 1, totalDays));
+
+  if (!contractStartDate) {
+    return {
+      isEligible: true,
+      workedDays: totalDays,
+      totalDays,
+      prorationFactor: 1.0,
+      isProrated: false,
+    };
+  }
+
+  const rawStart = new Date(contractStartDate);
+  const start = new Date(Date.UTC(rawStart.getUTCFullYear(), rawStart.getUTCMonth(), rawStart.getUTCDate()));
+
+  let end = null;
+  if (contractEndDate) {
+    const rawEnd = new Date(contractEndDate);
+    if (!isNaN(rawEnd.getTime())) {
+      end = new Date(Date.UTC(rawEnd.getUTCFullYear(), rawEnd.getUTCMonth(), rawEnd.getUTCDate()));
+    }
+  }
+
+  if (start > monthEnd) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+      reason: 'Contract starts after period',
+    };
+  }
+
+  if (end && end < monthStart) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+      reason: 'Contract ended before period',
+    };
+  }
+
+  const effectiveStart = start > monthStart ? start : monthStart;
+  const effectiveEnd = end && end < monthEnd ? end : monthEnd;
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const workedDays = Math.max(0, Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / msPerDay) + 1);
+
+  if (workedDays <= 0) {
+    return {
+      isEligible: false,
+      workedDays: 0,
+      totalDays,
+      prorationFactor: 0.0,
+      isProrated: false,
+    };
+  }
+
+  if (workedDays >= totalDays) {
+    return {
+      isEligible: true,
+      workedDays: totalDays,
+      totalDays,
+      prorationFactor: 1.0,
+      isProrated: false,
+    };
+  }
+
+  const factor = Math.round((workedDays / totalDays) * 10000) / 10000;
+  return {
+    isEligible: true,
+    workedDays,
+    totalDays,
+    prorationFactor: factor,
+    isProrated: true,
+  };
+}
+
+/**
  * Statutory Ethiopian Monthly PAYE progressive tax calculation
  */
 function calculateProgressivePAYE(taxableIncome) {
@@ -91,7 +192,7 @@ function calculateProgressivePAYE(taxableIncome) {
 }
 
 /**
- * Computes full Ethiopian salary breakdown
+ * Computes full Ethiopian salary breakdown with contract proration support
  */
 function computeSalaryBreakdown({
   baseSalary = 0,
@@ -103,19 +204,50 @@ function computeSalaryBreakdown({
   pensionEmployeeRate = 7.0,
   pensionEmployerRate = 11.0,
   transportExemptionLimit = 600.0,
+  workedDays = null,
+  totalDaysInMonth = null,
+  prorationFactor = null,
 }) {
-  const base = Math.max(0, Number(baseSalary) || 0);
-  const transport = Math.max(0, Number(transportAllowance) || 0);
-  const professional = Math.max(0, Number(professionalAllowance) || 0);
-  const housing = Math.max(0, Number(housingAllowance) || 0);
-  const medical = Math.max(0, Number(medicalAllowance) || 0);
-  const other = Math.max(0, Number(otherAllowances) || 0);
+  const rawBase = Math.max(0, Number(baseSalary) || 0);
+  const rawTransport = Math.max(0, Number(transportAllowance) || 0);
+  const rawProfessional = Math.max(0, Number(professionalAllowance) || 0);
+  const rawHousing = Math.max(0, Number(housingAllowance) || 0);
+  const rawMedical = Math.max(0, Number(medicalAllowance) || 0);
+  const rawOther = Math.max(0, Number(otherAllowances) || 0);
 
-  const transportExemption = Math.min(transport, transportExemptionLimit);
+  let factor = 1.0;
+  let hasProration = false;
+  let finalWorkedDays = totalDaysInMonth || 30;
+  let finalTotalDays = totalDaysInMonth || 30;
+
+  if (prorationFactor !== null && prorationFactor !== undefined) {
+    factor = Math.max(0, Math.min(1.0, Number(prorationFactor)));
+    hasProration = factor < 1.0;
+    finalWorkedDays = workedDays !== null ? Number(workedDays) : Math.round(factor * finalTotalDays);
+  } else if (workedDays !== null && totalDaysInMonth !== null && Number(totalDaysInMonth) > 0) {
+    finalWorkedDays = Number(workedDays);
+    finalTotalDays = Number(totalDaysInMonth);
+    if (finalWorkedDays < finalTotalDays) {
+      factor = finalWorkedDays / finalTotalDays;
+      hasProration = true;
+    }
+  }
+
+  const base = hasProration ? Math.round(rawBase * factor * 100) / 100 : rawBase;
+  const transport = hasProration ? Math.round(rawTransport * factor * 100) / 100 : rawTransport;
+  const professional = hasProration ? Math.round(rawProfessional * factor * 100) / 100 : rawProfessional;
+  const housing = hasProration ? Math.round(rawHousing * factor * 100) / 100 : rawHousing;
+  const medical = hasProration ? Math.round(rawMedical * factor * 100) / 100 : rawMedical;
+  const other = hasProration ? Math.round(rawOther * factor * 100) / 100 : rawOther;
+
+  const effectiveExemptionLimit = hasProration ? Math.round(transportExemptionLimit * factor * 100) / 100 : transportExemptionLimit;
+  const transportExemption = Math.min(transport, effectiveExemptionLimit);
   const taxableTransport = Math.max(0, transport - transportExemption);
 
   const totalAllowances = Math.round((transport + professional + housing + medical + other) * 100) / 100;
   const grossSalary = Math.round((base + totalAllowances) * 100) / 100;
+
+  const unproratedGross = Math.round((rawBase + rawTransport + rawProfessional + rawHousing + rawMedical + rawOther) * 100) / 100;
 
   const taxableIncome = Math.round((base + taxableTransport + professional + housing + medical + other) * 100) / 100;
 
@@ -128,6 +260,8 @@ function computeSalaryBreakdown({
 
   return {
     base,
+    unproratedBase: rawBase,
+    unproratedGross,
     transport,
     transportExemption,
     taxableTransport,
@@ -143,12 +277,21 @@ function computeSalaryBreakdown({
     pensionEmployer,
     totalDeductions,
     netSalary,
+    isProrated: hasProration,
+    workedDays: finalWorkedDays,
+    totalDays: finalTotalDays,
+    prorationFactor: factor,
   };
 }
 
 function createEmptyStructureForm() {
+  const today = new Date().toISOString().split('T')[0];
   return {
     user_id: '',
+    contract_type: 'PERMANENT',
+    contract_start_date: today,
+    contract_end_date: '',
+    employment_type: 'FULL_TIME',
     base_salary: '',
     housing_allowance: 0,
     transport_allowance: 0,
@@ -305,7 +448,7 @@ export default function PayrollPage() {
       setLoading(true);
       setError(null);
       const res = await financeApi.createPayrollDraft(processForm);
-      setSuccessMsg(`Payroll draft ${res.data.batchReference} created. Configure any remaining salary structures, then calculate it.`);
+      setSuccessMsg(`Payroll draft ${res.data.batchReference} created. Review the staff contract proration, then calculate.`);
       setIsProcessModalOpen(false);
       await loadRuns();
     } catch (err) {
@@ -321,9 +464,9 @@ export default function PayrollPage() {
     if (!statusDetails?.nextStatus) return;
 
     const confirmations = {
-      CALCULATED: 'Calculate this draft using the active salary structures for the selected period?',
+      CALCULATED: 'Calculate this draft using active contracts & prorated dates for the selected period?',
       APPROVED: 'Approve this reviewed payroll? Approved payroll results will be locked from further changes.',
-      PAID: 'Record this payroll as paid and release the official payslips?',
+      PAID: 'Record this payroll as paid and release official employee payslips?',
       DONE: 'Close this paid payroll period? A closed period cannot be reopened through normal operations.',
     };
     const confirmation = confirmations[statusDetails.nextStatus];
@@ -359,6 +502,10 @@ export default function PayrollPage() {
         professional_allowance: Number(structureForm.professional_allowance) || 0,
         medical_allowance: Number(structureForm.medical_allowance) || 0,
         other_allowances: Number(structureForm.other_allowances) || 0,
+        contract_type: structureForm.contract_type || 'PERMANENT',
+        contract_start_date: structureForm.contract_start_date || new Date().toISOString().split('T')[0],
+        contract_end_date: structureForm.contract_end_date || null,
+        employment_type: structureForm.employment_type || 'FULL_TIME',
       };
       if (isEditingStructure) {
         if (!editingStructureId) {
@@ -368,7 +515,7 @@ export default function PayrollPage() {
       } else {
         await financeApi.upsertSalaryStructure(structureData);
       }
-      setSuccessMsg(isEditingStructure ? 'Staff salary structure updated successfully!' : 'Staff salary structure created successfully!');
+      setSuccessMsg(isEditingStructure ? 'Staff contract & salary structure updated successfully!' : 'Staff contract & salary structure created successfully!');
       setIsStructureModalOpen(false);
       await loadStructures();
     } catch (err) {
@@ -380,14 +527,14 @@ export default function PayrollPage() {
 
   const handleDeleteSalaryStructure = async (structure) => {
     const employeeName = `${structure.first_name} ${structure.last_name}`.trim();
-    if (!window.confirm(`Delete the salary structure for ${employeeName}? Existing payroll records will be kept.`)) return;
+    if (!window.confirm(`Delete the contract & salary structure for ${employeeName}? Existing payroll records will be kept.`)) return;
 
     try {
       setLoading(true);
       setError(null);
       await financeApi.deleteSalaryStructure(structure.id);
       setSalaryStructures((current) => current.filter((item) => item.id !== structure.id));
-      setSuccessMsg(`Salary structure for ${employeeName} deleted successfully.`);
+      setSuccessMsg(`Contract for ${employeeName} deleted successfully.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -440,13 +587,13 @@ export default function PayrollPage() {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.titleArea}>
-          <span className={styles.eyebrow}>PAYROLL MANAGEMENT</span>
+          <span className={styles.eyebrow}>PAYROLL &amp; CONTRACT MANAGEMENT</span>
           <h1 className={styles.title}>
             <span className={styles.titleIcon}><FaWallet /></span>
-            Payroll &amp; compensation
+            Payroll &amp; Employee Contracts
           </h1>
           <div className={styles.subtitle}>
-            Manage monthly pay runs, staff salary structures, statutory deductions, and payslips.
+            Manage staff contracts, contract start &amp; end dates, mid-month proration, statutory deductions, and payslips.
           </div>
         </div>
 
@@ -462,10 +609,10 @@ export default function PayrollPage() {
                   setIsStructureModalOpen(true);
                 }}
               >
-                <FaPlus /> Salary Structure
+                <FaPlus /> Contracts
               </button>
               <button className={styles.btnPrimary} onClick={() => setIsProcessModalOpen(true)}>
-                <FaWallet /> Process Monthly Payroll
+                <FaWallet /> Process Payroll
               </button>
             </>
           )}
@@ -498,34 +645,46 @@ export default function PayrollPage() {
       {!isTeacherOrStaff && (
         <div className={styles.kpiGrid}>
           <div className={styles.kpiCard}>
-            <div className={`${styles.kpiIcon} ${styles.kpiIconPurple}`}>
-              <FaMoneyBillWave />
+            <div className={styles.kpiIcon} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+              <FaUsers />
             </div>
             <div className={styles.kpiInfo}>
-              <span className={styles.kpiLabel}>Net payroll paid</span>
-              <span className={`${styles.kpiValue} ${styles.kpiValuePurple}`}>
-                {totalPaidPayroll.toLocaleString()} <small>ETB</small>
+              <span className={styles.kpiLabel}>Active Contracts</span>
+              <span className={styles.kpiValue}>
+                {salaryStructures.filter((s) => s.is_active).length}
               </span>
             </div>
           </div>
 
           <div className={styles.kpiCard}>
-            <div className={`${styles.kpiIcon} ${styles.kpiIconBlue}`}>
-              <FaUsers />
+            <div className={styles.kpiIcon} style={{ background: '#eff6ff', color: '#3b82f6' }}>
+              <FaFileInvoiceDollar />
             </div>
             <div className={styles.kpiInfo}>
-              <span className={styles.kpiLabel}>Configured Staff</span>
-              <span className={styles.kpiValue}>{salaryStructures.length}</span>
+              <span className={styles.kpiLabel}>Total Payroll Runs</span>
+              <span className={styles.kpiValue}>{payrollRuns.length}</span>
             </div>
           </div>
 
           <div className={styles.kpiCard}>
-            <div className={`${styles.kpiIcon} ${styles.kpiIconGreen}`}>
+            <div className={styles.kpiIcon} style={{ background: '#ecfdf5', color: '#059669' }}>
+              <FaMoneyBillWave />
+            </div>
+            <div className={styles.kpiInfo}>
+              <span className={styles.kpiLabel}>Total Net Disbursed</span>
+              <span className={styles.kpiValue}>{totalPaidPayroll.toLocaleString()} ETB</span>
+            </div>
+          </div>
+
+          <div className={styles.kpiCard}>
+            <div className={styles.kpiIcon} style={{ background: '#fef3c7', color: '#d97706' }}>
               <FaCalendarAlt />
             </div>
             <div className={styles.kpiInfo}>
-              <span className={styles.kpiLabel}>Payroll Batches</span>
-              <span className={styles.kpiValue}>{payrollRuns.length}</span>
+              <span className={styles.kpiLabel}>Current Period</span>
+              <span className={styles.kpiValue}>
+                {new Date().toLocaleString('default', { month: 'short' })} {new Date().getFullYear()}
+              </span>
             </div>
           </div>
         </div>
@@ -539,13 +698,13 @@ export default function PayrollPage() {
               className={`${styles.tabBtn} ${activeTab === 'runs' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('runs')}
             >
-              <FaWallet /> Monthly Payroll Runs
+              <FaCalendarAlt /> Monthly Payroll Runs ({payrollRuns.length})
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'structures' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('structures')}
             >
-              <FaUsers /> Salary Structures & Scales
+              <FaFileContract /> Staff Contracts &amp; Salaries ({salaryStructures.length})
             </button>
           </>
         )}
@@ -553,30 +712,30 @@ export default function PayrollPage() {
           className={`${styles.tabBtn} ${activeTab === 'my_payslips' ? styles.activeTab : ''}`}
           onClick={() => setActiveTab('my_payslips')}
         >
-          <FaFileInvoiceDollar /> My Digital Payslips
+          <FaPrint /> My Official Payslips ({myPayslips.length})
         </button>
       </div>
 
-      {/* TAB 1: RUNS */}
+      {/* TAB 1: PAYROLL RUNS */}
       {activeTab === 'runs' && (
         <div className={styles.tableCard}>
           <div className={styles.cardHeader}>
             <div>
-                <h2>Monthly payroll runs</h2>
-                <p>Move each payroll through calculation, review, approval, payment, and period close.</p>
+              <h2>Monthly payroll batches</h2>
+              <p>Review draft computations, approve prorated compensation, and generate bank files.</p>
             </div>
-            <span className={styles.recordCount}>{payrollRuns.length} runs</span>
+            <span className={styles.recordCount}>{payrollRuns.length} batches</span>
           </div>
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Batch Reference</th>
-                  <th>Month / Year</th>
+                  <th>Period</th>
                   <th>Staff Count</th>
-                  <th>Gross Salary</th>
-                  <th>Tax & Pension Deductions</th>
-                  <th>Net pay</th>
+                  <th>Total Gross</th>
+                  <th>Total Deductions</th>
+                  <th>Total Net Pay</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -585,71 +744,69 @@ export default function PayrollPage() {
                 {payrollRuns.length === 0 ? (
                   <tr>
                     <td colSpan="8" className={styles.emptyCell}>
-                      No payroll periods yet. Click &quot;Process Monthly Payroll&quot; to create the first payroll draft.
+                      No payroll runs created yet. Click &quot;Process Monthly Payroll&quot; to begin.
                     </td>
                   </tr>
                 ) : (
                   payrollRuns.map((run) => {
                     const status = normalizePayrollStatus(run.status);
                     const statusDetails = PAYROLL_STATUS_DETAILS[status];
-                    const canAdvance = status === 'DRAFT' || status === 'CALCULATED'
-                      ? canReviewPayroll
-                      : canManageSalaryStructures;
+                    const canAdvance = canManageSalaryStructures || (canReviewPayroll && status === 'CALCULATED');
 
                     return (
-                    <tr key={run.id}>
-                      <td style={{ fontWeight: 700, color: '#7c3aed' }}>{run.batch_reference}</td>
-                      <td>
-                        <strong>
-                          {new Date(run.year, run.month - 1).toLocaleString('default', { month: 'long' })} {run.year}
-                        </strong>
-                      </td>
-                      <td>{run.total_staff_count} employees</td>
-                      <td>{Number(run.total_gross_amount).toLocaleString()} ETB</td>
-                      <td style={{ color: '#dc2626' }}>{Number(run.total_deductions_amount).toLocaleString()} ETB</td>
-                      <td style={{ fontWeight: 800, color: '#059669' }}>
-                        {Number(run.total_net_amount).toLocaleString()} ETB
-                      </td>
-                      <td>
-                        <span
-                          className={`${styles.statusBadge} ${styles[statusDetails?.style || 'statusDraft']}`}
-                        >
-                          {statusDetails?.label || run.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className={styles.payrollActions}>
-                          <button
-                            className={styles.btnAction}
-                            onClick={() => handleOpenRunBreakdown(run.id)}
-                            title="View individual employee salary computations and net payments"
+                      <tr key={run.id}>
+                        <td style={{ fontWeight: 700, color: '#7c3aed' }}>{run.batch_reference}</td>
+                        <td>
+                          <strong>
+                            {new Date(run.year, run.month - 1).toLocaleString('default', { month: 'long' })} {run.year}
+                          </strong>
+                        </td>
+                        <td>{run.total_staff_count} employees</td>
+                        <td>{Number(run.total_gross_amount).toLocaleString()} ETB</td>
+                        <td style={{ color: '#dc2626' }}>{Number(run.total_deductions_amount).toLocaleString()} ETB</td>
+                        <td style={{ fontWeight: 800, color: '#059669' }}>
+                          {Number(run.total_net_amount).toLocaleString()} ETB
+                        </td>
+                        <td>
+                          <span
+                            className={`${styles.statusBadge} ${styles[statusDetails?.style || 'statusDraft']}`}
                           >
-                            <FaUsers style={{ color: '#7c3aed' }} /> All Employees
-                          </button>
-                          {statusDetails?.nextStatus && (
+                            {statusDetails?.label || run.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className={styles.payrollActions}>
                             <button
-                              className={styles.btnPaid}
-                              onClick={() => handleAdvancePayroll(run)}
-                              disabled={loading || !canAdvance}
-                              title={!canAdvance ? 'Only an administrator can approve, mark paid, or close payroll.' : undefined}
+                              className={styles.btnAction}
+                              onClick={() => handleOpenRunBreakdown(run.id)}
+                              title="View individual employee salary computations, contract dates, and net payments"
                             >
-                              {status === 'DRAFT' ? <FaCalculator /> : <FaCheck />} {statusDetails.action}
+                              <FaUsers style={{ color: '#7c3aed' }} /> All Employees
                             </button>
-                          )}
-                          {status === 'DONE' && <span className={styles.payrollClosedLabel}>Period closed</span>}
-                          {status !== 'DRAFT' && canManageSalaryStructures && (
-                            <button
-                              type="button"
-                              className={`${styles.btnAction} ${styles.bankCsvAction}`}
-                              onClick={() => handleDownloadBankCsv(run.id)}
-                              title="Download bank transfer CSV"
-                            >
-                              <FaDownload /> Bank CSV
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                            {statusDetails?.nextStatus && (
+                              <button
+                                className={styles.btnPaid}
+                                onClick={() => handleAdvancePayroll(run)}
+                                disabled={loading || !canAdvance}
+                                title={!canAdvance ? 'Only an administrator can approve, mark paid, or close payroll.' : undefined}
+                              >
+                                {status === 'DRAFT' ? <FaCalculator /> : <FaCheck />} {statusDetails.action}
+                              </button>
+                            )}
+                            {status === 'DONE' && <span className={styles.payrollClosedLabel}>Period closed</span>}
+                            {status !== 'DRAFT' && canManageSalaryStructures && (
+                              <button
+                                type="button"
+                                className={`${styles.btnAction} ${styles.bankCsvAction}`}
+                                onClick={() => handleDownloadBankCsv(run.id)}
+                                title="Download bank transfer CSV"
+                              >
+                                <FaDownload /> Bank CSV
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
@@ -659,13 +816,13 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* TAB 2: STRUCTURES */}
+      {/* TAB 2: SALARY STRUCTURES & CONTRACTS */}
       {activeTab === 'structures' && (
         <div className={styles.tableCard}>
           <div className={styles.cardHeader}>
             <div>
-              <h2>Salary structures</h2>
-              <p>Review each staff member’s base salary, allowances, pension, and bank details.</p>
+              <h2>Staff contracts &amp; compensation plans</h2>
+              <p>Manage employee contract dates, contract types, base salaries, allowances, and banking details.</p>
             </div>
             <span className={styles.recordCount}>{salaryStructures.length} staff</span>
           </div>
@@ -675,9 +832,10 @@ export default function PayrollPage() {
                 <tr>
                   <th>Employee Name</th>
                   <th>Role</th>
+                  <th>Contract Type</th>
+                  <th>Contract Period</th>
                   <th>Base Salary</th>
-                  <th>Transport Allowance</th>
-                  <th>Professional Allowance</th>
+                  <th>Allowances (Trans/Prof)</th>
                   <th>Other Allowances</th>
                   <th>Pension (Emp/Emplr)</th>
                   <th>Bank Account</th>
@@ -688,8 +846,8 @@ export default function PayrollPage() {
               <tbody>
                 {salaryStructures.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className={styles.emptyCell}>
-                      No staff salary structures configured yet. Click &quot;Salary Structure&quot; to set up staff compensation.
+                    <td colSpan="11" className={styles.emptyCell}>
+                      No staff contracts or salary structures configured yet. Click &quot;Staff Contract / Salary&quot; to set up staff compensation.
                     </td>
                   </tr>
                 ) : (
@@ -699,6 +857,21 @@ export default function PayrollPage() {
                       Number(s.medical_allowance || 0) +
                       Number(s.other_allowances || 0);
 
+                    const contractType = (s.contract_type || 'PERMANENT').toUpperCase();
+                    const contractBadgeClass =
+                      contractType === 'PERMANENT'
+                        ? styles.contractBadgePermanent
+                        : contractType === 'FIXED_TERM' || contractType === 'CONTRACT'
+                          ? styles.contractBadgeFixed
+                          : contractType === 'PROBATION'
+                            ? styles.contractBadgeProbation
+                            : contractType === 'PART_TIME'
+                              ? styles.contractBadgePartTime
+                              : styles.contractBadgeTemp;
+
+                    const startDateStr = s.contract_start_date ? s.contract_start_date.split('T')[0] : (s.effective_from ? s.effective_from.split('T')[0] : 'N/A');
+                    const endDateStr = s.contract_end_date ? s.contract_end_date.split('T')[0] : null;
+
                     return (
                       <tr key={s.id}>
                         <td>
@@ -706,13 +879,28 @@ export default function PayrollPage() {
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{s.email}</div>
                         </td>
                         <td>{s.role_name || 'Staff'}</td>
+                        <td>
+                          <span className={`${styles.contractBadge} ${contractBadgeClass}`}>
+                            {contractType}
+                          </span>
+                        </td>
+                        <td>
+                          <div className={styles.contractPeriodText}>
+                            <span>{startDateStr}</span>
+                            <span>&rarr;</span>
+                            {endDateStr ? (
+                              <span>{endDateStr}</span>
+                            ) : (
+                              <span className={styles.contractOngoingText}>Ongoing</span>
+                            )}
+                          </div>
+                        </td>
                         <td style={{ fontWeight: 700 }}>{Number(s.base_salary).toLocaleString()} ETB</td>
                         <td>
-                          <div>{Number(s.transport_allowance || 0).toLocaleString()} ETB</div>
-                          <div style={{ fontSize: '0.7rem', color: '#059669' }}>Exempt: 600 ETB</div>
-                        </td>
-                        <td style={{ fontWeight: 600, color: '#4f46e5' }}>
-                          {Number(s.professional_allowance || 0).toLocaleString()} ETB
+                          <div>Transport: {Number(s.transport_allowance || 0).toLocaleString()} ETB</div>
+                          <div style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 600 }}>
+                            Prof: {Number(s.professional_allowance || 0).toLocaleString()} ETB
+                          </div>
                         </td>
                         <td>+{otherAllow.toLocaleString()} ETB</td>
                         <td>{s.pension_employee_percentage}% / {s.pension_employer_percentage}%</td>
@@ -727,10 +915,14 @@ export default function PayrollPage() {
                         </td>
                         <td>
                           <button
-                            style={{ padding: '0.3rem 0.6rem', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '6px', cursor: 'pointer' }}
+                            style={{ padding: '0.3rem 0.6rem', border: '1px solid #cbd5e1', background: '#fff', borderRadius: '6px', cursor: 'pointer', marginRight: '0.4rem' }}
                             onClick={() => {
                               setStructureForm({
                                 user_id: s.user_id ?? '',
+                                contract_type: s.contract_type || 'PERMANENT',
+                                contract_start_date: s.contract_start_date ? s.contract_start_date.split('T')[0] : (s.effective_from ? s.effective_from.split('T')[0] : new Date().toISOString().split('T')[0]),
+                                contract_end_date: s.contract_end_date ? s.contract_end_date.split('T')[0] : '',
+                                employment_type: s.employment_type || 'FULL_TIME',
                                 base_salary: s.base_salary ?? '',
                                 housing_allowance: s.housing_allowance ?? 0,
                                 transport_allowance: s.transport_allowance ?? 0,
@@ -757,8 +949,8 @@ export default function PayrollPage() {
                               className={styles.deleteStructureButton}
                               onClick={() => handleDeleteSalaryStructure(s)}
                               disabled={loading}
-                              aria-label={`Delete salary structure for ${s.first_name} ${s.last_name}`}
-                              title={`Delete salary structure for ${s.first_name} ${s.last_name}`}
+                              aria-label={`Delete contract for ${s.first_name} ${s.last_name}`}
+                              title={`Delete contract for ${s.first_name} ${s.last_name}`}
                             >
                               <FaTrash aria-hidden="true" />
                               <span>Delete</span>
@@ -780,8 +972,8 @@ export default function PayrollPage() {
         <div className={styles.tableCard}>
           <div className={styles.cardHeader}>
             <div>
-              <h2>My payslips</h2>
-              <p>View your monthly earnings, deductions, and net take-home pay.</p>
+              <h2>My official payslips</h2>
+              <p>View your monthly compensation statements, active days worked, statutory tax &amp; pension, and net salary.</p>
             </div>
             <span className={styles.recordCount}>{myPayslips.length} payslips</span>
           </div>
@@ -790,11 +982,12 @@ export default function PayrollPage() {
               <thead>
                 <tr>
                   <th>Payslip #</th>
-                  <th>Month / Year</th>
-                  <th>Base Salary</th>
+                  <th>Period</th>
+                  <th>Days Worked</th>
+                  <th>Payable Base</th>
                   <th>Allowances</th>
                   <th>Gross Pay</th>
-                  <th>Deductions (Tax + Pension)</th>
+                  <th>Deductions</th>
                   <th>Net Take-Home Pay</th>
                   <th>Payslip</th>
                 </tr>
@@ -802,7 +995,7 @@ export default function PayrollPage() {
               <tbody>
                 {myPayslips.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className={styles.emptyCell}>
+                    <td colSpan="9" className={styles.emptyCell}>
                       No payslips generated for your account yet.
                     </td>
                   </tr>
@@ -814,6 +1007,17 @@ export default function PayrollPage() {
                         <strong>
                           {new Date(ps.year, ps.month - 1).toLocaleString('default', { month: 'long' })} {ps.year}
                         </strong>
+                      </td>
+                      <td>
+                        {ps.is_prorated ? (
+                          <span className={`${styles.prorationPill} ${styles.prorationPillProrated}`}>
+                            {ps.worked_days || 0}/{ps.total_days_in_month || 30} days (Prorated)
+                          </span>
+                        ) : (
+                          <span className={`${styles.prorationPill} ${styles.prorationPillFull}`}>
+                            Full Month ({ps.total_days_in_month || 30}d)
+                          </span>
+                        )}
                       </td>
                       <td>{Number(ps.base_salary).toLocaleString()} ETB</td>
                       <td>+{Number(ps.total_allowances).toLocaleString()} ETB</td>
@@ -839,7 +1043,7 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* MODAL 1: PROCESS PAYROLL */}
+      {/* MODAL 1: PROCESS MONTHLY PAYROLL DRAFT */}
       <ModalPortal isOpen={isProcessModalOpen} onClose={() => setIsProcessModalOpen(false)}>
         <div className={`${styles.modalContent} ${styles.processModal}`}>
           <div className={styles.modalHeader}>
@@ -893,12 +1097,12 @@ export default function PayrollPage() {
                 />
               </div>
 
-              {/* Live Staff Salary Computation Preview */}
+              {/* Live Staff Salary & Contract Proration Computation Preview */}
               <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Live Ethiopian Salary Computation Preview</span>
+                  <span>Live Contract Proration &amp; Compensation Preview</span>
                   <span style={{ fontSize: '0.8rem', color: '#7c3aed', fontWeight: 600 }}>
-                    {salaryStructures.length} Active Staff Structures
+                    {salaryStructures.length} Active Staff Configured
                   </span>
                 </label>
                 <div className={styles.previewBox}>
@@ -908,6 +1112,31 @@ export default function PayrollPage() {
                     </div>
                   ) : (
                     salaryStructures.map((s) => {
+                      const proration = calculateContractProration(
+                        s.contract_start_date || s.effective_from,
+                        s.contract_end_date,
+                        Number(processForm.year),
+                        Number(processForm.month)
+                      );
+
+                      if (!proration.isEligible || proration.workedDays <= 0) {
+                        return (
+                          <div key={s.id} className={styles.previewItem} style={{ opacity: 0.6, background: '#f8fafc' }}>
+                            <div>
+                              <strong>{s.first_name} {s.last_name}</strong>
+                              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                Contract: {s.contract_start_date ? s.contract_start_date.split('T')[0] : 'N/A'} &rarr; {s.contract_end_date ? s.contract_end_date.split('T')[0] : 'Ongoing'}
+                              </div>
+                            </div>
+                            <div>
+                              <span className={`${styles.prorationPill} ${styles.prorationPillExcluded}`}>
+                                Excluded ({proration.reason || 'Outside Period'})
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       const breakdown = computeSalaryBreakdown({
                         baseSalary: s.base_salary,
                         transportAllowance: s.transport_allowance,
@@ -918,14 +1147,28 @@ export default function PayrollPage() {
                         pensionEmployeeRate: s.pension_employee_percentage,
                         pensionEmployerRate: s.pension_employer_percentage,
                         transportExemptionLimit: 600.00,
+                        workedDays: proration.workedDays,
+                        totalDaysInMonth: proration.totalDays,
+                        prorationFactor: proration.prorationFactor,
                       });
 
                       return (
                         <div key={s.id} className={styles.previewItem}>
                           <div>
-                            <strong>{s.first_name} {s.last_name}</strong>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                              Base: {breakdown.base.toLocaleString()} ETB | Gross: {breakdown.grossSalary.toLocaleString()} ETB | Taxable: {breakdown.taxableIncome.toLocaleString()} ETB | PAYE: {breakdown.payeTax.toLocaleString()} ETB | Pension: {breakdown.pensionEmployee.toLocaleString()} ETB
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <strong>{s.first_name} {s.last_name}</strong>
+                              {proration.isProrated ? (
+                                <span className={`${styles.prorationPill} ${styles.prorationPillProrated}`}>
+                                  Prorated: {proration.workedDays}/{proration.totalDays}d ({Math.round(proration.prorationFactor * 100)}%)
+                                </span>
+                              ) : (
+                                <span className={`${styles.prorationPill} ${styles.prorationPillFull}`}>
+                                  Full Month ({proration.totalDays}d)
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                              Base: {breakdown.base.toLocaleString()} ETB {proration.isProrated && <span className={styles.unproratedBaseLabel}>({breakdown.unproratedBase.toLocaleString()} ETB)</span>} | Gross: {breakdown.grossSalary.toLocaleString()} ETB | PAYE: {breakdown.payeTax.toLocaleString()} ETB | Pension: {breakdown.pensionEmployee.toLocaleString()} ETB
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -953,16 +1196,16 @@ export default function PayrollPage() {
         </div>
       </ModalPortal>
 
-      {/* MODAL 2: SALARY STRUCTURE */}
+      {/* MODAL 2: STAFF CONTRACT & SALARY STRUCTURE */}
       <ModalPortal isOpen={isStructureModalOpen} onClose={() => setIsStructureModalOpen(false)}>
         <div className={`${styles.modalContent} ${styles.modalLarge} ${styles.structureModal}`}>
           <div className={`${styles.modalHeader} ${styles.structureModalHeader}`}>
             <div className={styles.structureModalHeading}>
-              <span className={styles.structureModalIcon}><FaUsers /></span>
+              <span className={styles.structureModalIcon}><FaFileContract /></span>
               <h3>
-                {isEditingStructure ? 'Edit salary structure' : 'Create salary structure'}
+                {isEditingStructure ? 'Edit Staff Contract & Compensation' : 'Create Staff Contract & Compensation'}
               </h3>
-              <p>Set monthly earnings, statutory deductions, and payment details for one staff member.</p>
+              <p>Configure employment contract terms, start/end dates, monthly earnings, statutory deductions, and payment account.</p>
             </div>
             <span className={styles.monthlyBadge}>ETB <span>/</span> MONTHLY</span>
             <button
@@ -977,44 +1220,100 @@ export default function PayrollPage() {
           <form onSubmit={handleSaveStructure} className={styles.structureForm}>
             <div className={`${styles.modalBody} ${styles.structureBody}`}>
               <div className={styles.structureFormColumn}>
+                {/* SECTION 1: STAFF & CONTRACT TERMS */}
                 <section className={styles.structureSection}>
                   <div className={styles.structureSectionHeader}>
                     <span className={styles.structureStep}>01</span>
                     <div>
-                      <h4>Staff member</h4>
-                      <p>Choose who this monthly compensation plan belongs to.</p>
+                      <h4>Staff member &amp; Contract terms</h4>
+                      <p>Select employee and define their contract start and end dates.</p>
                     </div>
                   </div>
-                  <div className={styles.formGroup}>
-                    <label htmlFor="salary-structure-user">Staff / teacher <span className={styles.requiredMark}>*</span></label>
-                    <select
-                      id="salary-structure-user"
-                      className={styles.formSelect}
-                      value={structureForm.user_id}
-                      onChange={(e) => setStructureForm({ ...structureForm, user_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Select a staff member</option>
-                      {staffUsers.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.first_name} {u.last_name} ({u.role_name || u.role || 'Staff'}) - {u.email}
-                        </option>
-                      ))}
-                    </select>
-                    <span className={styles.fieldHint}>
-                      {staffUsers.length
-                        ? `${staffUsers.length} staff accounts available`
-                        : 'No staff accounts are available to select.'}
-                    </span>
+                  <div className={styles.structureFieldsGrid}>
+                    <div className={`${styles.formGroup} ${styles.baseSalaryField}`}>
+                      <label htmlFor="salary-structure-user">Staff / teacher <span className={styles.requiredMark}>*</span></label>
+                      <select
+                        id="salary-structure-user"
+                        className={styles.formSelect}
+                        value={structureForm.user_id}
+                        onChange={(e) => setStructureForm({ ...structureForm, user_id: e.target.value })}
+                        required
+                        disabled={isEditingStructure}
+                      >
+                        <option value="">Select a staff member</option>
+                        {staffUsers.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.first_name} {u.last_name} ({u.role_name || u.role || 'Staff'}) - {u.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label htmlFor="contract-type">Contract type <span className={styles.requiredMark}>*</span></label>
+                      <select
+                        id="contract-type"
+                        className={styles.formSelect}
+                        value={structureForm.contract_type}
+                        onChange={(e) => setStructureForm({ ...structureForm, contract_type: e.target.value })}
+                        required
+                      >
+                        <option value="PERMANENT">Permanent / Indefinite</option>
+                        <option value="FIXED_TERM">Fixed-Term Contract</option>
+                        <option value="PROBATION">Probationary Period</option>
+                        <option value="PART_TIME">Part-Time Contract</option>
+                        <option value="TEMPORARY">Temporary / Seasonal</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label htmlFor="employment-type">Employment model</label>
+                      <select
+                        id="employment-type"
+                        className={styles.formSelect}
+                        value={structureForm.employment_type}
+                        onChange={(e) => setStructureForm({ ...structureForm, employment_type: e.target.value })}
+                      >
+                        <option value="FULL_TIME">Full-Time Staff</option>
+                        <option value="PART_TIME">Part-Time Staff</option>
+                        <option value="CONTRACTUAL">Contractor / Consultant</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label htmlFor="contract-start-date">Contract start date <span className={styles.requiredMark}>*</span></label>
+                      <input
+                        id="contract-start-date"
+                        type="date"
+                        className={styles.formInput}
+                        value={structureForm.contract_start_date}
+                        onChange={(e) => setStructureForm({ ...structureForm, contract_start_date: e.target.value })}
+                        required
+                      />
+                      <span className={styles.fieldHint}>Mid-month hires are automatically prorated from this date.</span>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label htmlFor="contract-end-date">Contract end date (Optional)</label>
+                      <input
+                        id="contract-end-date"
+                        type="date"
+                        className={styles.formInput}
+                        value={structureForm.contract_end_date}
+                        onChange={(e) => setStructureForm({ ...structureForm, contract_end_date: e.target.value })}
+                      />
+                      <span className={styles.fieldHint}>Leave blank for ongoing / permanent positions.</span>
+                    </div>
                   </div>
                 </section>
 
+                {/* SECTION 2: MONTHLY EARNINGS */}
                 <section className={styles.structureSection}>
                   <div className={styles.structureSectionHeader}>
                     <span className={styles.structureStep}>02</span>
                     <div>
                       <h4>Monthly earnings</h4>
-                      <p>Add the fixed salary and applicable allowances.</p>
+                      <p>Add the base contractual salary and monthly allowances.</p>
                     </div>
                   </div>
                   <div className={styles.structureFieldsGrid}>
@@ -1113,12 +1412,13 @@ export default function PayrollPage() {
                   </div>
                 </section>
 
+                {/* SECTION 3: STATUTORY DEDUCTIONS */}
                 <section className={styles.structureSection}>
                   <div className={styles.structureSectionHeader}>
                     <span className={styles.structureStep}>03</span>
                     <div>
                       <h4>Statutory deductions</h4>
-                      <p>Contribution rates used to estimate take-home pay.</p>
+                      <p>Statutory Ethiopian pension rates.</p>
                     </div>
                   </div>
                   <div className={styles.structureFieldsGrid}>
@@ -1155,12 +1455,13 @@ export default function PayrollPage() {
                   </div>
                 </section>
 
+                {/* SECTION 4: PAYMENT DETAILS */}
                 <section className={styles.structureSection}>
                   <div className={styles.structureSectionHeader}>
                     <span className={styles.structureStep}>04</span>
                     <div>
-                      <h4>Payment details</h4>
-                      <p>Bank details are used when preparing payroll payments.</p>
+                      <h4>Payment &amp; Banking Details</h4>
+                      <p>Bank details used for bank transfer exports and salary deposit.</p>
                     </div>
                   </div>
                   <div className={styles.structureFieldsGrid}>
@@ -1202,16 +1503,18 @@ export default function PayrollPage() {
                 <div className={styles.structurePreviewHeading}>
                   <span className={styles.previewIcon}><FaCalculator /></span>
                   <div>
-                    <h4>Live salary estimate</h4>
-                    <p>Updates as you edit the figures</p>
+                    <h4>Monthly compensation summary</h4>
+                    <p>Statutory Ethiopian PAYE &amp; Pension</p>
                   </div>
                 </div>
                 <div className={styles.netEstimate}>
-                  <span>Estimated take-home pay</span>
+                  <span>Estimated monthly take-home</span>
                   <strong>{structurePreview.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                  <small>ETB <span>/ month</span></small>
+                  <small>ETB <span>/ full month</span></small>
                 </div>
                 <div className={styles.previewBreakdown}>
+                  <div><span>Contract base salary</span><strong>{structurePreview.base.toLocaleString()} ETB</strong></div>
+                  <div><span>Total allowances</span><strong>+{structurePreview.totalAllowances.toLocaleString()} ETB</strong></div>
                   <div><span>Gross salary</span><strong>{structurePreview.grossSalary.toLocaleString()} ETB</strong></div>
                   <div><span>Taxable income</span><strong>{structurePreview.taxableIncome.toLocaleString()} ETB</strong></div>
                   <div><span>Transport tax exemption</span><strong className={styles.positiveValue}>{structurePreview.transportExemption.toLocaleString()} ETB</strong></div>
@@ -1221,7 +1524,7 @@ export default function PayrollPage() {
                   <div className={styles.previewNetSalary}><span>Net salary</span><strong>{structurePreview.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</strong></div>
                 </div>
                 <div className={styles.previewNote}>
-                  This is an estimate based on the current salary inputs and statutory settings. Final payroll is calculated when a monthly run is processed.
+                  Mid-month contract start or end dates will automatically prorate the base salary, allowances, and tax exemptions based on exact calendar days worked.
                 </div>
               </aside>
             </div>
@@ -1231,14 +1534,14 @@ export default function PayrollPage() {
                 Cancel
               </button>
               <button type="submit" className={styles.btnPrimary} disabled={loading}>
-                {loading ? 'Saving...' : isEditingStructure ? 'Save changes' : 'Create salary structure'}
+                {loading ? 'Saving...' : isEditingStructure ? 'Save changes' : 'Save contract & salary'}
               </button>
             </div>
           </form>
         </div>
       </ModalPortal>
 
-      {/* MODAL 3: PRINTABLE PAYSLIP */}
+      {/* MODAL 3: PRINTABLE OFFICIAL PAYSLIP */}
       <ModalPortal isOpen={isPayslipModalOpen} onClose={() => setIsPayslipModalOpen(false)}>
         <div className={styles.modalContent}>
           <div className={styles.modalHeader}>
@@ -1254,7 +1557,7 @@ export default function PayrollPage() {
               <div className={styles.payslipPrintContainer}>
                 <div className={styles.payslipHeader}>
                   <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>{activePayslip.school_name || 'SMART SMS ACADEMY'}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Statutory Staff Remuneration & Compensation Statement</div>
+                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Statutory Staff Remuneration &amp; Compensation Statement</div>
                   <div className={styles.payslipTitle}>
                     PAYSLIP: {new Date(activePayslip.year, activePayslip.month - 1).toLocaleString('default', { month: 'long' })}{' '}
                     {activePayslip.year}
@@ -1266,13 +1569,30 @@ export default function PayrollPage() {
                   <div><strong>Role:</strong> {activePayslip.role_name || 'Staff'}</div>
                   <div><strong>Payslip #:</strong> {activePayslip.payslip_number}</div>
                   <div><strong>Bank Account:</strong> {activePayslip.bank_account_number || 'N/A'}</div>
+                  <div><strong>Contract Type:</strong> {activePayslip.contract_type || 'PERMANENT'}</div>
+                  <div>
+                    <strong>Period Worked:</strong>{' '}
+                    {activePayslip.is_prorated ? (
+                      <span style={{ color: '#7c3aed', fontWeight: 700 }}>
+                        {activePayslip.worked_days} of {activePayslip.total_days_in_month} Days (Prorated {Math.round((Number(activePayslip.proration_factor) || 0) * 100)}%)
+                      </span>
+                    ) : (
+                      <span>Full Month ({activePayslip.total_days_in_month || 30} Days)</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.payslipColumns}>
                   <div className={styles.payslipBox}>
                     <h4 style={{ color: '#059669', marginBottom: '0.5rem' }}>Gross Earnings</h4>
+                    {activePayslip.is_prorated && Number(activePayslip.unprorated_base_salary) > 0 && (
+                      <div className={styles.payslipLine} style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                        <span>Full Monthly Base:</span>
+                        <span>{Number(activePayslip.unprorated_base_salary).toLocaleString()} ETB</span>
+                      </div>
+                    )}
                     <div className={styles.payslipLine}>
-                      <span>Base Salary:</span>
+                      <span>{activePayslip.is_prorated ? 'Payable Base Salary (Prorated):' : 'Base Salary:'}</span>
                       <span>{Number(activePayslip.base_salary).toLocaleString()} ETB</span>
                     </div>
                     {Number(activePayslip.professional_allowance) > 0 && (
@@ -1282,7 +1602,7 @@ export default function PayrollPage() {
                       </div>
                     )}
                     {(activePayslip.items || [])
-                      .filter((i) => i.item_type === 'ALLOWANCE' && i.name !== 'Professional Allowance')
+                      .filter((i) => i.item_type === 'ALLOWANCE' && !i.name.includes('Professional Allowance'))
                       .map((item, idx) => (
                         <div key={idx} className={styles.payslipLine}>
                           <span>{item.name}:</span>
@@ -1357,7 +1677,7 @@ export default function PayrollPage() {
           <div className={styles.modalHeader}>
             <div>
               <h3>
-                <FaUsers style={{ color: '#7c3aed' }} /> Employee Salary Computation & Net Payments
+                <FaUsers style={{ color: '#7c3aed' }} /> Employee Salary Computation &amp; Net Payments
               </h3>
               <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.2rem' }}>
                 Batch Reference: <strong>{selectedRunDetails?.batch_reference}</strong> &bull; Period:{' '}
@@ -1386,7 +1706,7 @@ export default function PayrollPage() {
                     <span className={styles.statPillValue}>{Number(selectedRunDetails.total_gross_amount || 0).toLocaleString()} ETB</span>
                   </div>
                   <div className={styles.statPill}>
-                    <span className={styles.statPillLabel}>Tax & Pension Deductions</span>
+                    <span className={styles.statPillLabel}>Tax &amp; Pension Deductions</span>
                     <span className={styles.statPillValue} style={{ color: '#dc2626' }}>
                       {Number(selectedRunDetails.total_deductions_amount || 0).toLocaleString()} ETB
                     </span>
@@ -1434,7 +1754,8 @@ export default function PayrollPage() {
                     <thead>
                       <tr>
                         <th>Employee</th>
-                        <th>Base Salary</th>
+                        <th>Contract &amp; Days</th>
+                        <th>Payable Base</th>
                         <th>Allowances</th>
                         <th>Gross Salary</th>
                         <th>Taxable Income</th>
@@ -1464,7 +1785,30 @@ export default function PayrollPage() {
                               <strong>{ps.first_name} {ps.last_name}</strong>
                               <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ps.role_name || 'Staff'} &bull; {ps.email}</div>
                             </td>
-                            <td>{Number(ps.base_salary).toLocaleString()} ETB</td>
+                            <td>
+                              <div>
+                                <span className={styles.contractTypeLabel} style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                  {ps.contract_type || 'PERMANENT'}
+                                </span>
+                              </div>
+                              {ps.is_prorated ? (
+                                <span className={`${styles.prorationPill} ${styles.prorationPillProrated}`} style={{ marginTop: '0.2rem' }}>
+                                  {ps.worked_days}/{ps.total_days_in_month}d ({Math.round((Number(ps.proration_factor) || 0) * 100)}%)
+                                </span>
+                              ) : (
+                                <span className={`${styles.prorationPill} ${styles.prorationPillFull}`} style={{ marginTop: '0.2rem' }}>
+                                  Full ({ps.total_days_in_month || 30}d)
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <div>{Number(ps.base_salary).toLocaleString()} ETB</div>
+                              {ps.is_prorated && Number(ps.unprorated_base_salary) > 0 && (
+                                <div className={styles.unproratedBaseLabel}>
+                                  {Number(ps.unprorated_base_salary).toLocaleString()} ETB
+                                </div>
+                              )}
+                            </td>
                             <td>{Number(ps.total_allowances || 0).toLocaleString()} ETB</td>
                             <td style={{ fontWeight: 600 }}>{Number(ps.gross_salary).toLocaleString()} ETB</td>
                             <td style={{ color: '#475569' }}>
@@ -1488,9 +1832,8 @@ export default function PayrollPage() {
                             </td>
                             <td>
                               <span
-                                className={`${styles.statusBadge} ${
-                                  ps.status === 'PAID' ? styles.statusPaid : styles.statusProcessed
-                                }`}
+                                className={`${styles.statusBadge} ${ps.status === 'PAID' ? styles.statusPaid : styles.statusProcessed
+                                  }`}
                               >
                                 {ps.status === 'PAID'
                                   ? 'Paid'

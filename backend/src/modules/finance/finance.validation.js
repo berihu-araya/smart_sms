@@ -205,6 +205,23 @@ function validateSalaryStructure(data) {
   if (data.custom_deductions && !Array.isArray(data.custom_deductions)) {
     errors.push('custom_deductions must be an array of deduction items');
   }
+
+  // Validate Contract Details
+  if (data.contract_start_date && isNaN(Date.parse(data.contract_start_date))) {
+    errors.push('contract_start_date must be a valid date');
+  }
+  if (data.contract_end_date) {
+    if (isNaN(Date.parse(data.contract_end_date))) {
+      errors.push('contract_end_date must be a valid date');
+    } else if (data.contract_start_date && new Date(data.contract_end_date) < new Date(data.contract_start_date)) {
+      errors.push('contract_end_date cannot be earlier than contract_start_date');
+    }
+  }
+  const allowedContractTypes = ['PERMANENT', 'FIXED_TERM', 'PROBATION', 'PART_TIME', 'TEMPORARY', 'CONTRACT'];
+  if (data.contract_type && !allowedContractTypes.includes(String(data.contract_type).toUpperCase())) {
+    errors.push(`contract_type must be one of: ${allowedContractTypes.join(', ')}`);
+  }
+
   return errors;
 }
 
