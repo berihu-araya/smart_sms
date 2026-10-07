@@ -217,7 +217,7 @@ function validateSalaryStructure(data) {
       errors.push('contract_end_date cannot be earlier than contract_start_date');
     }
   }
-  const allowedContractTypes = ['PERMANENT', 'FIXED_TERM', 'PROBATION', 'PART_TIME', 'TEMPORARY', 'CONTRACT'];
+  const allowedContractTypes = ['PERMANENT', 'FIXED_TERM', 'PROBATION', 'INTERNSHIP', 'TEMPORARY', 'CONTRACT'];
   if (data.contract_type && !allowedContractTypes.includes(String(data.contract_type).toUpperCase())) {
     errors.push(`contract_type must be one of: ${allowedContractTypes.join(', ')}`);
   }

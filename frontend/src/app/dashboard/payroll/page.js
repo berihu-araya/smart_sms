@@ -321,6 +321,7 @@ export default function PayrollPage() {
 
   const [payrollRuns, setPayrollRuns] = useState([]);
   const [salaryStructures, setSalaryStructures] = useState([]);
+  const [salaryStructuresLoaded, setSalaryStructuresLoaded] = useState(false);
   const [myPayslips, setMyPayslips] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
 
@@ -380,15 +381,16 @@ export default function PayrollPage() {
     }
   }, []);
 
-  const loadStructures = useCallback(async () => {
+  const loadStructures = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await financeApi.listSalaryStructures();
       setSalaryStructures(res.data || []);
+      setSalaryStructuresLoaded(true);
     } catch (e) {
       setError(e.message);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
@@ -441,6 +443,23 @@ export default function PayrollPage() {
       cancelled = true;
     };
   }, [activeTab, loadRuns, loadStructures, loadMyPayslips]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function preloadStructures() {
+      await Promise.resolve();
+      if (!cancelled && canReviewPayroll) {
+        await loadStructures(false);
+      }
+    }
+
+    preloadStructures();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canReviewPayroll, loadStructures]);
 
   const handleProcessPayroll = async (e) => {
     e.preventDefault();
@@ -651,7 +670,9 @@ export default function PayrollPage() {
             <div className={styles.kpiInfo}>
               <span className={styles.kpiLabel}>Active Contracts</span>
               <span className={styles.kpiValue}>
-                {salaryStructures.filter((s) => s.is_active).length}
+                {salaryStructuresLoaded
+                  ? salaryStructures.filter((s) => s.is_active).length
+                  : '—'}
               </span>
             </div>
           </div>
@@ -1261,7 +1282,7 @@ export default function PayrollPage() {
                         <option value="PERMANENT">Permanent / Indefinite</option>
                         <option value="FIXED_TERM">Fixed-Term Contract</option>
                         <option value="PROBATION">Probationary Period</option>
-                        <option value="INTERN_SHIP">Internship</option>
+                        <option value="INTERNSHIP">Internship</option>
                         <option value="TEMPORARY">Temporary / Seasonal</option>
                       </select>
                     </div>
