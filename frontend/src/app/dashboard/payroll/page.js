@@ -1261,22 +1261,24 @@ export default function PayrollPage() {
                         <option value="PERMANENT">Permanent / Indefinite</option>
                         <option value="FIXED_TERM">Fixed-Term Contract</option>
                         <option value="PROBATION">Probationary Period</option>
-                        <option value="PART_TIME">Part-Time Contract</option>
+                        <option value="INTERN_SHIP">Internship</option>
                         <option value="TEMPORARY">Temporary / Seasonal</option>
                       </select>
                     </div>
 
                     <div className={styles.formGroup}>
-                      <label htmlFor="employment-type">Employment model</label>
+                      <label htmlFor="employment-type">Employment Type <span className={styles.requiredMark}>*</span></label>
                       <select
                         id="employment-type"
                         className={styles.formSelect}
                         value={structureForm.employment_type}
                         onChange={(e) => setStructureForm({ ...structureForm, employment_type: e.target.value })}
                       >
-                        <option value="FULL_TIME">Full-Time Staff</option>
-                        <option value="PART_TIME">Part-Time Staff</option>
-                        <option value="CONTRACTUAL">Contractor / Consultant</option>
+                        <option value="FULL_TIME">Full-Time</option>
+                        <option value="PART_TIME">Part-Time</option>
+                        <option value="CONTRACTUAL">Contractual</option>
+                        <option value="REMOTE">Remote</option>
+                        <option value="HYBRID">Hybrid</option>
                       </select>
                     </div>
 

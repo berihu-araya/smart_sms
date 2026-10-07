@@ -32,7 +32,8 @@ const up = async (pgm) => {
     UPDATE salary_structures
     SET contract_start_date = COALESCE(effective_from, CURRENT_DATE)
     WHERE contract_start_date IS NULL OR contract_start_date = CURRENT_DATE
-  `);
+  `); // this is a data migration, not merely a schema migration.
+  // COALESCE() means: Take the first non-null value.
 
   // 2. Add contract and proration tracking fields to payslips
   pgm.addColumns('payslips', {
@@ -57,7 +58,7 @@ const up = async (pgm) => {
       default: 30,
     },
     proration_factor: {
-      type: 'numeric(6, 4)',
+      type: 'numeric(6, 4)', //this means total 6 digits, with 4 digits after the decimal point.
       notNull: true,
       default: 1.0000,
     },
@@ -67,7 +68,7 @@ const up = async (pgm) => {
       default: false,
     },
     unprorated_base_salary: {
-      type: 'numeric(12, 2)',
+      type: 'numeric(12, 2)', //this means total 12 digits, with 2 digits after the decimal point.
       notNull: true,
       default: 0.00,
     },
