@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import teacherSubjectService from "@/services/teacherSubjectService";
 import teacherService from "@/services/teacherService";
 import gradeService from "@/services/gradeService";
 import academicYearService from "@/services/academicYearService";
 import { useAuth } from "@/hooks/useAuth";
+import { TeacherSubjectFormModal } from "@/components/teachers";
 import styles from "./page.module.css";
 import {
   HiAcademicCap,
@@ -16,7 +17,8 @@ import {
   HiCheckCircle,
   HiClock,
   HiBuildingOffice2,
-  HiUserCheck,
+  HiUser,
+  HiPlus,
 } from "react-icons/hi2";
 
 const STATUS_COLORS = {
@@ -41,6 +43,10 @@ export default function TeacherSubjectListPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [successToast, setSuccessToast] = useState("");
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Filters for Admin mode
   const [search, setSearch] = useState("");
@@ -48,52 +54,66 @@ export default function TeacherSubjectListPage() {
   const [filterGradeId, setFilterGradeId] = useState("");
   const [filterAcademicYearId, setFilterAcademicYearId] = useState("");
 
-  // Load Data based on role
+  // Check URL params for ?new=true to open modal automatically
   useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        setError("");
-
-        if (isTeacher) {
-          const overviewData = await teacherSubjectService.getMyOverview();
-          setOverview(overviewData);
-          if (overviewData?.homeroom_classes?.length > 0 && overviewData?.teaching_assignments?.length === 0) {
-            setActiveTab("homeroom");
-          }
-        } else {
-          // Load Admin Filters and Data
-          const [teachersData, gradesData, yearsData, assignmentsData] = await Promise.all([
-            teacherService.listTeachers({ limit: 200 }).catch(() => ({ items: [] })),
-            gradeService.listGrades({ limit: 200 }).catch(() => ({ items: [] })),
-            academicYearService.listAcademicYears({ limit: 200 }).catch(() => ({ items: [] })),
-            teacherSubjectService.listTeacherSubjects({
-              search,
-              teacher_id: filterTeacherId || undefined,
-              grade_id: filterGradeId || undefined,
-              academic_year_id: filterAcademicYearId || undefined,
-              limit: 100,
-              offset: 0,
-            }),
-          ]);
-
-          setTeachers(teachersData.items || []);
-          setGrades(gradesData.items || []);
-          setAcademicYears(yearsData.items || []);
-          setAssignments(assignmentsData.items || []);
-        }
-
-        setHasLoaded(true);
-      } catch (err) {
-        setError(err.message || "Unable to load data.");
-        setHasLoaded(true);
-      } finally {
-        setLoading(false);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("new") === "true" || params.get("new") === "1") {
+        setIsModalOpen(true);
       }
     }
+  }, []);
 
-    loadData();
+  const loadAssignmentsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      if (isTeacher) {
+        const overviewData = await teacherSubjectService.getMyOverview();
+        setOverview(overviewData);
+        if (overviewData?.homeroom_classes?.length > 0 && overviewData?.teaching_assignments?.length === 0) {
+          setActiveTab("homeroom");
+        }
+      } else {
+        const [teachersData, gradesData, yearsData, assignmentsData] = await Promise.all([
+          teacherService.listTeachers({ limit: 200 }).catch(() => ({ items: [] })),
+          gradeService.listGrades({ limit: 200 }).catch(() => ({ items: [] })),
+          academicYearService.listAcademicYears({ limit: 200 }).catch(() => ({ items: [] })),
+          teacherSubjectService.listTeacherSubjects({
+            search,
+            teacher_id: filterTeacherId || undefined,
+            grade_id: filterGradeId || undefined,
+            academic_year_id: filterAcademicYearId || undefined,
+            limit: 100,
+            offset: 0,
+          }),
+        ]);
+
+        setTeachers(teachersData.items || []);
+        setGrades(gradesData.items || []);
+        setAcademicYears(yearsData.items || []);
+        setAssignments(assignmentsData.items || []);
+      }
+
+      setHasLoaded(true);
+    } catch (err) {
+      setError(err.message || "Unable to load data.");
+      setHasLoaded(true);
+    } finally {
+      setLoading(false);
+    }
   }, [isTeacher, search, filterTeacherId, filterGradeId, filterAcademicYearId]);
+
+  useEffect(() => {
+    loadAssignmentsData();
+  }, [loadAssignmentsData]);
+
+  const handleAssignmentCreated = (newItem) => {
+    setSuccessToast("Teacher subject assignment registered successfully!");
+    setTimeout(() => setSuccessToast(""), 4000);
+    loadAssignmentsData();
+  };
 
   const assignmentCount = useMemo(() => assignments.length, [assignments]);
 
@@ -442,11 +462,37 @@ export default function TeacherSubjectListPage() {
           <Link href="/dashboard/teachers/subjects/class-teachers" className={styles.secondaryButton}>
             Class Teacher Assignment
           </Link>
-          <Link href="/dashboard/teachers/subjects/new" className={styles.primaryButton}>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className={styles.primaryButton}
+            style={{ cursor: "pointer", border: "none" }}
+          >
             + New Assignment
-          </Link>
+          </button>
         </div>
       </div>
+
+      {successToast && (
+        <div
+          style={{
+            background: "#ecfdf5",
+            border: "1px solid #a7f3d0",
+            color: "#065f46",
+            padding: "0.75rem 1.25rem",
+            borderRadius: "10px",
+            marginBottom: "1rem",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <HiCheckCircle size={20} color="#059669" />
+          <span>{successToast}</span>
+        </div>
+      )}
 
       <div className={styles.summaryCard}>
         <div>
@@ -570,6 +616,12 @@ export default function TeacherSubjectListPage() {
           </table>
         </div>
       </div>
+
+      <TeacherSubjectFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleAssignmentCreated}
+      />
     </div>
   );
 }
