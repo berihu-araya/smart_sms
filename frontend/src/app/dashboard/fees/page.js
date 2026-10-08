@@ -31,13 +31,37 @@ import {
   FaUpload,
   FaHistory,
   FaCheckCircle,
+  FaTrash,
+  FaEdit,
+  FaTags,
+  FaAward,
+  FaInfoCircle,
 } from 'react-icons/fa';
 import {
   HiOutlineCurrencyDollar,
   HiOutlineClipboardDocumentCheck,
   HiOutlineArrowPath,
   HiOutlineBanknotes,
+  HiTrash,
+  HiShieldExclamation,
+  HiXMark,
+  HiExclamationTriangle,
+  HiUser,
+  HiAcademicCap,
+  HiSparkles,
+  HiTag,
+  HiReceiptPercent,
+  HiPencilSquare,
 } from 'react-icons/hi2';
+
+const CANCELLATION_REASONS = [
+  'Created by mistake',
+  'Duplicate invoice',
+  'Student withdrawn',
+  'Scholarship / waiver',
+  'Incorrect amount',
+  'Administrative review',
+];
 
 function ModalPortal({ isOpen, onClose, children }) {
   const [mounted, setMounted] = useState(false);
@@ -111,6 +135,20 @@ export default function FeesManagementPage() {
   const [isSlipReviewModalOpen, setIsSlipReviewModalOpen] = useState(false);
   const [isSlipUploadModalOpen, setIsSlipUploadModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [confirmDeleteAck, setConfirmDeleteAck] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState({
+    type: 'invoice',
+    item: null,
+    reason: '',
+  });
+
+  // Sub-tabs & Search for Fee Master Suite
+  const [masterSubTab, setMasterSubTab] = useState('structures'); // 'structures' | 'categories' | 'discounts'
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [discountSearchTerm, setDiscountSearchTerm] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingDiscount, setEditingDiscount] = useState(null);
 
   // Selected Records for Modals
   const [activeInvoice, setActiveInvoice] = useState(null);
@@ -445,14 +483,42 @@ export default function FeesManagementPage() {
     }
   };
 
-  const handleCreateCategorySubmit = async (e) => {
+  const handleOpenCreateCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      code: '',
+      description: '',
+      is_refundable: false,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategoryModal = (cat) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name || '',
+      code: cat.code || '',
+      description: cat.description || '',
+      is_refundable: Boolean(cat.is_refundable),
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategorySubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError(null);
-      await financeApi.createFeeCategory(categoryForm);
-      setSuccessMsg('Fee category registered successfully');
+      if (editingCategory) {
+        await financeApi.updateFeeCategory(editingCategory.id, categoryForm);
+        setSuccessMsg(`Fee category "${categoryForm.name}" updated successfully.`);
+      } else {
+        await financeApi.createFeeCategory(categoryForm);
+        setSuccessMsg(`Fee category "${categoryForm.name}" registered successfully.`);
+      }
       setIsCategoryModalOpen(false);
+      setEditingCategory(null);
       loadMasterData();
     } catch (err) {
       setError(err.message);
@@ -461,14 +527,48 @@ export default function FeesManagementPage() {
     }
   };
 
-  const handleCreateDiscountSubmit = async (e) => {
+  const handleOpenCreateDiscountModal = () => {
+    setEditingDiscount(null);
+    setDiscountForm({
+      name: '',
+      code: '',
+      discount_type: 'PERCENTAGE',
+      value: '',
+      description: '',
+    });
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleOpenEditDiscountModal = (disc) => {
+    setEditingDiscount(disc);
+    setDiscountForm({
+      name: disc.name || '',
+      code: disc.code || '',
+      discount_type: disc.discount_type || 'PERCENTAGE',
+      value: disc.value || '',
+      description: disc.description || '',
+    });
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleSaveDiscountSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError(null);
-      await financeApi.createFeeDiscount(discountForm);
-      setSuccessMsg('Scholarship/Discount rule created');
+      const payload = {
+        ...discountForm,
+        value: Number(discountForm.value),
+      };
+      if (editingDiscount) {
+        await financeApi.updateFeeDiscount(editingDiscount.id, payload);
+        setSuccessMsg(`Scholarship/Discount "${discountForm.name}" updated successfully.`);
+      } else {
+        await financeApi.createFeeDiscount(payload);
+        setSuccessMsg(`Scholarship/Discount rule "${discountForm.name}" created successfully.`);
+      }
       setIsDiscountModalOpen(false);
+      setEditingDiscount(null);
       loadMasterData();
     } catch (err) {
       setError(err.message);
@@ -496,14 +596,45 @@ export default function FeesManagementPage() {
     }
   };
 
-  const handleCancelInvoice = async (invoiceId) => {
-    if (!window.confirm('Are you sure you want to cancel this unpaid invoice?')) return;
+  const handleOpenDeleteModal = (type, item) => {
+    setDeleteTarget({
+      type,
+      item,
+      reason: type === 'invoice' ? 'Created by mistake' : '',
+    });
+    setConfirmDeleteAck(false);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (e) => {
+    e?.preventDefault();
+    if (!deleteTarget.item) return;
     try {
       setLoading(true);
-      await financeApi.cancelInvoice(invoiceId, 'Administrative cancellation');
-      setSuccessMsg('Invoice cancelled successfully');
-      loadInvoices();
-      loadKpis();
+      setError(null);
+      if (deleteTarget.type === 'invoice') {
+        await financeApi.cancelInvoice(
+          deleteTarget.item.id,
+          deleteTarget.reason || 'Administrative cancellation'
+        );
+        setSuccessMsg(`Invoice #${deleteTarget.item.invoice_number} has been deleted/cancelled.`);
+        loadInvoices();
+        loadKpis();
+      } else if (deleteTarget.type === 'structure') {
+        await financeApi.deleteFeeStructure(deleteTarget.item.id);
+        setSuccessMsg(`Fee structure "${deleteTarget.item.name}" deleted successfully.`);
+        loadMasterData();
+      } else if (deleteTarget.type === 'category') {
+        await financeApi.deleteFeeCategory(deleteTarget.item.id);
+        setSuccessMsg(`Fee category "${deleteTarget.item.name}" deleted successfully.`);
+        loadMasterData();
+      } else if (deleteTarget.type === 'discount') {
+        await financeApi.deleteFeeDiscount(deleteTarget.item.id);
+        setSuccessMsg(`Discount rule "${deleteTarget.item.name}" deleted successfully.`);
+        loadMasterData();
+      }
+      setIsDeleteModalOpen(false);
+      setDeleteTarget({ type: 'invoice', item: null, reason: '' });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -711,7 +842,7 @@ export default function FeesManagementPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Invoice #</th>
+                    <th className={styles.invoiceCol}>Invoice #</th>
                     <th>Student Name</th>
                     <th>Grade / Class</th>
                     <th>Title / Billing Period</th>
@@ -733,7 +864,7 @@ export default function FeesManagementPage() {
                   ) : (
                     invoices.map((inv) => (
                       <tr key={inv.id}>
-                        <td style={{ fontWeight: 700, color: '#4f46e5' }}>{inv.invoice_number}</td>
+                        <td className={styles.invoiceCol} style={{ fontWeight: 700, color: '#4f46e5' }}>{inv.invoice_number}</td>
                         <td>
                           <strong>{inv.student_first_name} {inv.student_last_name}</strong>
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Adm: {inv.student_admission_number}</div>
@@ -750,15 +881,14 @@ export default function FeesManagementPage() {
                         </td>
                         <td>
                           <span
-                            className={`${styles.statusBadge} ${
-                              inv.status === 'PAID'
-                                ? styles.statusPaid
-                                : inv.status === 'PARTIALLY_PAID'
+                            className={`${styles.statusBadge} ${inv.status === 'PAID'
+                              ? styles.statusPaid
+                              : inv.status === 'PARTIALLY_PAID'
                                 ? styles.statusPartial
                                 : inv.status === 'CANCELLED'
-                                ? styles.statusCancelled
-                                : styles.statusUnpaid
-                            }`}
+                                  ? styles.statusCancelled
+                                  : styles.statusUnpaid
+                              }`}
                           >
                             {inv.status}
                           </span>
@@ -766,13 +896,17 @@ export default function FeesManagementPage() {
                         <td>
                           <div className={styles.actionBtns}>
                             {Number(inv.balance_amount) > 0 && inv.status !== 'CANCELLED' && (
-                              <button className={`${styles.btnAction} ${styles.btnActionPay}`} onClick={() => handleOpenPaymentModal(inv)}>
+                              <button className={`${styles.btnAction} ${styles.btnActionPay}`} onClick={() => handleOpenPaymentModal(inv)} title="Record Payment">
                                 <FaMoneyBillWave /> Pay
                               </button>
                             )}
                             {Number(inv.paid_amount) === 0 && inv.status !== 'CANCELLED' && (
-                              <button className={`${styles.btnAction} ${styles.btnActionCancel}`} onClick={() => handleCancelInvoice(inv.id)}>
-                                <FaBan />
+                              <button
+                                className={`${styles.btnAction} ${styles.btnActionCancel}`}
+                                onClick={() => handleOpenDeleteModal('invoice', inv)}
+                                title="Delete / Cancel Invoice"
+                              >
+                                <FaTrash /> Delete
                               </button>
                             )}
                           </div>
@@ -787,72 +921,389 @@ export default function FeesManagementPage() {
         </>
       )}
 
-      {/* TAB 2: FEE MASTER & STRUCTURES */}
+      {/* TAB 2: FEE MASTER & STRUCTURES SUITE */}
       {activeTab === 'structures' && (
-        <>
-          <div className={styles.filterBar}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Sub-Tab Navigation Switcher */}
+          <div className={styles.subTabBarContainer}>
+            <div className={styles.subTabBar}>
+              <button
+                className={`${styles.subTabBtn} ${masterSubTab === 'structures' ? styles.subTabBtnActive : ''}`}
+                onClick={() => setMasterSubTab('structures')}
+              >
+                <FaLayerGroup /> Fee Structures Catalog
+                <span className={styles.subTabBadge}>{feeStructures.length}</span>
+              </button>
+              <button
+                className={`${styles.subTabBtn} ${masterSubTab === 'categories' ? styles.subTabBtnActive : ''}`}
+                onClick={() => setMasterSubTab('categories')}
+              >
+                <FaTag /> Fee Categories
+                <span className={styles.subTabBadge}>{feeCategories.length}</span>
+              </button>
+              <button
+                className={`${styles.subTabBtn} ${masterSubTab === 'discounts' ? styles.subTabBtnActive : ''}`}
+                onClick={() => setMasterSubTab('discounts')}
+              >
+                <FaPercentage /> Discounts & Waivers
+                <span className={styles.subTabBadge}>{feeDiscounts.length}</span>
+              </button>
+            </div>
+
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className={styles.btnPrimary} onClick={() => setIsStructureModalOpen(true)}>
-                <FaPlus /> New Fee Structure
-              </button>
-              <button className={styles.btnSecondary} onClick={() => setIsCategoryModalOpen(true)}>
-                <FaTag /> Fee Categories ({feeCategories.length})
-              </button>
-              <button className={styles.btnSecondary} onClick={() => setIsDiscountModalOpen(true)}>
-                <FaPercentage /> Discounts & Waivers ({feeDiscounts.length})
-              </button>
+              {masterSubTab === 'structures' && (
+                <button className={styles.btnPrimary} onClick={() => setIsStructureModalOpen(true)}>
+                  <FaPlus /> New Fee Structure
+                </button>
+              )}
+              {masterSubTab === 'categories' && (
+                <button className={styles.btnPrimary} onClick={handleOpenCreateCategoryModal}>
+                  <FaPlus /> Add Fee Category
+                </button>
+              )}
+              {masterSubTab === 'discounts' && (
+                <button className={styles.btnPrimary} onClick={handleOpenCreateDiscountModal}>
+                  <FaPlus /> New Discount / Waiver Policy
+                </button>
+              )}
             </div>
           </div>
 
-          <div className={styles.tableCard}>
-            <div className={styles.tableWrapper}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Structure Name</th>
-                    <th>Category</th>
-                    <th>Grade Allocation</th>
-                    <th>Amount (ETB)</th>
-                    <th>Frequency</th>
-                    <th>Due Day</th>
-                    <th>Grace Period</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {feeStructures.length === 0 ? (
-                    <tr>
-                      <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                        No fee structures defined yet. Click "New Fee Structure" to configure class fees.
-                      </td>
-                    </tr>
-                  ) : (
-                    feeStructures.map((fs) => (
-                      <tr key={fs.id}>
-                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{fs.name}</td>
-                        <td>
-                          <span style={{ padding: '0.2rem 0.5rem', background: '#f1f5f9', borderRadius: '6px', fontWeight: 600 }}>
-                            {fs.category_name} ({fs.category_code})
-                          </span>
-                        </td>
-                        <td>{fs.grade_name || 'All Grades'}</td>
-                        <td style={{ fontWeight: 800, color: '#4f46e5' }}>{Number(fs.amount).toLocaleString()} ETB</td>
-                        <td>{fs.frequency}</td>
-                        <td>Day {fs.due_day_of_month || 10}</td>
-                        <td>{fs.grace_period_days || 0} days</td>
-                        <td>
-                          <span className={`${styles.statusBadge} ${fs.is_active ? styles.statusPaid : styles.statusCancelled}`}>
-                            {fs.is_active ? 'Active' : 'Disabled'}
-                          </span>
-                        </td>
+          {/* SUB-TAB 1: FEE STRUCTURES */}
+          {masterSubTab === 'structures' && (
+            <>
+              <div className={styles.tableCard}>
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Structure Name</th>
+                        <th>Category</th>
+                        <th>Grade Allocation</th>
+                        <th>Amount (ETB)</th>
+                        <th>Frequency</th>
+                        <th>Due Day</th>
+                        <th>Grace Period</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+                    </thead>
+                    <tbody>
+                      {feeStructures.length === 0 ? (
+                        <tr>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                            No fee structures defined yet. Click "New Fee Structure" to configure class fees.
+                          </td>
+                        </tr>
+                      ) : (
+                        feeStructures.map((fs) => (
+                          <tr key={fs.id}>
+                            <td style={{ fontWeight: 700, color: '#0f172a' }}>{fs.name}</td>
+                            <td>
+                              <span className={styles.categoryCodeBadge}>
+                                {fs.category_name} ({fs.category_code})
+                              </span>
+                            </td>
+                            <td>{fs.grade_name || 'All Grades'}</td>
+                            <td style={{ fontWeight: 800, color: '#4f46e5' }}>{Number(fs.amount).toLocaleString()} ETB</td>
+                            <td>{fs.frequency}</td>
+                            <td>Day {fs.due_day_of_month || 10}</td>
+                            <td>{fs.grace_period_days || 0} days</td>
+                            <td>
+                              <span className={`${styles.statusBadge} ${fs.is_active ? styles.statusPaid : styles.statusCancelled}`}>
+                                {fs.is_active ? 'Active' : 'Disabled'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className={styles.actionBtns}>
+                                <button
+                                  className={`${styles.btnAction} ${styles.btnActionCancel}`}
+                                  onClick={() => handleOpenDeleteModal('structure', fs)}
+                                  title="Delete Fee Structure"
+                                >
+                                  <FaTrash /> Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* SUB-TAB 2: FEE CATEGORIES */}
+          {masterSubTab === 'categories' && (
+            <>
+              {/* Stat Summary Cards */}
+              <div className={styles.masterStatsGrid}>
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#e0e7ff', color: '#4338ca' }}>
+                    <FaTags />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>{feeCategories.length}</div>
+                    <div className={styles.masterStatLabel}>Fee Categories</div>
+                  </div>
+                </div>
+
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#ecfdf5', color: '#047857' }}>
+                    <FaLayerGroup />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>
+                      {feeStructures.length}
+                    </div>
+                    <div className={styles.masterStatLabel}>Linked Fee Rules</div>
+                  </div>
+                </div>
+
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#fef3c7', color: '#b45309' }}>
+                    <FaInfoCircle />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>
+                      {feeCategories.filter((c) => c.is_refundable).length}
+                    </div>
+                    <div className={styles.masterStatLabel}>Refundable Items</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className={styles.filterBar}>
+                <div className={styles.searchGroup}>
+                  <FaSearch color="#94a3b8" />
+                  <input
+                    type="text"
+                    placeholder="Search category name, code (e.g. TUI, TRN)..."
+                    value={categorySearchTerm}
+                    onChange={(e) => setCategorySearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Categories Table */}
+              <div className={styles.tableCard}>
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Category Code</th>
+                        <th>Category Name</th>
+                        <th>Description & Ledger Classification</th>
+                        <th>Policy</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feeCategories.filter(
+                        (c) =>
+                          c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+                          c.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+                          (c.description || '').toLowerCase().includes(categorySearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                            No fee categories found. Click "Add Fee Category" above to register a new billing category.
+                          </td>
+                        </tr>
+                      ) : (
+                        feeCategories
+                          .filter(
+                            (c) =>
+                              c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+                              c.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+                              (c.description || '').toLowerCase().includes(categorySearchTerm.toLowerCase())
+                          )
+                          .map((c) => (
+                            <tr key={c.id}>
+                              <td>
+                                <span className={styles.categoryCodeBadge}>
+                                  <FaTag style={{ fontSize: '0.7rem' }} /> {c.code}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: 700, color: '#0f172a' }}>{c.name}</td>
+                              <td style={{ color: '#64748b' }}>{c.description || '—'}</td>
+                              <td>
+                                <span
+                                  className={`${styles.statusBadge} ${
+                                    c.is_refundable ? styles.statusPartial : styles.statusPaid
+                                  }`}
+                                >
+                                  {c.is_refundable ? 'Refundable' : 'Non-Refundable'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className={styles.actionBtns}>
+                                  <button
+                                    className={`${styles.btnAction} ${styles.btnActionEdit}`}
+                                    onClick={() => handleOpenEditCategoryModal(c)}
+                                    title="Edit Fee Category"
+                                  >
+                                    <FaEdit /> Edit
+                                  </button>
+                                  <button
+                                    className={`${styles.btnAction} ${styles.btnActionCancel}`}
+                                    onClick={() => handleOpenDeleteModal('category', c)}
+                                    title="Delete Fee Category"
+                                  >
+                                    <FaTrash /> Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* SUB-TAB 3: DISCOUNTS & WAIVERS */}
+          {masterSubTab === 'discounts' && (
+            <>
+              {/* Stat Summary Cards */}
+              <div className={styles.masterStatsGrid}>
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#ecfdf5', color: '#059669' }}>
+                    <FaPercentage />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>{feeDiscounts.length}</div>
+                    <div className={styles.masterStatLabel}>Active Concession Rules</div>
+                  </div>
+                </div>
+
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#e0e7ff', color: '#4338ca' }}>
+                    <HiReceiptPercent />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>
+                      {feeDiscounts.filter((d) => d.discount_type === 'PERCENTAGE').length}
+                    </div>
+                    <div className={styles.masterStatLabel}>Percentage Waivers</div>
+                  </div>
+                </div>
+
+                <div className={styles.masterStatCard}>
+                  <div className={styles.masterStatIcon} style={{ background: '#fef3c7', color: '#b45309' }}>
+                    <FaAward />
+                  </div>
+                  <div className={styles.masterStatInfo}>
+                    <div className={styles.masterStatValue}>
+                      {feeDiscounts.filter((d) => d.discount_type === 'FIXED_AMOUNT').length}
+                    </div>
+                    <div className={styles.masterStatLabel}>Fixed Scholarships</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className={styles.filterBar}>
+                <div className={styles.searchGroup}>
+                  <FaSearch color="#94a3b8" />
+                  <input
+                    type="text"
+                    placeholder="Search discount title, code (e.g. SIB15, STAFF50)..."
+                    value={discountSearchTerm}
+                    onChange={(e) => setDiscountSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Discounts Table */}
+              <div className={styles.tableCard}>
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Rule Code</th>
+                        <th>Concession / Scholarship Title</th>
+                        <th>Concession Type</th>
+                        <th>Benefit Value</th>
+                        <th>Description / Eligibility Scope</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feeDiscounts.filter(
+                        (d) =>
+                          d.name.toLowerCase().includes(discountSearchTerm.toLowerCase()) ||
+                          d.code.toLowerCase().includes(discountSearchTerm.toLowerCase()) ||
+                          (d.description || '').toLowerCase().includes(discountSearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                        <tr>
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
+                            No discount or scholarship policies defined. Click "New Discount / Waiver Policy" to add one.
+                          </td>
+                        </tr>
+                      ) : (
+                        feeDiscounts
+                          .filter(
+                            (d) =>
+                              d.name.toLowerCase().includes(discountSearchTerm.toLowerCase()) ||
+                              d.code.toLowerCase().includes(discountSearchTerm.toLowerCase()) ||
+                              (d.description || '').toLowerCase().includes(discountSearchTerm.toLowerCase())
+                          )
+                          .map((d) => (
+                            <tr key={d.id}>
+                              <td>
+                                <span className={styles.categoryCodeBadge}>
+                                  <FaAward style={{ fontSize: '0.7rem' }} /> {d.code}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: 700, color: '#0f172a' }}>{d.name}</td>
+                              <td>
+                                <span className={styles.discountTypePill}>
+                                  {d.discount_type === 'PERCENTAGE' ? 'Percentage Concession' : 'Fixed Lump-Sum'}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={styles.discountValueBadge}>
+                                  <HiSparkles />
+                                  {d.discount_type === 'PERCENTAGE'
+                                    ? `${d.value}% OFF`
+                                    : `${Number(d.value).toLocaleString()} ETB WAIVER`}
+                                </span>
+                              </td>
+                              <td style={{ color: '#64748b' }}>{d.description || '—'}</td>
+                              <td>
+                                <div className={styles.actionBtns}>
+                                  <button
+                                    className={`${styles.btnAction} ${styles.btnActionEdit}`}
+                                    onClick={() => handleOpenEditDiscountModal(d)}
+                                    title="Edit Discount Rule"
+                                  >
+                                    <FaEdit /> Edit
+                                  </button>
+                                  <button
+                                    className={`${styles.btnAction} ${styles.btnActionCancel}`}
+                                    onClick={() => handleOpenDeleteModal('discount', d)}
+                                    title="Delete Discount Rule"
+                                  >
+                                    <FaTrash /> Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* TAB 3: PAYMENT RECEIPTS */}
@@ -919,7 +1370,7 @@ export default function FeesManagementPage() {
                 <tr>
                   <th>Submission Date</th>
                   <th>Student Name</th>
-                  <th>Invoice #</th>
+                  <th className={styles.invoiceCol}>Invoice #</th>
                   <th>Bank Name</th>
                   <th>Ref #</th>
                   <th>Amount</th>
@@ -943,7 +1394,7 @@ export default function FeesManagementPage() {
                         <strong>{slip.student_first_name} {slip.student_last_name}</strong>
                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Adm: {slip.student_admission_number}</div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{slip.invoice_number}</td>
+                      <td className={styles.invoiceCol} style={{ fontWeight: 600 }}>{slip.invoice_number}</td>
                       <td>{slip.bank_name}</td>
                       <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>{slip.reference_number}</td>
                       <td style={{ fontWeight: 800, color: '#059669' }}>{Number(slip.amount).toLocaleString()} ETB</td>
@@ -954,13 +1405,12 @@ export default function FeesManagementPage() {
                       </td>
                       <td>
                         <span
-                          className={`${styles.statusBadge} ${
-                            slip.status === 'APPROVED'
-                              ? styles.statusPaid
-                              : slip.status === 'REJECTED'
+                          className={`${styles.statusBadge} ${slip.status === 'APPROVED'
+                            ? styles.statusPaid
+                            : slip.status === 'REJECTED'
                               ? styles.statusUnpaid
                               : styles.statusPartial
-                          }`}
+                            }`}
                         >
                           {slip.status}
                         </span>
@@ -996,7 +1446,7 @@ export default function FeesManagementPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Invoice #</th>
+                  <th className={styles.invoiceCol}>Invoice #</th>
                   <th>Student Name</th>
                   <th>Class</th>
                   <th>Billing Title</th>
@@ -1018,7 +1468,7 @@ export default function FeesManagementPage() {
                 ) : (
                   myInvoices.map((inv) => (
                     <tr key={inv.id}>
-                      <td style={{ fontWeight: 700, color: '#4f46e5' }}>{inv.invoice_number}</td>
+                      <td className={styles.invoiceCol} style={{ fontWeight: 700, color: '#4f46e5' }}>{inv.invoice_number}</td>
                       <td><strong>{inv.student_first_name} {inv.student_last_name}</strong></td>
                       <td>{inv.grade_name} {inv.section_name ? `(${inv.section_name})` : ''}</td>
                       <td>{inv.title}</td>
@@ -1505,25 +1955,26 @@ export default function FeesManagementPage() {
         </div>
       </ModalPortal>
 
-      {/* MODAL 4: FEE CATEGORY */}
+      {/* MODAL 4: FEE CATEGORY (ADD / EDIT) */}
       <ModalPortal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)}>
         <div className={styles.modalContent}>
           <div className={styles.modalHeader}>
             <h3>
-              <FaTag /> Add Fee Category
+              <FaTag style={{ color: '#4f46e5' }} />
+              {editingCategory ? 'Edit Fee Category' : 'Add Fee Category'}
             </h3>
             <button className={styles.closeBtn} onClick={() => setIsCategoryModalOpen(false)}>
               <FaTimes />
             </button>
           </div>
-          <form onSubmit={handleCreateCategorySubmit}>
+          <form onSubmit={handleSaveCategorySubmit}>
             <div className={styles.modalBody}>
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
                   <label>Category Name *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Tuition Fee, Transport Fee"
+                    placeholder="e.g. Tuition Fee, Transportation, Lab Material"
                     className={styles.formInput}
                     value={categoryForm.name}
                     onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
@@ -1531,7 +1982,7 @@ export default function FeesManagementPage() {
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label>Code *</label>
+                  <label>Category Code *</label>
                   <input
                     type="text"
                     placeholder="e.g. TUI, TRN, LAB"
@@ -1542,46 +1993,80 @@ export default function FeesManagementPage() {
                   />
                 </div>
               </div>
+
+              {/* Live Preview Pill */}
+              <div className={styles.livePreviewBox}>
+                <div className={styles.livePreviewTitle}>
+                  <HiSparkles style={{ color: '#4f46e5' }} /> Invoice Statement Preview
+                </div>
+                <div className={styles.livePreviewContent}>
+                  <span>{categoryForm.name || 'Category Name Preview'}</span>
+                  <span className={styles.categoryCodeBadge}>
+                    {categoryForm.code || 'CODE'}
+                  </span>
+                </div>
+              </div>
+
               <div className={styles.formGroup}>
-                <label>Description</label>
+                <label>Description & Accounting Purpose</label>
                 <textarea
                   className={styles.formTextarea}
+                  placeholder="Notes on how this fee category is billed or tracked in ledger..."
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
                 />
               </div>
+
+              <label className={styles.confirmAckLabel} style={{ marginTop: '0.25rem' }}>
+                <input
+                  type="checkbox"
+                  className={styles.confirmAckCheckbox}
+                  checked={categoryForm.is_refundable}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, is_refundable: e.target.checked })}
+                />
+                <span>Refundable fee item upon student transfer or withdrawal</span>
+              </label>
             </div>
             <div className={styles.modalFooter}>
               <button type="button" className={styles.btnSecondary} onClick={() => setIsCategoryModalOpen(false)}>
                 Cancel
               </button>
-              <button type="submit" className={styles.btnPrimary}>
-                Save Category
+              <button type="submit" className={styles.btnPrimary} disabled={loading}>
+                {loading ? (
+                  <>
+                    <HiOutlineArrowPath className={styles.spinner} /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <FaCheck /> {editingCategory ? 'Update Category' : 'Save Category'}
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </ModalPortal>
 
-      {/* MODAL 5: SCHOLARSHIPS & DISCOUNTS */}
+      {/* MODAL 5: SCHOLARSHIPS & DISCOUNTS (ADD / EDIT) */}
       <ModalPortal isOpen={isDiscountModalOpen} onClose={() => setIsDiscountModalOpen(false)}>
         <div className={styles.modalContent}>
           <div className={styles.modalHeader}>
             <h3>
-              <FaPercentage /> Add Discount / Scholarship Rule
+              <FaPercentage style={{ color: '#059669' }} />
+              {editingDiscount ? 'Edit Concession / Scholarship Policy' : 'New Discount / Scholarship Policy'}
             </h3>
             <button className={styles.closeBtn} onClick={() => setIsDiscountModalOpen(false)}>
               <FaTimes />
             </button>
           </div>
-          <form onSubmit={handleCreateDiscountSubmit}>
+          <form onSubmit={handleSaveDiscountSubmit}>
             <div className={styles.modalBody}>
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
                   <label>Discount Title *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Sibling Discount, Staff Child"
+                    placeholder="e.g. Sibling 15% Waiver, Staff Child Benefit"
                     className={styles.formInput}
                     value={discountForm.name}
                     onChange={(e) => setDiscountForm({ ...discountForm, name: e.target.value })}
@@ -1589,10 +2074,10 @@ export default function FeesManagementPage() {
                   />
                 </div>
                 <div className={styles.formGroup}>
-                  <label>Code *</label>
+                  <label>Rule Code *</label>
                   <input
                     type="text"
-                    placeholder="e.g. SIB15, SCHOLAR100"
+                    placeholder="e.g. SIB15, STAFF50, MERIT100"
                     className={styles.formInput}
                     value={discountForm.code}
                     onChange={(e) => setDiscountForm({ ...discountForm, code: e.target.value.toUpperCase() })}
@@ -1600,23 +2085,29 @@ export default function FeesManagementPage() {
                   />
                 </div>
               </div>
+
               <div className={styles.formRow}>
                 <div className={styles.formGroup}>
-                  <label>Discount Type</label>
+                  <label>Concession Type</label>
                   <select
                     className={styles.formSelect}
                     value={discountForm.discount_type}
                     onChange={(e) => setDiscountForm({ ...discountForm, discount_type: e.target.value })}
                   >
-                    <option value="PERCENTAGE">Percentage (%)</option>
-                    <option value="FIXED_AMOUNT">Fixed Amount (ETB)</option>
+                    <option value="PERCENTAGE">Percentage (%) Discount</option>
+                    <option value="FIXED_AMOUNT">Fixed Lump-Sum Amount (ETB)</option>
                   </select>
                 </div>
                 <div className={styles.formGroup}>
-                  <label>Value ({discountForm.discount_type === 'PERCENTAGE' ? '%' : 'ETB'}) *</label>
+                  <label>
+                    Value ({discountForm.discount_type === 'PERCENTAGE' ? '%' : 'ETB'}) *
+                  </label>
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
+                    max={discountForm.discount_type === 'PERCENTAGE' ? '100' : '999999'}
+                    placeholder={discountForm.discount_type === 'PERCENTAGE' ? 'e.g. 15' : 'e.g. 1500'}
                     className={styles.formInput}
                     value={discountForm.value}
                     onChange={(e) => setDiscountForm({ ...discountForm, value: e.target.value })}
@@ -1624,13 +2115,46 @@ export default function FeesManagementPage() {
                   />
                 </div>
               </div>
+
+              {/* Live Policy Simulation Box */}
+              <div className={styles.livePreviewBox}>
+                <div className={styles.livePreviewTitle}>
+                  <HiSparkles style={{ color: '#059669' }} /> Live Policy Calculation Simulation
+                </div>
+                <div className={styles.livePreviewContent}>
+                  <span>Sample 10,000 ETB Tuition:</span>
+                  <span style={{ color: '#059669', fontWeight: 800 }}>
+                    {discountForm.discount_type === 'PERCENTAGE'
+                      ? `Deduction: -${((10000 * (Number(discountForm.value) || 0)) / 100).toLocaleString()} ETB (Net Billed: ${(10000 - (10000 * (Number(discountForm.value) || 0)) / 100).toLocaleString()} ETB)`
+                      : `Deduction: -${(Number(discountForm.value) || 0).toLocaleString()} ETB (Net Billed: ${Math.max(0, 10000 - (Number(discountForm.value) || 0)).toLocaleString()} ETB)`}
+                  </span>
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Description & Eligibility Scope</label>
+                <textarea
+                  className={styles.formTextarea}
+                  placeholder="Eligibility rules (e.g. Applicable to 2nd child in family, requires principal approval)..."
+                  value={discountForm.description}
+                  onChange={(e) => setDiscountForm({ ...discountForm, description: e.target.value })}
+                />
+              </div>
             </div>
             <div className={styles.modalFooter}>
               <button type="button" className={styles.btnSecondary} onClick={() => setIsDiscountModalOpen(false)}>
                 Cancel
               </button>
-              <button type="submit" className={styles.btnPrimary}>
-                Save Discount
+              <button type="submit" className={styles.btnPrimary} disabled={loading}>
+                {loading ? (
+                  <>
+                    <HiOutlineArrowPath className={styles.spinner} /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <FaCheck /> {editingDiscount ? 'Update Policy' : 'Save Discount Policy'}
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -1739,6 +2263,254 @@ export default function FeesManagementPage() {
               <FaPrint /> Print Receipt
             </button>
           </div>
+        </div>
+      </ModalPortal>
+
+      {/* MODAL: DELETE / CANCEL CONFIRMATION */}
+      <ModalPortal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)}>
+        <div className={styles.deleteModalContent}>
+          <div className={styles.deleteHeader}>
+            <div className={styles.deleteIconWrapper}>
+              <HiTrash />
+            </div>
+            <div className={styles.deleteHeaderTitles}>
+              <h3 className={styles.deleteTitle}>
+                {deleteTarget.type === 'invoice' && 'Cancel & Void Invoice'}
+                {deleteTarget.type === 'structure' && 'Delete Fee Structure'}
+                {deleteTarget.type === 'category' && 'Delete Fee Category'}
+                {deleteTarget.type === 'discount' && 'Delete Discount Rule'}
+              </h3>
+              <p className={styles.deleteSubtitle}>
+                {deleteTarget.type === 'invoice' && 'Permanently void this student invoice and reverse pending balance obligations.'}
+                {deleteTarget.type === 'structure' && 'Remove this fee structure template from future billing runs.'}
+                {deleteTarget.type === 'category' && 'Permanently remove the fee category definition from master settings.'}
+                {deleteTarget.type === 'discount' && 'Deactivate the scholarship/concession rule from automatic billing.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.deleteCloseBtn}
+              onClick={() => setIsDeleteModalOpen(false)}
+              aria-label="Close modal"
+            >
+              <HiXMark />
+            </button>
+          </div>
+
+          <form className={styles.deleteModalForm} onSubmit={handleConfirmDelete}>
+            <div className={styles.deleteBody}>
+              {/* ENTITY SUMMARY CARD */}
+              {deleteTarget.type === 'invoice' && deleteTarget.item && (
+                <>
+                  <div className={styles.entityCard}>
+                    <div className={styles.entityCardHeader}>
+                      <span className={styles.entityCardBadge}>
+                        {deleteTarget.item.invoice_number}
+                      </span>
+                      <span
+                        className={`${styles.statusBadge} ${
+                          deleteTarget.item.status === 'PAID'
+                            ? styles.statusPaid
+                            : deleteTarget.item.status === 'PARTIALLY_PAID'
+                              ? styles.statusPartial
+                              : styles.statusUnpaid
+                        }`}
+                      >
+                        {deleteTarget.item.status}
+                      </span>
+                    </div>
+
+                    <div className={styles.entityCardGrid}>
+                      <div className={styles.entityCardItem}>
+                        <span className={styles.entityCardLabel}>Student Name</span>
+                        <span className={styles.entityCardValue}>
+                          {deleteTarget.item.student_first_name} {deleteTarget.item.student_last_name}
+                        </span>
+                      </div>
+                      <div className={styles.entityCardItem}>
+                        <span className={styles.entityCardLabel}>Admission No.</span>
+                        <span className={styles.entityCardValue}>
+                          {deleteTarget.item.student_admission_number || 'N/A'}
+                        </span>
+                      </div>
+                      <div className={styles.entityCardItem}>
+                        <span className={styles.entityCardLabel}>Billing Title</span>
+                        <span className={styles.entityCardValue}>{deleteTarget.item.title}</span>
+                      </div>
+                      <div className={styles.entityCardItem}>
+                        <span className={styles.entityCardLabel}>Total Amount</span>
+                        <span className={styles.entityCardValue} style={{ color: '#0f172a' }}>
+                          {Number(deleteTarget.item.total_amount).toLocaleString()} ETB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* REASON PICKER & INPUT */}
+                  <div className={styles.formGroup}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 650, color: '#334155' }}>
+                      Cancellation Reason *
+                    </label>
+                    <div className={styles.reasonChips}>
+                      {CANCELLATION_REASONS.map((reason) => (
+                        <button
+                          key={reason}
+                          type="button"
+                          className={`${styles.reasonChip} ${
+                            deleteTarget.reason === reason ? styles.reasonChipActive : ''
+                          }`}
+                          onClick={() => setDeleteTarget({ ...deleteTarget, reason })}
+                        >
+                          {reason}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      className={styles.formTextarea}
+                      style={{ marginTop: '0.5rem', minHeight: '70px' }}
+                      placeholder="Or enter specific cancellation notes for audit history..."
+                      value={deleteTarget.reason}
+                      onChange={(e) => setDeleteTarget({ ...deleteTarget, reason: e.target.value })}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {deleteTarget.type === 'structure' && deleteTarget.item && (
+                <div className={styles.entityCard}>
+                  <div className={styles.entityCardHeader}>
+                    <span className={styles.entityCardBadge}>
+                      {deleteTarget.item.category_name || 'Fee Master'}
+                    </span>
+                    <span className={`${styles.statusBadge} ${deleteTarget.item.is_active ? styles.statusPaid : styles.statusCancelled}`}>
+                      {deleteTarget.item.is_active ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div className={styles.entityCardGrid}>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Structure Name</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.name}</span>
+                    </div>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Rate / Amount</span>
+                      <span className={styles.entityCardValue} style={{ color: '#4f46e5' }}>
+                        {Number(deleteTarget.item.amount).toLocaleString()} ETB
+                      </span>
+                    </div>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Frequency</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.frequency}</span>
+                    </div>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Grade Scope</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.grade_name || 'All Grades'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {deleteTarget.type === 'category' && deleteTarget.item && (
+                <div className={styles.entityCard}>
+                  <div className={styles.entityCardHeader}>
+                    <span className={styles.entityCardBadge}>
+                      CODE: {deleteTarget.item.code}
+                    </span>
+                  </div>
+                  <div className={styles.entityCardGrid}>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Category Name</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.name}</span>
+                    </div>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Description</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.description || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {deleteTarget.type === 'discount' && deleteTarget.item && (
+                <div className={styles.entityCard}>
+                  <div className={styles.entityCardHeader}>
+                    <span className={styles.entityCardBadge}>
+                      CODE: {deleteTarget.item.code}
+                    </span>
+                    <span className={`${styles.statusBadge} ${styles.statusPaid}`}>
+                      {deleteTarget.item.discount_type}
+                    </span>
+                  </div>
+                  <div className={styles.entityCardGrid}>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Discount Title</span>
+                      <span className={styles.entityCardValue}>{deleteTarget.item.name}</span>
+                    </div>
+                    <div className={styles.entityCardItem}>
+                      <span className={styles.entityCardLabel}>Concession Value</span>
+                      <span className={styles.entityCardValue} style={{ color: '#059669' }}>
+                        {deleteTarget.item.discount_type === 'PERCENTAGE'
+                          ? `${deleteTarget.item.value}%`
+                          : `${Number(deleteTarget.item.value).toLocaleString()} ETB`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* WARNING ADVISORY */}
+              <div className={styles.deleteWarningBox}>
+                <HiShieldExclamation className={styles.deleteWarningIcon} />
+                <div className={styles.deleteWarningContent}>
+                  <span className={styles.deleteWarningTitle}>Permanent Action Advisory</span>
+                  <span>
+                    {deleteTarget.type === 'invoice'
+                      ? 'Voiding this invoice will permanently adjust the student billing balance to 0 ETB and archive the invoice in the audit trail.'
+                      : 'Deleting this record cannot be undone. Historical transactions will remain intact for audit compliance.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* CONFIRMATION SAFETY CHECK */}
+              <label className={styles.confirmAckLabel}>
+                <input
+                  type="checkbox"
+                  className={styles.confirmAckCheckbox}
+                  checked={confirmDeleteAck}
+                  onChange={(e) => setConfirmDeleteAck(e.target.checked)}
+                />
+                <span>I confirm that I want to proceed with this deletion</span>
+              </label>
+            </div>
+
+            <div className={styles.deleteFooter}>
+              <button
+                type="button"
+                className={styles.btnDeleteCancel}
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={loading}
+              >
+                Keep Record
+              </button>
+              <button
+                type="submit"
+                className={styles.btnDeleteConfirm}
+                disabled={loading || !confirmDeleteAck}
+              >
+                {loading ? (
+                  <>
+                    <HiOutlineArrowPath className={styles.spinner} /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <HiTrash />
+                    {deleteTarget.type === 'invoice'
+                      ? 'Void & Delete Invoice'
+                      : 'Confirm Delete'}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </ModalPortal>
     </div>
