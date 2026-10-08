@@ -311,6 +311,16 @@ export default function FeesManagementPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && ['invoices', 'my_fees', 'payments', 'structures', 'categories', 'discounts', 'bank_slips'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!isParentOrStudent) {
       loadKpis();
     }

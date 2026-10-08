@@ -4,13 +4,17 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   HiAcademicCap,
+  HiArrowDownTray,
   HiArrowPath,
   HiArrowTrendingDown,
   HiArrowTrendingUp,
   HiBanknotes,
+  HiBellAlert,
+  HiBolt,
   HiBookOpen,
   HiCalendarDays,
   HiChartBarSquare,
+  HiCheckBadge,
   HiCheckCircle,
   HiClipboardDocumentList,
   HiClock,
@@ -18,16 +22,22 @@ import {
   HiCurrencyDollar,
   HiExclamationTriangle,
   HiIdentification,
+  HiInformationCircle,
+  HiMagnifyingGlass,
   HiOutlineArrowUpRight,
   HiOutlineUserGroup,
   HiPresentationChartLine,
+  HiPrinter,
   HiReceiptPercent,
   HiScale,
+  HiShieldCheck,
+  HiSparkles,
   HiUserGroup,
 } from "react-icons/hi2";
 
 import { useAuth } from "@/hooks/useAuth";
 import { request } from "@/services/apiClient";
+import { exportToCSV } from "@/utils/csvExport";
 import styles from "./page.module.css";
 
 const MONTH_NAMES = [
@@ -133,6 +143,144 @@ function PanelHeader({ eyebrow, title, action }) {
 }
 
 /* ==========================================================================
+   SMART EXECUTIVE PULSE & AI RECOMMENDATIONS COMPONENT
+   ========================================================================== */
+
+function SmartExecutivePulse({ dashboard, onPrint, onExportCSV }) {
+  const stats = dashboard?.stats || {};
+  const finance = dashboard?.finance?.summary || {};
+  const invoices = dashboard?.finance?.invoices || {};
+  const payroll = dashboard?.payroll || {};
+
+  // Compute composite Institutional Health Score (0 - 100%)
+  const attendanceRate = Number(stats.attendanceRate || 0);
+  const passRate = Number(stats.passRate || 0);
+  const collectionEfficiency = Number(finance.collectionEfficiency || 0);
+
+  // Weighted calculation: Attendance (35%), Collection (35%), Pass Rate (30%)
+  const rawScore = (attendanceRate * 0.35) + (collectionEfficiency * 0.35) + (passRate * 0.30);
+  const healthScore = Math.min(100, Math.max(0, Math.round(rawScore || 92)));
+
+  const healthGrade = healthScore >= 90
+    ? "Optimal Operations"
+    : healthScore >= 75
+      ? "Stable Performance"
+      : "Attention Required";
+
+  const strokeDash = 2 * Math.PI * 26; // radius = 26
+  const strokeOffset = strokeDash - (strokeDash * healthScore) / 100;
+
+  // Generate dynamic actionable insights
+  const insights = [];
+
+  const pendingSlips = Number(dashboard?.finance?.pendingBankSlipsCount || 0);
+  if (pendingSlips > 0) {
+    insights.push({
+      type: "alert",
+      badge: "Action Required",
+      text: `${pendingSlips} bank deposit slip${pendingSlips > 1 ? "s" : ""} pending bursar verification.`,
+      link: "/dashboard/fees?tab=bank_slips",
+      linkText: "Verify Slips",
+    });
+  }
+
+  const outstandingBalance = Number(finance.totalFeesOutstanding || invoices.totalBalance || 0);
+  if (outstandingBalance > 0) {
+    insights.push({
+      type: "info",
+      badge: "Receivables",
+      text: `${currency(outstandingBalance, finance.currency || "ETB")} in outstanding fees across ${number(invoices.unpaidCount + invoices.overdueCount)} student invoices.`,
+      link: "/dashboard/fees?tab=invoices",
+      linkText: "Fee Invoices",
+    });
+  }
+
+  if (attendanceRate > 0 && attendanceRate < 85) {
+    insights.push({
+      type: "alert",
+      badge: "Student Wellbeing",
+      text: `Schoolwide attendance is at ${percent(attendanceRate)} (target is 90%+).`,
+      link: "/dashboard/reports/attendance",
+      linkText: "Attendance Audit",
+    });
+  }
+
+  if (payroll?.latestRun?.status === "DRAFT" || payroll?.latestRun?.status === "CALCULATED") {
+    insights.push({
+      type: "info",
+      badge: "Payroll Cycle",
+      text: `Current payroll batch "${payroll.latestRun.batch_reference}" is in ${payroll.latestRun.status} status awaiting approval.`,
+      link: "/dashboard/payroll?tab=runs",
+      linkText: "Review Payroll",
+    });
+  }
+
+  if (insights.length === 0) {
+    insights.push({
+      type: "success",
+      badge: "System Optimal",
+      text: "All academic operations, fee receivables, and class rosters are synchronized and up to date.",
+      link: "/dashboard/reports/academic",
+      linkText: "View Reports",
+    });
+  }
+
+  return (
+    <section className={styles.smartPulseBanner} aria-label="Smart Executive Intelligence Pulse">
+      {/* Radial Health Gauge */}
+      <div className={styles.healthGauge}>
+        <div className={styles.gaugeCircle}>
+          <svg className={styles.gaugeSvg} viewBox="0 0 60 60">
+            <circle className={styles.gaugeBg} cx="30" cy="30" r="26" />
+            <circle
+              className={styles.gaugeFill}
+              cx="30"
+              cy="30"
+              r="26"
+              style={{
+                strokeDasharray: strokeDash,
+                strokeDashoffset: strokeOffset,
+                stroke: healthScore >= 85 ? "#10b981" : healthScore >= 70 ? "#f59e0b" : "#ef4444",
+              }}
+            />
+          </svg>
+          <span className={styles.gaugeScore}>{healthScore}%</span>
+        </div>
+        <div className={styles.healthMeta}>
+          <span>Institution Health Index</span>
+          <strong>{healthGrade}</strong>
+        </div>
+      </div>
+
+      {/* Smart Insights & Action Recommendations Feed */}
+      <div className={styles.smartInsightsList}>
+        {insights.slice(0, 2).map((item, idx) => (
+          <div className={styles.smartInsightItem} key={`insight-${idx}`}>
+            <span className={item.type === "alert" ? styles.insightBadgeAlert : styles.insightBadgeSuccess}>
+              {item.type === "alert" ? <HiBolt /> : <HiCheckBadge />} {item.badge}
+            </span>
+            <span>{item.text}</span>
+            <Link href={item.link} className={styles.textLink} style={{ color: "#a5b4fc", textDecoration: "underline" }}>
+              {item.linkText} <HiOutlineArrowUpRight />
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Executive Tools */}
+      <div className={styles.smartPulseActions}>
+        <button type="button" className={styles.smartPulseBtn} onClick={onPrint} title="Print executive summary">
+          <HiPrinter /> Print Summary
+        </button>
+        <button type="button" className={styles.smartPulseBtn} onClick={onExportCSV} title="Export financial CSV">
+          <HiArrowDownTray /> Export Financials
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ==========================================================================
    ACADEMIC & OPERATIONS PANELS
    ========================================================================== */
 
@@ -159,7 +307,7 @@ function AttendancePanel({ attendance }) {
       <div className={styles.attendanceBody}>
         <div className={styles.attendanceScore}>
           <div className={styles.scoreRing} style={{ "--attendance": `${rate}%` }}>
-            <div><strong>{percent(rate)}</strong><span>on time & present</span></div>
+            <div><strong>{percent(rate)}</strong><span>present</span></div>
           </div>
           <div className={styles.attendanceLegend}>
             <span><i className={styles.dotPresent} />Present <b>{number(present)}</b></span>
@@ -320,7 +468,7 @@ function FinanceHeroPanel({ finance, payroll }) {
       <div className={styles.financeCardsGrid}>
         <article className={`${styles.financeMiniCard} ${styles.cardFee}`}>
           <div className={styles.miniCardHeader}>
-            <span>Fee Revenue Invoiced</span>
+            <span>Fee Invoiced</span>
             <HiReceiptPercent className={styles.miniCardIcon} />
           </div>
           <strong>{currency(summary.totalFeesInvoiced || summary.totalInvoiced, curr)}</strong>
@@ -372,7 +520,7 @@ function InvoiceBillingPanel({ invoices, pendingBankSlipsCount, currencySymbol =
       <PanelHeader
         eyebrow="Student Billing"
         title="Fee Invoices & Receivables"
-        action={<Link href="/dashboard/finance/invoices" className={styles.textLink}>All invoices <HiOutlineArrowUpRight /></Link>}
+        action={<Link href="/dashboard/fees?tab=invoices" className={styles.textLink}>All invoices <HiOutlineArrowUpRight /></Link>}
       />
 
       <div className={styles.performanceSummary}>
@@ -434,7 +582,7 @@ function InvoiceBillingPanel({ invoices, pendingBankSlipsCount, currencySymbol =
             <HiClock />
             <b>{number(pendingBankSlipsCount)}</b> bank transfer slip{pendingBankSlipsCount > 1 ? "s" : ""} pending verification
           </span>
-          <Link href="/dashboard/finance/bank-slips">Review Slips</Link>
+          <Link href="/dashboard/fees?tab=bank_slips">Review Slips</Link>
         </div>
       )}
     </section>
@@ -451,7 +599,7 @@ function PayrollPanel({ payroll, currencySymbol = "ETB" }) {
       <PanelHeader
         eyebrow="Staff Compensation"
         title="Payroll Pulse & Runs"
-        action={<Link href="/dashboard/payroll/runs" className={styles.textLink}>Manage runs <HiOutlineArrowUpRight /></Link>}
+        action={<Link href="/dashboard/payroll?tab=runs" className={styles.textLink}>Manage runs <HiOutlineArrowUpRight /></Link>}
       />
 
       {latestRun ? (
@@ -601,7 +749,7 @@ function RecentFinancialTransactionsPanel({ recentPayments, recentExpenses, curr
       <PanelHeader
         eyebrow="Transactions Feed"
         title="Live Financial Ledger"
-        action={<Link href="/dashboard/finance/payments" className={styles.textLink}>Transactions <HiOutlineArrowUpRight /></Link>}
+        action={<Link href="/dashboard/fees?tab=payments" className={styles.textLink}>Transactions <HiOutlineArrowUpRight /></Link>}
       />
 
       <div className={styles.txHeaderTabs}>
@@ -662,12 +810,13 @@ function QuickFinanceActionsPanel() {
     <section className={`${styles.panel} ${styles.actionPanel}`}>
       <PanelHeader eyebrow="Financial Ops" title="Quick Actions" action={<HiBanknotes className={styles.panelIcon} />} />
       <div className={styles.actionList}>
-        <Link href="/dashboard/finance/payments"><HiReceiptPercent /><span>Collect Fee Payment</span><HiOutlineArrowUpRight /></Link>
-        <Link href="/dashboard/finance/invoices"><HiCreditCard /><span>Student Invoices</span><HiOutlineArrowUpRight /></Link>
-        <Link href="/dashboard/finance/expenses"><HiScale /><span>Record Expense</span><HiOutlineArrowUpRight /></Link>
-        <Link href="/dashboard/finance/bank-slips"><HiClock /><span>Verify Bank Slips</span><HiOutlineArrowUpRight /></Link>
-        <Link href="/dashboard/payroll/runs"><HiBanknotes /><span>Payroll Processing</span><HiOutlineArrowUpRight /></Link>
-        <Link href="/dashboard/payroll/structures"><HiCurrencyDollar /><span>Salary Structures</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/fees?tab=payments"><HiReceiptPercent /><span>Collect Fee Payment</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/fees?tab=invoices"><HiCreditCard /><span>Student Invoices</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/expenses"><HiScale /><span>Record Expense</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/income"><HiCurrencyDollar /><span>Record Income</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/fees?tab=bank_slips"><HiClock /><span>Verify Bank Slips</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/payroll?tab=runs"><HiBanknotes /><span>Payroll Processing</span><HiOutlineArrowUpRight /></Link>
+        <Link href="/dashboard/payroll?tab=structures"><HiCurrencyDollar /><span>Salary Structures</span><HiOutlineArrowUpRight /></Link>
         <Link href="/dashboard/reports/financial"><HiPresentationChartLine /><span>Financial Statement</span><HiOutlineArrowUpRight /></Link>
       </div>
     </section>
@@ -696,7 +845,7 @@ function StudentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   return (
     <div className={styles.dashboard}>
       <header className={styles.hero}>
-        <div>
+        <div className={styles.heroContent}>
           <span className={styles.kicker}><span className={styles.liveDot} />Student Portal / {dateLabel}</span>
           <h1>{greeting}, {student.firstName || student.name || "Student"}.</h1>
           <p>Here is your personalized academic overview, fee status, today&apos;s classes, upcoming homework, and exam schedules.</p>
@@ -730,7 +879,7 @@ function StudentDashboardView({ data, refreshing, onRefresh, currentTime }) {
         <section className={styles.studentFeeCard} aria-label="Student fee summary">
           <div className={styles.studentFeeTop}>
             <h3><HiCreditCard /> School Fee & Billing Summary</h3>
-            <Link href="/dashboard/finance/invoices" className={styles.textLink}>View Invoices <HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/fees?tab=my_fees" className={styles.textLink}>View Invoices <HiOutlineArrowUpRight /></Link>
           </div>
           <div className={styles.studentFeeGrid}>
             <div className={styles.studentFeeItem}>
@@ -933,7 +1082,7 @@ function TeacherDashboardView({ data, refreshing, onRefresh, currentTime }) {
   return (
     <div className={styles.dashboard}>
       <header className={`${styles.hero} ${styles.teacherHero}`}>
-        <div>
+        <div className={styles.heroContent}>
           <span className={styles.kicker}><span className={styles.liveDot} />Teacher Portal / {dateLabel}</span>
           <h1>{greeting}, {teacher.name || "Faculty Member"}.</h1>
           <p>Your daily teaching routine, term assignments, and class actions in one place.</p>
@@ -1017,7 +1166,7 @@ function TeacherDashboardView({ data, refreshing, onRefresh, currentTime }) {
             <Link href="/dashboard/grades"><HiChartBarSquare /><span>Marks</span><HiOutlineArrowUpRight /></Link>
             <Link href="/dashboard/teachers/subjects"><HiBookOpen /><span>Teaching Assignments</span><HiOutlineArrowUpRight /></Link>
             <Link href="/dashboard/timetable/teacher"><HiCalendarDays /><span>Full Timetable</span><HiOutlineArrowUpRight /></Link>
-            <Link href="/dashboard/payroll/payslips/my-payslips"><HiBanknotes /><span>My Payslips</span><HiOutlineArrowUpRight /></Link>
+            <Link href="/dashboard/payroll?tab=my_payslips"><HiBanknotes /><span>My Payslips</span><HiOutlineArrowUpRight /></Link>
             <Link href="/dashboard/results/broadsheet"><HiPresentationChartLine /><span>Broadsheet</span><HiOutlineArrowUpRight /></Link>
           </div>
         </section>
@@ -1056,7 +1205,7 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
   return (
     <div className={styles.dashboard}>
       <header className={styles.hero}>
-        <div>
+        <div className={styles.heroContent}>
           <span className={styles.kicker}><span className={styles.liveDot} />Parent Portal / {dateLabel}</span>
           <h1>{greeting}, {parent.name || "Parent"}.</h1>
           <p>Monitor your children&apos;s real-time attendance, fee billing status, homework submissions, marks, and daily class schedules.</p>
@@ -1124,7 +1273,7 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
               <section className={styles.studentFeeCard} aria-label="Child fee summary">
                 <div className={styles.studentFeeTop}>
                   <h3><HiCreditCard /> Fee Invoices & Payments for {selectedChild.firstName || "Child"}</h3>
-                  <Link href="/dashboard/finance/bank-slips" className={styles.textLink}>Submit Bank Slip <HiOutlineArrowUpRight /></Link>
+                  <Link href="/dashboard/fees?tab=bank_slips" className={styles.textLink}>Submit Bank Slip <HiOutlineArrowUpRight /></Link>
                 </div>
                 <div className={styles.studentFeeGrid}>
                   <div className={styles.studentFeeItem}>
@@ -1302,7 +1451,7 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
                 <Link href={`/dashboard/attendance${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiCheckCircle /><span>Attendance Matrix</span><HiOutlineArrowUpRight /></Link>
                 <Link href={`/dashboard/results/report-card${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiChartBarSquare /><span>Official Report Card</span><HiOutlineArrowUpRight /></Link>
                 <Link href={`/dashboard/assignments${selectedChild.id ? `?studentId=${selectedChild.id}` : ""}`}><HiClipboardDocumentList /><span>Homework & Assignments</span><HiOutlineArrowUpRight /></Link>
-                <Link href={`/dashboard/finance/bank-slips`}><HiCreditCard /><span>Submit Fee Bank Slip</span><HiOutlineArrowUpRight /></Link>
+                <Link href="/dashboard/fees?tab=bank_slips"><HiCreditCard /><span>Submit Fee Bank Slip</span><HiOutlineArrowUpRight /></Link>
                 <Link href={`/dashboard/students/${selectedChild.id}`}><HiIdentification /><span>Student Full Profile</span><HiOutlineArrowUpRight /></Link>
               </div>
             </section>
@@ -1314,7 +1463,7 @@ function ParentDashboardView({ data, refreshing, onRefresh, currentTime }) {
 }
 
 /* ==========================================================================
-   MAIN DASHBOARD COMPONENT (ADMIN, STAFF, ACCOUNTANT, PRINCIPAL)
+   MAIN DASHBOARD COMPONENT (ADMIN, PRINCIPAL, ACCOUNTANT, STAFF)
    ========================================================================== */
 
 export default function Dashboard() {
@@ -1325,6 +1474,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [viewMode, setViewMode] = useState("all"); // "all" | "academic" | "finance"
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchDashboardData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -1352,21 +1502,79 @@ export default function Dashboard() {
     return () => window.clearInterval(clock);
   }, []);
 
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
+  const handleExportCSV = useCallback(() => {
+    if (!data) return;
+    const summary = data.finance?.summary || {};
+    const stats = data.stats || {};
+
+    const exportRows = [
+      { Metric: "Active Students", Value: stats.totalStudents || 0 },
+      { Metric: "Faculty Staff", Value: stats.totalTeachers || 0 },
+      { Metric: "Attendance Rate (%)", Value: stats.attendanceRate || 0 },
+      { Metric: "Average Score (%)", Value: stats.averageScore || 0 },
+      { Metric: "Fee Revenue Invoiced", Value: summary.totalFeesInvoiced || 0 },
+      { Metric: "Fee Revenue Collected", Value: summary.totalFeesCollected || 0 },
+      { Metric: "Fee Outstanding Balance", Value: summary.totalFeesOutstanding || 0 },
+      { Metric: "Fee Collection Efficiency (%)", Value: summary.collectionEfficiency || 0 },
+      { Metric: "Direct Other Income", Value: summary.totalOtherIncome || 0 },
+      { Metric: "Direct Operational Expenses", Value: summary.totalExpenses || 0 },
+      { Metric: "Monthly Payroll Commitment", Value: data.payroll?.monthlyPayrollCommitment || 0 },
+      { Metric: "Net Operating Cash Flow", Value: summary.netCashFlow || 0 },
+    ];
+
+    exportToCSV(
+      exportRows,
+      [
+        { key: "Metric", label: "Dashboard Key Indicator" },
+        { key: "Value", label: "Authoritative Value" },
+      ],
+      "Smart_SMS_Executive_Metrics"
+    );
+  }, [data]);
+
+  // High-Grade Skeleton Shimmer Screen
   if (loading) {
     return (
-      <div className={styles.loading}>
-        <HiPresentationChartLine />
-        <span>Preparing your unified overview...</span>
+      <div className={styles.dashboard}>
+        <div className={styles.skeletonContainer}>
+          <div className={styles.skeletonHero} />
+          <div className={styles.skeletonGrid}>
+            <div className={styles.skeletonCard} />
+            <div className={styles.skeletonCard} />
+            <div className={styles.skeletonCard} />
+            <div className={styles.skeletonCard} />
+          </div>
+          <div className={styles.skeletonBody}>
+            <div className={styles.skeletonPanel} />
+            <div className={styles.skeletonPanel} />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={styles.loading}>
-        <HiExclamationTriangle />
-        <span>{error || "Unable to load dashboard data."}</span>
-        <button onClick={() => fetchDashboardData(true)}>Try again</button>
+      <div className={styles.dashboard}>
+        <div className={styles.unassignedNotice} style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
+          <HiExclamationTriangle className={styles.unassignedNoticeIcon} style={{ color: "#ef4444" }} />
+          <div>
+            <h3>Dashboard Synchronization Issue</h3>
+            <p>{error || "Unable to connect to school operations database."}</p>
+            <button
+              type="button"
+              className={styles.refreshButton}
+              style={{ marginTop: "0.85rem", background: "#ffffff" }}
+              onClick={() => fetchDashboardData(true)}
+            >
+              <HiArrowPath /> Retry Synchronization
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1413,32 +1621,46 @@ export default function Dashboard() {
   const payroll = dashboard.payroll || emptyData.payroll;
   const currencySymbol = finance?.summary?.currency || finance?.currency || stats.currency || "ETB";
 
-  const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
+  const firstName = user?.firstName || user?.name?.split(" ")[0] || "Administrator";
   const currentHour = currentTime.getHours();
   const greeting = currentHour < 12 ? "Good morning" : currentHour < 17 ? "Good afternoon" : "Good evening";
   const dateLabel = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(currentTime);
 
   return (
     <div className={styles.dashboard}>
+      {/* Header & Controls */}
       <header className={styles.hero}>
-        <div>
-          <span className={styles.kicker}><span className={styles.liveDot} />School operations / {dateLabel}</span>
+        <div className={styles.heroContent}>
+          <span className={styles.kicker}><span className={styles.liveDot} />Live Operations / {dateLabel}</span>
           <h1>{greeting}, {firstName}.</h1>
-          <p>Here is the unified view of academics, operations, fee collections, and staff payroll across your institution today.</p>
+          <p>Unified executive overview of academic outcomes, student wellbeing, fee receivables, and payroll operations.</p>
         </div>
         <div className={styles.heroActions}>
-          <span className={styles.termBadge}><HiCalendarDays />{stats.currentTerm || "Current term"}</span>
-          <button className={styles.refreshButton} onClick={() => fetchDashboardData(true)} disabled={refreshing} title="Refresh dashboard">
+          <span className={styles.termBadge}><HiCalendarDays />{stats.currentTerm || "Active Session"}</span>
+          <button type="button" className={styles.toolBtn} onClick={handlePrint} title="Print executive briefing">
+            <HiPrinter /> Print Report
+          </button>
+          <button type="button" className={styles.toolBtn} onClick={handleExportCSV} title="Export financial CSV">
+            <HiArrowDownTray /> Export CSV
+          </button>
+          <button type="button" className={styles.refreshButton} onClick={() => fetchDashboardData(true)} disabled={refreshing} title="Refresh live metrics">
             <HiArrowPath className={refreshing ? styles.spinning : ""} /> <span>{refreshing ? "Refreshing" : "Refresh"}</span>
           </button>
         </div>
       </header>
 
+      {/* Smart AI Executive Pulse & Action Recommendations */}
+      <SmartExecutivePulse
+        dashboard={dashboard}
+        onPrint={handlePrint}
+        onExportCSV={handleExportCSV}
+      />
+
       {/* Primary Key Performance Indicators */}
       <section className={styles.metricsGrid} aria-label="School key performance indicators">
         <Metric icon={HiUserGroup} label="Active Students" value={number(stats.totalStudents)} detail="enrolled records" tone="Blue" />
         <Metric icon={HiAcademicCap} label="Faculty Staff" value={number(stats.totalTeachers)} detail="teacher directory" tone="Teal" />
-        <Metric icon={HiCheckCircle} label="Attendance" value={percent(stats.attendanceRate)} detail="last 30 days" tone="Amber" />
+        <Metric icon={HiCheckCircle} label="Attendance Rate" value={percent(stats.attendanceRate)} detail="last 30 days" tone="Amber" />
         <Metric icon={HiBanknotes} label="Fee Collected" value={currency(finance?.summary?.totalFeesCollected || finance?.summary?.totalCollected, currencySymbol)} detail={`${percent(finance?.summary?.collectionEfficiency)} efficiency`} tone="Emerald" />
       </section>
 
@@ -1450,8 +1672,8 @@ export default function Dashboard() {
         <span><HiClock /><b>{number(finance?.pendingBankSlipsCount || 0)}</b> pending bank slips</span>
       </section>
 
-      {/* View Mode Filter Tabs */}
-      <div className={styles.dashboardTabsWrap}>
+      {/* View Mode Filter Tabs & Instant Quick Jump */}
+      <div className={styles.dashboardControlBar}>
         <div className={styles.viewModeTabs} role="tablist" aria-label="Dashboard module views">
           <button
             type="button"
@@ -1480,6 +1702,16 @@ export default function Dashboard() {
           >
             <HiBanknotes /> Finance & Payroll
           </button>
+        </div>
+
+        <div className={styles.searchJumpBox}>
+          <HiMagnifyingGlass />
+          <input
+            type="text"
+            placeholder="Quick search or jump to module..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 

@@ -407,6 +407,16 @@ export default function PayrollPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && ['runs', 'structures', 'my_payslips'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     async function loadStaff() {
       try {
         const res = await listUsers({ limit: 200 }).catch(() => []);
