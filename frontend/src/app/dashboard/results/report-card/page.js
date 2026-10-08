@@ -271,14 +271,16 @@ function ReportCardContent() {
                     <td style={{ fontSize: '0.85rem' }}>{continuousText}</td>
                     <td style={{ fontSize: '0.85rem' }}>{finalText}</td>
                     <td style={{ fontWeight: 700 }}>
-                      {sub.totalScore > 0 || sub.assessments?.length > 0 ? `${sub.totalScore}%` : '—'}
+                      {sub.isFullyAssessed
+                        ? `${sub.totalScore}%`
+                        : (sub.totalWeight > 0 ? `${sub.totalScore} pts` : '—')}
                     </td>
                     <td>
                       <span className={styles.gradeLetter}>{sub.gradeLetter || '—'}</span>
                     </td>
                     <td>{sub.gradePoint !== null && sub.gradePoint !== undefined ? sub.gradePoint : '—'}</td>
                     <td style={{ fontSize: '0.8rem', color: '#475569' }}>
-                      {sub.remark || 'Satisfactory progress'}
+                      {sub.remark || (sub.isFullyAssessed ? 'Completed' : 'In Progress')}
                     </td>
                   </tr>
                 );
