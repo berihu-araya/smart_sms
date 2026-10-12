@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import classTeacherService from "@/services/classTeacherService";
 import teacherService from "@/services/teacherService";
 import sectionService from "@/services/sectionService";
 import academicYearService from "@/services/academicYearService";
+import { ClassTeacherFormModal } from "@/components/teachers";
+import { HiCheckCircle } from "react-icons/hi2";
 import styles from "./page.module.css";
 
 const STATUS_COLORS = {
@@ -21,13 +23,28 @@ export default function ClassTeacherListPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState("");
+  const [successToast, setSuccessToast] = useState("");
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
   const [filterTeacherId, setFilterTeacherId] = useState("");
   const [filterSectionId, setFilterSectionId] = useState("");
   const [filterAcademicYearId, setFilterAcademicYearId] = useState("");
-  // This useEffect will fetch teacher, section and academic year data for the filters
+
+  // Check URL params for ?new=true to open modal automatically
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("new") === "true" || params.get("new") === "1") {
+        setIsModalOpen(true);
+      }
+    }
+  }, []);
+
+  // Fetch filter options
   useEffect(() => {
     async function loadFilterOptions() {
       try {
@@ -46,32 +63,38 @@ export default function ClassTeacherListPage() {
     loadFilterOptions();
   }, []);
 
-  useEffect(() => {
-    async function loadAssignments() {
-      try {
-        setLoading(true);
-        const data = await classTeacherService.listClassTeachers({
-          search,
-          teacher_id: filterTeacherId || undefined,
-          section_id: filterSectionId || undefined,
-          academic_year_id: filterAcademicYearId || undefined,
-          status: "ACTIVE",
-          limit: 100,
-          offset: 0,
-        });
-        setAssignments(data.items || []);
-        setError("");
-        setHasLoaded(true);
-      } catch (err) {
-        setError(err.message || "Unable to load class teacher assignments");
-        setHasLoaded(true);
-      } finally {
-        setLoading(false);
-      }
+  const loadAssignments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await classTeacherService.listClassTeachers({
+        search,
+        teacher_id: filterTeacherId || undefined,
+        section_id: filterSectionId || undefined,
+        academic_year_id: filterAcademicYearId || undefined,
+        status: "ACTIVE",
+        limit: 100,
+        offset: 0,
+      });
+      setAssignments(data.items || []);
+      setError("");
+      setHasLoaded(true);
+    } catch (err) {
+      setError(err.message || "Unable to load class teacher assignments");
+      setHasLoaded(true);
+    } finally {
+      setLoading(false);
     }
-
-    loadAssignments();
   }, [search, filterTeacherId, filterSectionId, filterAcademicYearId]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  const handleAssignmentCreated = (newItem) => {
+    setSuccessToast("Class / homeroom teacher assigned successfully!");
+    setTimeout(() => setSuccessToast(""), 4000);
+    loadAssignments();
+  };
 
   const assignmentCount = useMemo(() => assignments.length, [assignments]);
 
@@ -87,10 +110,36 @@ export default function ClassTeacherListPage() {
           <p>Assign teachers as homeroom/class teachers for sections.</p>
         </div>
 
-        <Link href="/dashboard/teachers/subjects/class-teachers/new" className={styles.primaryButton}>
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className={styles.primaryButton}
+          style={{ cursor: "pointer", border: "none" }}
+        >
           + New Assignment
-        </Link>
+        </button>
       </div>
+
+      {successToast && (
+        <div
+          style={{
+            background: "#ecfdf5",
+            border: "1px solid #a7f3d0",
+            color: "#065f46",
+            padding: "0.75rem 1.25rem",
+            borderRadius: "10px",
+            marginBottom: "1rem",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <HiCheckCircle size={20} color="#059669" />
+          <span>{successToast}</span>
+        </div>
+      )}
 
       <div className={styles.summaryCard}>
         <div>
@@ -213,6 +262,12 @@ export default function ClassTeacherListPage() {
           </tbody>
         </table>
       </div>
+
+      <ClassTeacherFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleAssignmentCreated}
+      />
     </div>
   );
 }

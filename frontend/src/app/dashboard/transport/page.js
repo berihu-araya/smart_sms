@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -7,6 +8,7 @@ import * as transportApi from '@/services/transportService';
 import { listStudents } from '@/services/studentService';
 import { listUsers } from '@/services/userService';
 import { listGrades } from '@/services/gradeService';
+import { useAuth } from '@/hooks/useAuth';
 import {
   FaBus,
   FaRoute,
@@ -47,12 +49,10 @@ import {
   HiOutlineArrowPath,
 } from 'react-icons/hi2';
 
-function TransportModalPortal({ isOpen, onClose, children }) {
-  const [mounted, setMounted] = useState(false);
+const emptySubscribe = () => () => {};
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+function TransportModalPortal({ isOpen, onClose, children }) {
+  const mounted = React.useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -93,10 +93,23 @@ function TransportModalPortal({ isOpen, onClose, children }) {
 }
 
 export default function TransportDashboardPage() {
+  const { user } = useAuth();
+  const role = user?.role;
+  const isStudent = role === 'Student';
+  const isParent = role === 'Parent';
+  const isStudentOrParent = isStudent || isParent;
+  const isManagement = ['School Admin', 'Admin', 'Staff'].includes(role);
+  const isDriver = role === 'Driver';
+
   const [activeTab, setActiveTab] = useState('overview');
+  const effectiveTab = isStudentOrParent && (activeTab === 'overview' || !['my_pass', 'routes', 'vehicles'].includes(activeTab)) ? 'my_pass' : activeTab;
   const [loading, setLoading] = useState(false);
+  const [loadingPass, setLoadingPass] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // Student Pass data
+  const [myTransport, setMyTransport] = useState(null);
 
   // Data states
   const [stats, setStats] = useState(null);
@@ -144,14 +157,36 @@ export default function TransportDashboardPage() {
   };
 
   // 1. Initial Data Fetching
+  const fetchMyTransport = useCallback(async () => {
+    try {
+      const data = await transportApi.getMyTransportInfo();
+      setMyTransport(data);
+    } catch (err) {
+      console.error('Failed to load student transport info:', err);
+    }
+  }, []);
+
+  const refreshMyTransport = useCallback(async () => {
+    setLoadingPass(true);
+    try {
+      const data = await transportApi.getMyTransportInfo();
+      setMyTransport(data);
+    } catch (err) {
+      console.error('Failed to load student transport info:', err);
+    } finally {
+      setLoadingPass(false);
+    }
+  }, []);
+
   const loadStats = useCallback(async () => {
+    if (isStudentOrParent) return;
     try {
       const data = await transportApi.getTransportStats();
       setStats(data);
     } catch (err) {
       console.error('Failed to load transport stats:', err);
     }
-  }, []);
+  }, [isStudentOrParent]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -244,6 +279,7 @@ export default function TransportDashboardPage() {
 
     // Load auxiliary data for forms
     const loadAuxiliaryData = useCallback(async () => {
+      if (isStudentOrParent) return;
       try {
         const [gradeData, studentData, userData] = await Promise.all([
           listGrades({ limit: 100, offset: 0 }).catch(() => []),
@@ -256,30 +292,35 @@ export default function TransportDashboardPage() {
       } catch (err) {
         console.error('Auxiliary data loading error:', err);
       }
-    }, []);
+    }, [isStudentOrParent]);
 
     useEffect(() => {
-      loadStats();
-      loadSettings();
-      loadAuxiliaryData();
-    }, [loadStats, loadSettings, loadAuxiliaryData]);
+      if (isStudentOrParent) {
+        fetchMyTransport();
+        loadSettings();
+      } else {
+        loadStats();
+        loadSettings();
+        loadAuxiliaryData();
+      }
+    }, [isStudentOrParent, fetchMyTransport, loadSettings, loadStats, loadAuxiliaryData]);
 
     useEffect(() => {
-      if (activeTab === 'overview') {
+      if (effectiveTab === 'overview') {
         loadStats();
         loadTrips();
-      } else if (activeTab === 'vehicles') {
+      } else if (effectiveTab === 'vehicles') {
         loadVehicles();
-      } else if (activeTab === 'drivers') {
+      } else if (effectiveTab === 'drivers') {
         loadDrivers();
-      } else if (activeTab === 'routes') {
+      } else if (effectiveTab === 'routes') {
         loadRoutes();
-      } else if (activeTab === 'allocations') {
+      } else if (effectiveTab === 'allocations') {
         loadAllocations();
-      } else if (activeTab === 'trips') {
+      } else if (effectiveTab === 'trips') {
         loadTrips();
       }
-    }, [activeTab, loadStats, loadVehicles, loadDrivers, loadRoutes, loadAllocations, loadTrips]);
+    }, [effectiveTab, loadStats, loadVehicles, loadDrivers, loadRoutes, loadAllocations, loadTrips]);
 
     // Handle Report Generation
     const generateReport = async () => {
@@ -615,53 +656,63 @@ export default function TransportDashboardPage() {
         <div className={styles.header}>
           <div className={styles.headerInfo}>
             <h1>
-              <FaBus /> Fleet & Student Transport Logistics
+              <FaBus style={{ color: '#0284c7' }} />{' '}
+              {isStudentOrParent ? 'School Transport & Bus Commute Portal' : 'Fleet & Student Transport Logistics'}
             </h1>
             <p>
-              Manage school buses, routes, ordered stops, student passenger allocations, capacity enforcement, and daily trip boarding.
+              {isStudentOrParent
+                ? 'Access your official bus commute pass, view daily vehicle schedules, contact driver, and explore school routes.'
+                : 'Manage school buses, routes, ordered stops, student passenger allocations, capacity enforcement, and daily trip boarding.'}
             </p>
           </div>
           <div className={styles.headerActions}>
             <button
               className={styles.secondaryBtn}
               onClick={() => {
-                if (activeTab === 'overview') {
+                if (isStudentOrParent) {
+                  if (effectiveTab === 'my_pass') refreshMyTransport();
+                  else if (effectiveTab === 'routes') loadRoutes();
+                  else if (effectiveTab === 'vehicles') loadVehicles();
+                  loadSettings();
+                  return;
+                }
+                if (effectiveTab === 'overview') {
                   loadStats();
                   loadTrips();
-                } else if (activeTab === 'vehicles') loadVehicles();
-                else if (activeTab === 'drivers') loadDrivers();
-                else if (activeTab === 'routes') loadRoutes();
-                else if (activeTab === 'allocations') loadAllocations();
-                else if (activeTab === 'trips') loadTrips();
-                else if (activeTab === 'settings') loadSettings();
-                else if (activeTab === 'reports') generateReport();
+                } else if (effectiveTab === 'vehicles') loadVehicles();
+                else if (effectiveTab === 'drivers') loadDrivers();
+                else if (effectiveTab === 'routes') loadRoutes();
+                else if (effectiveTab === 'allocations') loadAllocations();
+                else if (effectiveTab === 'trips') loadTrips();
+                else if (effectiveTab === 'settings') loadSettings();
+                else if (effectiveTab === 'reports') generateReport();
                 loadAuxiliaryData();
               }}
               title="Refresh Transport Data"
             >
               <HiOutlineArrowPath /> Refresh
             </button>
-            {activeTab === 'vehicles' && (
+            {!isStudentOrParent && effectiveTab === 'vehicles' && (
               <button className={styles.primaryBtn} onClick={() => openModal('vehicle')}>
                 <FaPlus /> Add Vehicle
               </button>
             )}
-            {activeTab === 'drivers' && (
+            {!isStudentOrParent && effectiveTab === 'drivers' && (
               <button className={styles.primaryBtn} onClick={() => openModal('driver')}>
                 <FaPlus /> Add Driver
               </button>
             )}
-            {activeTab === 'routes' && (
+            {!isStudentOrParent && effectiveTab === 'routes' && (
               <button className={styles.primaryBtn} onClick={() => openModal('route')}>
                 <FaPlus /> Create Route
               </button>
             )}
-            {activeTab === 'allocations' && (
+            {!isStudentOrParent && effectiveTab === 'allocations' && (
               <button className={styles.primaryBtn} onClick={() => openModal('allocation')}>
                 <FaPlus /> Allocate Student
               </button>
             )}
-            {activeTab === 'trips' && (
+            {!isStudentOrParent && effectiveTab === 'trips' && (
               <button className={styles.primaryBtn} onClick={() => openModal('trip')}>
                 <FaPlus /> Schedule Trip
               </button>
@@ -693,58 +744,357 @@ export default function TransportDashboardPage() {
 
         {/* 2. Tabs Navigation */}
         <div className={styles.tabsNav}>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <FaChartPie /> Overview
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'vehicles' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('vehicles')}
-          >
-            <HiOutlineTruck /> Vehicles / Fleet
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'drivers' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('drivers')}
-          >
-            <FaUserShield /> Drivers
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'routes' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('routes')}
-          >
-            <FaRoute /> Routes & Stops
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'allocations' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('allocations')}
-          >
-            <FaUsers /> Student Allocations
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'trips' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('trips')}
-          >
-            <FaCalendarCheck /> Daily Trips & Boarding
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'reports' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('reports')}
-          >
-            <FaClipboardList /> Reports
-          </button>
-          <button
-            className={`${styles.tabBtn} ${activeTab === 'settings' ? styles.activeTabBtn : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            <FaCog /> Settings
-          </button>
+          {isStudentOrParent ? (
+            <>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'my_pass' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('my_pass')}
+              >
+                <FaIdCard /> My Bus Pass & Commute
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'routes' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('routes')}
+              >
+                <FaRoute /> School Routes & Schedule
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'vehicles' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('vehicles')}
+              >
+                <HiOutlineTruck /> School Buses
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'overview' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                <FaChartPie /> Overview
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'vehicles' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('vehicles')}
+              >
+                <HiOutlineTruck /> Vehicles / Fleet
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'drivers' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('drivers')}
+              >
+                <FaUserShield /> Drivers
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'routes' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('routes')}
+              >
+                <FaRoute /> Routes & Stops
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'allocations' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('allocations')}
+              >
+                <FaUsers /> Student Allocations
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'trips' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('trips')}
+              >
+                <FaCalendarCheck /> Daily Trips & Boarding
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'reports' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('reports')}
+              >
+                <FaClipboardList /> Reports
+              </button>
+              <button
+                className={`${styles.tabBtn} ${effectiveTab === 'settings' ? styles.activeTabBtn : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                <FaCog /> Settings
+              </button>
+            </>
+          )}
         </div>
 
+        {/* TAB: STUDENT BUS PASS & COMMUTE */}
+        {effectiveTab === 'my_pass' && (
+          <div className={styles.passWrapper}>
+            {loadingPass ? (
+              <div className={styles.loadingSpinner}>
+                <div className={styles.spinner} />
+                <p>Loading your commute pass & route details...</p>
+              </div>
+            ) : myTransport?.has_allocation && myTransport?.route_id ? (
+              <>
+                {/* 1. Verified Digital Bus Pass Card */}
+                <div className={styles.passHeroCard}>
+                  <div className={styles.passTopBar}>
+                    <div className={styles.passSchoolInfo}>
+                      <div className={styles.passIconBadge}>
+                        <FaBus />
+                      </div>
+                      <div>
+                        <h3 className={styles.passSchoolName}>
+                          {settings?.school_name || 'SMART SMS ACADEMY'}
+                        </h3>
+                        <p className={styles.passSubText}>
+                          Student Transportation Service • 2026/27 Academic Year
+                        </p>
+                      </div>
+                    </div>
+                    <div className={styles.passBadgePill}>
+                      <FaCheckCircle /> {myTransport.status || 'ACTIVE'} BUS PASS
+                    </div>
+                  </div>
+
+                  <div className={styles.passStudentRow}>
+                    <div>
+                      <h2 className={styles.passStudentName}>
+                        {myTransport.student_first_name} {myTransport.student_last_name}
+                      </h2>
+                      <div className={styles.passMetaRow}>
+                        <div className={styles.passMetaItem}>
+                          <FaIdCard style={{ color: '#38bdf8' }} />
+                          <span>Admission: <strong>{myTransport.admission_number || 'ADM-N/A'}</strong></span>
+                        </div>
+                        <div className={styles.passMetaItem}>
+                          <FaRoute style={{ color: '#38bdf8' }} />
+                          <span>Route: <strong>{myTransport.route_code || ''} — {myTransport.route_name}</strong></span>
+                        </div>
+                        <div className={styles.passMetaItem}>
+                          <FaUsers style={{ color: '#38bdf8' }} />
+                          <span>Seat: <strong>#{myTransport.seat_number || 'Open'}</strong></span>
+                        </div>
+                        <div className={styles.passMetaItem}>
+                          <FaClock style={{ color: '#38bdf8' }} />
+                          <span>Service: <strong>{myTransport.trip_type?.replace(/_/g, ' ') || 'BOTH WAYS'}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.passQrBox}>
+                      <FaQrcode className={styles.passQrIcon} />
+                      <span className={styles.passQrText}>
+                        PASS ID: {myTransport.id?.slice(0, 8).toUpperCase() || 'BUS-PASS'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Today's Live Bus Status */}
+                <div className={styles.liveStatusCard}>
+                  <div className={styles.liveStatusContent}>
+                    <div className={styles.livePulseDot} />
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0f172a' }}>
+                        Daily Commute Status
+                      </h4>
+                      <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.86rem', color: '#475569' }}>
+                        {myTransport.today_trip ? (
+                          <>
+                            <strong>Today&apos;s Run:</strong> {myTransport.today_trip.trip_name || 'Regular Bus Trip'} • Status:{' '}
+                            <span style={{ fontWeight: 700, color: '#0284c7' }}>{myTransport.today_trip.status}</span>
+                            {myTransport.today_trip.start_time && ` • Departure: ${myTransport.today_trip.start_time.slice(0, 5)}`}
+                          </>
+                        ) : (
+                          'Active transit allocation. Bus departs according to standard morning & afternoon school schedules.'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={styles.statusActive} style={{ padding: '0.4rem 0.85rem', borderRadius: 9999, fontSize: '0.82rem', fontWeight: 700 }}>
+                    <FaCheck style={{ marginRight: 5 }} /> Service Operational
+                  </span>
+                </div>
+
+                {/* 3. Key Commute Information Grid */}
+                <div className={styles.commuteGrid}>
+                  {/* Vehicle Card */}
+                  <div className={styles.commuteCard}>
+                    <div className={styles.commuteCardHeader}>
+                      <div className={styles.commuteCardIcon} style={{ background: '#e0f2fe', color: '#0284c7' }}>
+                        <HiOutlineTruck />
+                      </div>
+                      <div>
+                        <h4 className={styles.commuteCardTitle}>Assigned Vehicle</h4>
+                        <p className={styles.commuteCardValue}>{myTransport.vehicle_number || 'School Bus'}</p>
+                      </div>
+                    </div>
+                    <p className={styles.commuteCardSub}>
+                      Model: <strong>{myTransport.vehicle_model || 'Standard Bus'}</strong>
+                      {myTransport.registration_number ? ` • Reg: ${myTransport.registration_number}` : ''}
+                    </p>
+                  </div>
+
+                  {/* Driver Card */}
+                  <div className={styles.commuteCard}>
+                    <div className={styles.commuteCardHeader}>
+                      <div className={styles.commuteCardIcon} style={{ background: '#ecfdf5', color: '#059669' }}>
+                        <FaUserShield />
+                      </div>
+                      <div>
+                        <h4 className={styles.commuteCardTitle}>Route Driver</h4>
+                        <p className={styles.commuteCardValue}>
+                          {myTransport.driver_first_name
+                            ? `${myTransport.driver_first_name} ${myTransport.driver_last_name || ''}`
+                            : 'Assigned Driver'}
+                        </p>
+                      </div>
+                    </div>
+                    {myTransport.driver_phone ? (
+                      <a href={`tel:${myTransport.driver_phone}`} className={styles.driverCallBtn}>
+                        <FaMobileAlt /> Direct Call ({myTransport.driver_phone})
+                      </a>
+                    ) : (
+                      <p className={styles.commuteCardSub}>
+                        Driver contact on record. Contact Transport Office for assistance.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Morning Pickup Card */}
+                  <div className={styles.commuteCard}>
+                    <div className={styles.commuteCardHeader}>
+                      <div className={styles.commuteCardIcon} style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                        <FaMapMarkerAlt />
+                      </div>
+                      <div>
+                        <h4 className={styles.commuteCardTitle}>Morning Pickup</h4>
+                        <p className={styles.commuteCardValue}>
+                          {myTransport.pickup_stop_name || myTransport.start_location || 'Home Pickup Stop'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className={styles.commuteCardSub}>
+                      Scheduled Time: <strong style={{ color: '#16a34a' }}>{myTransport.pickup_stop_time ? myTransport.pickup_stop_time.slice(0, 5) : '07:15 AM'}</strong>
+                    </p>
+                  </div>
+
+                  {/* Afternoon Drop-off Card */}
+                  <div className={styles.commuteCard}>
+                    <div className={styles.commuteCardHeader}>
+                      <div className={styles.commuteCardIcon} style={{ background: '#fffbeb', color: '#d97706' }}>
+                        <FaClock />
+                      </div>
+                      <div>
+                        <h4 className={styles.commuteCardTitle}>Afternoon Drop-off</h4>
+                        <p className={styles.commuteCardValue}>
+                          {myTransport.dropoff_stop_name || myTransport.end_location || 'Destination Stop'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className={styles.commuteCardSub}>
+                      Scheduled Time: <strong style={{ color: '#d97706' }}>{myTransport.dropoff_stop_time ? myTransport.dropoff_stop_time.slice(0, 5) : '03:45 PM'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. Ordered Route Stops Timeline */}
+                {myTransport.route_stops && myTransport.route_stops.length > 0 && (
+                  <div className={styles.timelineSection}>
+                    <h3 className={styles.timelineTitle}>
+                      <FaRoute style={{ color: '#0284c7' }} /> Route Stops Itinerary
+                    </h3>
+                    <p className={styles.timelineSub}>
+                      Full sequence of designated bus stops and morning arrival schedules for <strong>{myTransport.route_name}</strong>.
+                    </p>
+
+                    <div className={styles.timelineList}>
+                      {myTransport.route_stops.map((stop) => {
+                        const isPickup = myTransport.pickup_stop_id === stop.id;
+                        const isDropoff = myTransport.dropoff_stop_id === stop.id;
+                        const isHighlighted = isPickup || isDropoff;
+
+                        return (
+                          <div key={stop.id} className={styles.timelineItem}>
+                            <div
+                              className={`${styles.timelineDot} ${
+                                isPickup ? styles.timelineDotPickup : isDropoff ? styles.timelineDotDropoff : ''
+                              }`}
+                            >
+                              {stop.stop_order}
+                            </div>
+                            <div className={`${styles.timelineCard} ${isHighlighted ? styles.timelineCardHighlight : ''}`}>
+                              <div>
+                                <h4 className={styles.stopName}>
+                                  {stop.stop_name}
+                                  {isPickup && (
+                                    <span style={{ fontSize: '0.72rem', background: '#10b981', color: '#fff', padding: '0.15rem 0.55rem', borderRadius: 9999, fontWeight: 700 }}>
+                                      YOUR PICKUP
+                                    </span>
+                                  )}
+                                  {isDropoff && (
+                                    <span style={{ fontSize: '0.72rem', background: '#f59e0b', color: '#fff', padding: '0.15rem 0.55rem', borderRadius: 9999, fontWeight: 700 }}>
+                                      YOUR DROP-OFF
+                                    </span>
+                                  )}
+                                </h4>
+                                {stop.landmark && (
+                                  <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                    Landmark: {stop.landmark}
+                                  </p>
+                                )}
+                              </div>
+                              <div className={styles.stopTiming}>
+                                <span>
+                                  <strong>Pickup:</strong> {stop.pickup_time ? stop.pickup_time.slice(0, 5) : '--:--'}
+                                </span>
+                                <span>
+                                  <strong>Drop-off:</strong> {stop.dropoff_time ? stop.dropoff_time.slice(0, 5) : '--:--'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Safety & Support Guidelines Card */}
+                <div className={styles.safetyCard}>
+                  <FaShieldAlt className={styles.safetyIcon} />
+                  <div className={styles.safetyContent}>
+                    <h4>Commuter Safety & Guidelines</h4>
+                    <p>
+                      • Please arrive at your morning pickup stop 5 minutes prior to scheduled departure.<br />
+                      • Always keep your school ID card ready for boarding confirmation.<br />
+                      • In case of illness, delay, or route assistance, please call the School Transport Office at{' '}
+                      <strong>{settings?.helpdesk_phone || settings?.emergency_contact || '+251 911 000 000'}</strong>.
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Empty State when student has no allocation yet */
+              <div className={styles.emptyPassCard}>
+                <div className={styles.emptyPassIcon}>
+                  <FaBus />
+                </div>
+                <h3 className={styles.emptyPassTitle}>No Active Bus Commute Allocation</h3>
+                <p className={styles.emptyPassDesc}>
+                  You are currently not enrolled in an active school bus route. If you need daily transportation service,
+                  please review available routes and reach out to the school transport office to request an allocation.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <button className={styles.primaryBtn} onClick={() => setActiveTab('routes')}>
+                    <FaRoute /> Explore Available Bus Routes
+                  </button>
+                </div>
+                <div style={{ marginTop: '2rem', fontSize: '0.88rem', color: '#64748b' }}>
+                  Transport Coordinator Helpline:{' '}
+                  <strong>{settings?.helpdesk_phone || settings?.emergency_contact || '+251 911 000 000'}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 3. TAB 1: OVERVIEW DASHBOARD */}
-        {activeTab === 'overview' && (
+        {effectiveTab === 'overview' && (
           <div>
             {/* KPI Cards */}
             <div className={styles.statsGrid}>
@@ -920,7 +1270,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 4. TAB 2: VEHICLES / FLEET */}
-        {activeTab === 'vehicles' && (
+        {effectiveTab === 'vehicles' && (
           <div className={styles.contentCard}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>
@@ -958,13 +1308,13 @@ export default function TransportDashboardPage() {
                     <th>Fuel Type</th>
                     <th>Ownership</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    {!isStudentOrParent && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {vehicles.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
+                      <td colSpan={isStudentOrParent ? 7 : 8} style={{ textAlign: 'center', padding: '2rem' }}>
                         No vehicles found in fleet.
                       </td>
                     </tr>
@@ -1023,20 +1373,22 @@ export default function TransportDashboardPage() {
                               {v.status}
                             </span>
                           </td>
-                          <td>
-                            <div className={styles.actionBtnGroup}>
-                              <button className={styles.iconBtn} onClick={() => openModal('vehicle', v)} title="Edit">
-                                <FaEdit />
-                              </button>
-                              <button
-                                className={`${styles.iconBtn} ${styles.iconBtnDelete}`}
-                                onClick={() => handleDelete('vehicle', v.id)}
-                                title="Delete"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          </td>
+                          {!isStudentOrParent && (
+                            <td>
+                              <div className={styles.actionBtnGroup}>
+                                <button className={styles.iconBtn} onClick={() => openModal('vehicle', v)} title="Edit">
+                                  <FaEdit />
+                                </button>
+                                <button
+                                  className={`${styles.iconBtn} ${styles.iconBtnDelete}`}
+                                  onClick={() => handleDelete('vehicle', v.id)}
+                                  title="Delete"
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -1048,7 +1400,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 5. TAB 3: DRIVERS */}
-        {activeTab === 'drivers' && (
+        {effectiveTab === 'drivers' && (
           <div className={styles.contentCard}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>
@@ -1139,7 +1491,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 6. TAB 4: ROUTES & ORDERED STOPS */}
-        {activeTab === 'routes' && (
+        {effectiveTab === 'routes' && (
           <div>
             <div className={styles.contentCard}>
               <div className={styles.cardHeader}>
@@ -1176,29 +1528,31 @@ export default function TransportDashboardPage() {
                             Code: {r.route_code}
                           </span>
                         </div>
-                        <div className={styles.actionBtnGroup}>
-                          <button
-                            className={styles.outlineBtn}
-                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                            onClick={() => {
-                              setActiveRouteForStop(r);
-                              openModal('stop');
-                            }}
-                            title="Add Stop to this route"
-                          >
-                            <FaPlus /> Add Stop
-                          </button>
-                          <button className={styles.iconBtn} onClick={() => openModal('route', r)} title="Edit Route">
-                            <FaEdit />
-                          </button>
-                          <button
-                            className={`${styles.iconBtn} ${styles.iconBtnDelete}`}
-                            onClick={() => handleDelete('route', r.id)}
-                            title="Delete Route"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
+                        {!isStudentOrParent && (
+                          <div className={styles.actionBtnGroup}>
+                            <button
+                              className={styles.outlineBtn}
+                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setActiveRouteForStop(r);
+                                openModal('stop');
+                              }}
+                              title="Add Stop to this route"
+                            >
+                              <FaPlus /> Add Stop
+                            </button>
+                            <button className={styles.iconBtn} onClick={() => openModal('route', r)} title="Edit Route">
+                              <FaEdit />
+                            </button>
+                            <button
+                              className={`${styles.iconBtn} ${styles.iconBtnDelete}`}
+                              onClick={() => handleDelete('route', r.id)}
+                              title="Delete Route"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ margin: '1rem 0', fontSize: '0.85rem', color: '#475569' }}>
@@ -1272,7 +1626,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 7. TAB 5: STUDENT TRANSPORT ALLOCATIONS */}
-        {activeTab === 'allocations' && (
+        {effectiveTab === 'allocations' && (
           <div className={styles.contentCard}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>
@@ -1385,7 +1739,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 8. TAB 6: DAILY TRIPS & ATTENDANCE */}
-        {activeTab === 'trips' && (
+        {effectiveTab === 'trips' && (
           <div className={styles.contentCard}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>
@@ -1508,7 +1862,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 9. TAB 7: REPORTS & EXPORTS */}
-        {activeTab === 'reports' && (
+        {effectiveTab === 'reports' && (
           <div className={styles.contentCard}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>
@@ -1608,7 +1962,7 @@ export default function TransportDashboardPage() {
         )}
 
         {/* 10. TAB 8: SETTINGS & POLICIES (SENIOR-DEVELOPER GRADE) */}
-        {activeTab === 'settings' && settings && (
+        {effectiveTab === 'settings' && settings && (
           <div className={styles.settingsLayout}>
             {/* Header Policy Context Banner & Scorecard */}
             <div className={styles.settingsBannerCard}>

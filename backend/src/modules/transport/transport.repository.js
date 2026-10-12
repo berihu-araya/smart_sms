@@ -799,25 +799,32 @@ class TransportRepository {
       SELECT sa.*,
         st.first_name AS student_first_name, st.last_name AS student_last_name,
         st.admission_number,
-        r.route_name, r.route_code,
+        r.route_name, r.route_code, r.start_location, r.end_location,
         ps.stop_name AS pickup_stop_name, ps.pickup_time AS pickup_stop_time,
         ds.stop_name AS dropoff_stop_name, ds.dropoff_time AS dropoff_stop_time,
-        v.vehicle_number, v.vehicle_model,
-        du.first_name AS driver_first_name, du.last_name AS driver_last_name, du.phone AS driver_phone
+        COALESCE(v.vehicle_number, rv.vehicle_number) AS vehicle_number,
+        COALESCE(v.vehicle_model, rv.vehicle_model) AS vehicle_model,
+        COALESCE(v.registration_number, rv.registration_number) AS registration_number,
+        COALESCE(du.first_name, rdu.first_name) AS driver_first_name,
+        COALESCE(du.last_name, rdu.last_name) AS driver_last_name,
+        COALESCE(du.phone, rdu.phone) AS driver_phone
       FROM transport_student_allocations sa
       INNER JOIN students st ON st.id = sa.student_id
       INNER JOIN transport_routes r ON r.id = sa.route_id
       LEFT JOIN transport_stops ps ON ps.id = sa.pickup_stop_id
       LEFT JOIN transport_stops ds ON ds.id = sa.dropoff_stop_id
       LEFT JOIN transport_vehicles v ON v.id = sa.assigned_vehicle_id
+      LEFT JOIN transport_vehicles rv ON rv.id = r.default_vehicle_id
       LEFT JOIN transport_drivers d ON d.id = r.default_driver_id
       LEFT JOIN users du ON du.id = d.user_id
+      LEFT JOIN transport_drivers rd ON rd.id = r.default_driver_id
+      LEFT JOIN users rdu ON rdu.id = rd.user_id
       WHERE sa.student_id = $1 AND sa.status = 'ACTIVE' AND sa.deleted_at IS NULL
     `;
     const params = [studentId];
     if (schoolId) {
       params.push(schoolId);
-      query += ` AND sa.school_id = $2`;
+      query += ` AND (sa.school_id = $2 OR sa.school_id IS NULL)`;
     }
     query += ` LIMIT 1`;
     const res = await this.db.query(query, params);

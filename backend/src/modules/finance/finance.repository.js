@@ -1427,14 +1427,14 @@ class FinanceRepository {
     // 1. Fee Invoices Summary
     const invoiceSummaryRes = await this.db.query(
       `SELECT 
-         COALESCE(SUM(total_amount), 0) as total_invoiced,
-         COALESCE(SUM(paid_amount), 0) as total_collected,
-         COALESCE(SUM(balance_amount), 0) as total_outstanding,
-         COUNT(*) as total_invoices,
+         COALESCE(SUM(CASE WHEN status NOT IN ('CANCELLED', 'REFUNDED') THEN total_amount ELSE 0 END), 0) as total_invoiced,
+         COALESCE(SUM(CASE WHEN status NOT IN ('CANCELLED', 'REFUNDED') THEN paid_amount ELSE 0 END), 0) as total_collected,
+         COALESCE(SUM(CASE WHEN status NOT IN ('CANCELLED', 'REFUNDED') THEN balance_amount ELSE 0 END), 0) as total_outstanding,
+         COUNT(CASE WHEN status NOT IN ('CANCELLED', 'REFUNDED') THEN 1 END) as total_invoices,
          COUNT(CASE WHEN status = 'PAID' THEN 1 END) as paid_invoices_count,
          COUNT(CASE WHEN status = 'PARTIALLY_PAID' THEN 1 END) as partial_invoices_count,
          COUNT(CASE WHEN status = 'UNPAID' THEN 1 END) as unpaid_invoices_count,
-         COUNT(CASE WHEN due_date < CURRENT_DATE AND status NOT IN ('PAID', 'CANCELLED') THEN 1 END) as overdue_invoices_count
+         COUNT(CASE WHEN due_date < CURRENT_DATE AND status NOT IN ('PAID', 'CANCELLED', 'REFUNDED') THEN 1 END) as overdue_invoices_count
        FROM student_fee_invoices
        WHERE (school_id = $1 OR school_id IS NULL) AND deleted_at IS NULL`,
       [schoolId]
@@ -1483,12 +1483,15 @@ class FinanceRepository {
     const totalPayroll = Number(payrollRes.rows[0].total_payroll);
     const totalOutflow = totalExpenses + totalPayroll;
     const netCashFlow = (totalCollected + totalOtherIncome) - totalOutflow;
+    const totalInflow = totalCollected + totalOtherIncome;
+    const operatingMargin = totalInflow > 0 ? ((netCashFlow / totalInflow) * 100).toFixed(1) : '0.0';
 
     return {
       totalInvoiced,
       totalCollected,
       totalOutstanding: Number(inv.total_outstanding),
       collectionEfficiency: Number(collectionEfficiency),
+      operatingMargin: Number(operatingMargin),
       totalInvoicesCount: Number(inv.total_invoices),
       paidInvoicesCount: Number(inv.paid_invoices_count),
       partialInvoicesCount: Number(inv.partial_invoices_count),
@@ -1598,16 +1601,65 @@ class FinanceRepository {
       [schoolId, targetYear]
     );
 
+    // Category Breakdown of Expenses
+    const expenseCatRes = await this.db.query(
+      `SELECT ec.name as category_name, COALESCE(SUM(e.amount), 0) as total_amount, COUNT(e.id) as count
+       FROM expenses e
+       INNER JOIN expense_categories ec ON ec.id = e.expense_category_id
+       WHERE (e.school_id = $1 OR e.school_id IS NULL)
+         AND e.deleted_at IS NULL
+         AND e.status = 'APPROVED'
+         AND EXTRACT(YEAR FROM e.expense_date) = $2
+       GROUP BY ec.name
+       ORDER BY total_amount DESC`,
+      [schoolId, targetYear]
+    );
+
+    // Direct Incomes Breakdown
+    const incomeCatRes = await this.db.query(
+      `SELECT ic.name as category_name, COALESCE(SUM(i.amount), 0) as total_amount, COUNT(i.id) as count
+       FROM incomes i
+       INNER JOIN income_categories ic ON ic.id = i.income_category_id
+       WHERE (i.school_id = $1 OR i.school_id IS NULL)
+         AND i.deleted_at IS NULL
+         AND EXTRACT(YEAR FROM i.income_date) = $2
+       GROUP BY ic.name
+       ORDER BY total_amount DESC`,
+      [schoolId, targetYear]
+    );
+
+    // Summary calculation
+    const totalFeeCollections = monthlyRes.rows.reduce((sum, r) => sum + Number(r.fee_collections || 0), 0);
+    const totalDirectIncomes = monthlyRes.rows.reduce((sum, r) => sum + Number(r.direct_incomes || 0), 0);
+    const totalIncome = totalFeeCollections + totalDirectIncomes;
+    const totalOperationalExpenses = monthlyRes.rows.reduce((sum, r) => sum + Number(r.operational_expenses || 0), 0);
+    const totalPayrollExpenses = monthlyRes.rows.reduce((sum, r) => sum + Number(r.payroll_expenses || 0), 0);
+    const totalExpense = totalOperationalExpenses + totalPayrollExpenses;
+    const netProfitLoss = totalIncome - totalExpense;
+    const profitMargin = totalIncome > 0 ? ((netProfitLoss / totalIncome) * 100).toFixed(1) : '0.0';
+
     return {
       year: targetYear,
+      annualSummary: {
+        totalFeeCollections,
+        totalDirectIncomes,
+        totalIncome,
+        totalOperationalExpenses,
+        totalPayrollExpenses,
+        totalExpense,
+        netProfitLoss,
+        profitMargin: Number(profitMargin),
+      },
       monthlyBreakdown: monthlyRes.rows,
+      expenseCategories: expenseCatRes.rows,
+      incomeCategories: incomeCatRes.rows,
     };
   }
 
   async getCashierShiftReport(schoolId, date) {
     const targetDate = date || new Date().toISOString().slice(0, 10);
 
-    const res = await this.db.query(
+    const methodsRes = await this.db.query(
       `SELECT 
          p.payment_method,
          COUNT(*) as transaction_count,
@@ -1621,14 +1673,35 @@ class FinanceRepository {
       [schoolId, targetDate]
     );
 
-    const totalCollected = res.rows.reduce((sum, r) => sum + Number(r.total_collected), 0);
-    const totalTransactions = res.rows.reduce((sum, r) => sum + Number(r.transaction_count), 0);
+    const transactionsRes = await this.db.query(
+      `SELECT 
+         p.id, p.receipt_number, p.amount, p.payment_method, p.transaction_reference,
+         p.payment_date, p.created_at, p.status,
+         s.first_name as student_first_name, s.last_name as student_last_name, s.admission_number,
+         g.name as grade_name,
+         inv.invoice_number, inv.title as invoice_title,
+         u.first_name as received_by_first_name, u.last_name as received_by_last_name
+       FROM fee_payments p
+       INNER JOIN students s ON s.id = p.student_id
+       INNER JOIN student_fee_invoices inv ON inv.id = p.invoice_id
+       LEFT JOIN grades g ON g.id = inv.grade_id
+       LEFT JOIN users u ON u.id = p.received_by
+       WHERE (p.school_id = $1 OR p.school_id IS NULL)
+         AND p.deleted_at IS NULL
+         AND p.payment_date = $2
+       ORDER BY p.created_at DESC`,
+      [schoolId, targetDate]
+    );
+
+    const totalCollected = methodsRes.rows.reduce((sum, r) => sum + Number(r.total_collected), 0);
+    const totalTransactions = methodsRes.rows.reduce((sum, r) => sum + Number(r.transaction_count), 0);
 
     return {
       date: targetDate,
       totalCollected,
       totalTransactions,
-      methodsBreakdown: res.rows,
+      methodsBreakdown: methodsRes.rows,
+      transactions: transactionsRes.rows,
     };
   }
 }

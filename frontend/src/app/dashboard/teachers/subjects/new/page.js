@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+<<<<<<< HEAD
 import Link from "next/link";
 import teacherSubjectService from "@/services/teacherSubjectService";
 import qualifiedTeachersService from "@/services/qualifiedTeachersService";
@@ -11,11 +12,12 @@ import gradeService from "@/services/gradeService";
 import sectionService from "@/services/sectionService";
 import academicYearService from "@/services/academicYearService";
 import styles from "./new.module.css";
+=======
+>>>>>>> Main
 
-const getTodayDateString = () => new Date().toISOString().split("T")[0];
-
-export default function NewTeacherSubjectPage() {
+export default function NewTeacherSubjectRedirect() {
   const router = useRouter();
+<<<<<<< HEAD
   const [form, setForm] = useState({
     teacher_id: "",
     subject_id: "",
@@ -402,6 +404,16 @@ export default function NewTeacherSubjectPage() {
           </div>
         </div>
       </form>
+=======
+
+  useEffect(() => {
+    router.replace("/dashboard/teachers/subjects?new=true");
+  }, [router]);
+
+  return (
+    <div style={{ padding: "4rem 2rem", textAlign: "center", color: "#64748b", fontFamily: "inherit" }}>
+      <p style={{ fontSize: "1rem", fontWeight: 600 }}>Opening Teacher Subject Assignment modal...</p>
+>>>>>>> Main
     </div>
   );
 }

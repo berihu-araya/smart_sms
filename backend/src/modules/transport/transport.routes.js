@@ -54,11 +54,11 @@ const DRIVER_AND_MANAGEMENT = ['School Admin', 'Admin', 'Staff', 'Driver'];
 const ALL_PORTAL_ROLES = ['School Admin', 'Admin', 'Staff', 'Teacher', 'Driver', 'Parent', 'Student'];
 
 // 1. SETTINGS & CONFIG
-router.get('/config', authorizeRoles(...MANAGEMENT_ROLES), getSettings);
+router.get('/config', authorizeRoles(...ALL_PORTAL_ROLES), getSettings);
 router.put('/config', authorizeRoles(...ADMIN_ROLES), updateSettings);
 
 // 2. DASHBOARD STATS
-router.get('/stats', authorizeRoles(...DRIVER_AND_MANAGEMENT), getDashboardStats);
+router.get('/stats', authorizeRoles(...ALL_PORTAL_ROLES), getDashboardStats);
 
 // 3. VEHICLES (FLEET MANAGEMENT)
 router.get('/vehicles', authorizeRoles(...ALL_PORTAL_ROLES), listVehicles);
@@ -88,9 +88,9 @@ router.put('/stops/:id', authorizeRoles(...MANAGEMENT_ROLES), updateStop);
 router.delete('/stops/:id', authorizeRoles(...ADMIN_ROLES), deleteStop);
 
 // 6. STUDENT TRANSPORT ALLOCATIONS (CAPACITY ENFORCEMENT)
-router.get('/allocations/my-info', authorizeRoles('Student', 'Parent'), getMyTransportInfo);
-router.get('/allocations', authorizeRoles(...ALL_PORTAL_ROLES), listStudentAllocations);
-router.get('/allocations/:id', authorizeRoles(...ALL_PORTAL_ROLES), getAllocationById);
+router.get('/allocations/my-info', authorizeRoles(...ALL_PORTAL_ROLES), getMyTransportInfo);
+router.get('/allocations', authorizeRoles(...MANAGEMENT_ROLES), listStudentAllocations);
+router.get('/allocations/:id', authorizeRoles(...MANAGEMENT_ROLES), getAllocationById);
 router.post('/allocations', authorizeRoles(...MANAGEMENT_ROLES), createStudentAllocation);
 router.put('/allocations/:id', authorizeRoles(...MANAGEMENT_ROLES), updateStudentAllocation);
 router.delete('/allocations/:id', authorizeRoles(...ADMIN_ROLES), deleteStudentAllocation);

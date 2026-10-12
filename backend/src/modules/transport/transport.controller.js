@@ -545,22 +545,91 @@ async function getMyTransportInfo(req, res, next) {
   try {
     const { userId, schoolId } = getContext(req);
     // Find student record for this user
+    let studentId = null;
+    let student = null;
+
     const studentRes = await db.query(
-      `SELECT id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      `SELECT id, first_name, last_name, admission_number, school_id FROM students WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
       [userId]
     );
-    if (!studentRes.rows[0]) {
-      return res.status(404).json({
-        success: false,
+    if (studentRes.rows[0]) {
+      student = studentRes.rows[0];
+      studentId = student.id;
+    } else {
+      // Check if user is a parent linked to a student
+      const userEmail = (req.user?.email || '').trim().toLowerCase();
+      const parentStudentRes = await db.query(
+        `SELECT s.id, s.first_name, s.last_name, s.admission_number, s.school_id 
+         FROM students s
+         JOIN parents p ON p.id = s.parent_id
+         WHERE (p.user_id = $1 OR (p.email IS NOT NULL AND LOWER(p.email) = LOWER($2)))
+           AND s.deleted_at IS NULL AND p.deleted_at IS NULL
+         LIMIT 1`,
+        [userId, userEmail]
+      );
+      if (parentStudentRes.rows[0]) {
+        student = parentStudentRes.rows[0];
+        studentId = student.id;
+      }
+    }
+
+    if (!studentId) {
+      return res.json({
+        success: true,
         message: 'No student profile linked to this account',
+        data: null,
       });
     }
 
-    const allocation = await service.getAllocationByStudentId(studentRes.rows[0].id, schoolId);
+    const effectiveSchoolId = schoolId || student?.school_id || null;
+    const allocation = await service.getAllocationByStudentId(studentId, effectiveSchoolId);
+
+    let todayTrip = null;
+    let routeStops = [];
+
+    if (allocation && allocation.route_id) {
+      try {
+        const tripRes = await db.query(
+          `SELECT t.*,
+                  t.scheduled_start_time AS start_time,
+                  t.scheduled_end_time AS end_time,
+                  v.vehicle_number, v.vehicle_model,
+                  du.first_name AS driver_first_name, du.last_name AS driver_last_name, du.phone AS driver_phone
+           FROM transport_trips t
+           LEFT JOIN transport_vehicles v ON v.id = t.vehicle_id
+           LEFT JOIN transport_drivers d ON d.id = t.driver_id
+           LEFT JOIN users du ON du.id = d.user_id
+           WHERE t.route_id = $1 AND t.deleted_at IS NULL
+           ORDER BY (t.trip_date = CURRENT_DATE) DESC, t.trip_date DESC, t.scheduled_start_time ASC NULLS LAST, t.created_at DESC
+           LIMIT 1`,
+          [allocation.route_id]
+        );
+        todayTrip = tripRes.rows[0] || null;
+
+        routeStops = await service.listStopsByRoute(allocation.route_id);
+      } catch (subErr) {
+        console.error('Failed to query trip/stops for student allocation:', subErr);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Transport information retrieved successfully',
-      data: allocation,
+      data: allocation ? {
+        ...allocation,
+        today_trip: todayTrip,
+        route_stops: routeStops,
+        student_profile: student ? {
+          id: student.id,
+          name: `${student.first_name} ${student.last_name}`,
+          admission_number: student.admission_number,
+        } : null,
+      } : null,
+      student: student ? {
+        id: student.id,
+        name: `${student.first_name} ${student.last_name}`,
+        admission_number: student.admission_number,
+      } : null,
     });
   } catch (error) {
     next(error);

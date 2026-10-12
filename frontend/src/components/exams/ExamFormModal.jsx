@@ -333,7 +333,22 @@ export default function ExamFormModal({
                 required
                 value={formData.examType}
                 onChange={(e) => {
-                  setFormData({ ...formData, examType: e.target.value });
+                  const newType = e.target.value;
+                  let defaultSuggestedMax = formData.maxMarks;
+                  if (!isEdit) {
+                    if (newType === 'MIDTERM') defaultSuggestedMax = 30;
+                    else if (newType === 'FINAL') defaultSuggestedMax = 50;
+                    else if (newType === 'ASSIGNMENT') defaultSuggestedMax = 20;
+                    else if (newType === 'QUIZ') defaultSuggestedMax = 10;
+                    else if (newType === 'PROJECT') defaultSuggestedMax = 20;
+                    else if (newType === 'TEST') defaultSuggestedMax = 20;
+                  }
+                  setFormData((prev) => ({
+                    ...prev,
+                    examType: newType,
+                    maxMarks: defaultSuggestedMax,
+                    weightPercentage: !isEdit && Number(defaultSuggestedMax) <= 100 ? Number(defaultSuggestedMax) : prev.weightPercentage,
+                  }));
                   if (errors.examType) setErrors({ ...errors, examType: null });
                 }}
                 className={`${styles.select} ${errors.examType ? styles.inputError : ""}`}
@@ -412,7 +427,7 @@ export default function ExamFormModal({
           <div className={styles.formGroup}>
             <label className={styles.label}>
               <div className={styles.labelLeft}>
-                <span>Maximum Marks (Points)</span>
+                <span>Maximum Marks (Max Points)</span>
                 <span className={styles.required}>*</span>
               </div>
             </label>
@@ -423,10 +438,17 @@ export default function ExamFormModal({
                 min="1"
                 max="1000"
                 required
-                placeholder="100"
+                placeholder="e.g. 30, 50, 20"
                 value={formData.maxMarks}
                 onChange={(e) => {
-                  setFormData({ ...formData, maxMarks: e.target.value });
+                  const val = e.target.value;
+                  const num = Number(val);
+                  setFormData((prev) => ({
+                    ...prev,
+                    maxMarks: val,
+                    // If weight was matching previous maxMarks or unedited, sync it
+                    weightPercentage: (!isNaN(num) && num > 0 && num <= 100) ? num : prev.weightPercentage,
+                  }));
                   if (errors.maxMarks) setErrors({ ...errors, maxMarks: null });
                 }}
                 className={`${styles.input} ${errors.maxMarks ? styles.inputError : ""}`}
@@ -437,13 +459,16 @@ export default function ExamFormModal({
                 <HiExclamationCircle size={14} /> {errors.maxMarks}
               </span>
             )}
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+              Student marks cannot exceed this number during entry.
+            </span>
           </div>
 
           {/* Weight Percentage */}
           <div className={styles.formGroup}>
             <label className={styles.label}>
               <div className={styles.labelLeft}>
-                <span>Weight Percentage (%)</span>
+                <span>Assessment Weight (% of 100)</span>
                 <span className={styles.required}>*</span>
               </div>
             </label>
@@ -454,7 +479,7 @@ export default function ExamFormModal({
                 min="0"
                 max="100"
                 required
-                placeholder="30"
+                placeholder="e.g. 30"
                 value={formData.weightPercentage}
                 onChange={(e) => {
                   setFormData({ ...formData, weightPercentage: e.target.value });
@@ -468,6 +493,9 @@ export default function ExamFormModal({
                 <HiExclamationCircle size={14} /> {errors.weightPercentage}
               </span>
             )}
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+              Contributes toward the final 100% total grade.
+            </span>
           </div>
 
           {/* Target Grade Level */}

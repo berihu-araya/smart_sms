@@ -2,6 +2,7 @@ const express = require('express');
 const {
   getSectionResults,
   getStudentReportCard,
+  getAcademicReport,
 } = require('./result.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
@@ -16,6 +17,7 @@ router.use(attachStudentScope);
 router.use(attachParentScope);
 router.use(attachTeacherScope);
 
+router.get('/academic-report', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff', 'Student', 'Parent'), getAcademicReport);
 router.get('/section', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getSectionResults);
 router.get('/report-card/me', authorizeRoles('Student', 'Parent'), getStudentReportCard);
 router.get('/report-card/:studentId', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff', 'Student', 'Parent'), requireStudentOwnParam('studentId'), requireParentOwnChild('studentId'), getStudentReportCard);
