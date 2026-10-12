@@ -63,3 +63,14 @@
 - [x] Frontend Interfaces: `/dashboard/fees`, `/dashboard/expenses`, `/dashboard/income`, `/dashboard/payroll`, and `/dashboard/reports/financial`
 - [x] Print Engine: `@media print` layouts for 80mm thermal receipts, A4 tax invoices, and staff payslips
 
+### ✅ Phase 9: Academic Performance & Reporting Intelligence Suite
+- [x] Backend Architecture: Real data analytics calculation engine in Repository, Service, and Controller (`/api/v1/results/academic-report`)
+- [x] Scoped Security & Role Guards: Scoped for Admins, Teachers (homeroom/subject boundaries), Students (personal dossier), and Parents (linked child)
+- [x] Institutional Executive KPIs: Cohort Mean %, Pass Rate %, Distinction/Honors Rate %, At-Risk Count, and Evaluation Progress %
+- [x] Grade Distribution Analytics: Visual bell curve & distribution histogram (A+, A, B, C, D, F) with grade point scale
+- [x] Subject Performance & Pass Rates: Subject means, highest/lowest scores, pass rates %, and health status indicators
+- [x] Honor Roll & Merit Leaderboard: Dean's honors, Summa/Magna Cum Laude recognition, and direct report card access
+- [x] At-Risk & Remediation Register: Early warning intervention roster with failing subjects list and parent contact numbers
+- [x] Official Master Broadsheet: Full tabular matrix (students × subjects), real-time search, CSV spreadsheet export, and print engine (`/dashboard/reports/academic`)
+
+

@@ -216,7 +216,108 @@ async function getStudentReportCard(req, res, next) {
   }
 }
 
+async function getAcademicReport(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase();
+  const userSub = req.user?.sub;
+  const userEmail = (req.user?.email || '').trim().toLowerCase();
+
+  const academicYearId = req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null;
+  const gradeId = req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null;
+  const sectionId = req.query.sectionId && isValidUUID(req.query.sectionId) ? req.query.sectionId : null;
+  const term = req.query.term || null;
+
+  try {
+    let targetStudentId = null;
+    let accessibleSectionIds = null;
+    let filterTeacherId = null;
+
+    if (role.includes('student') && !role.includes('admin')) {
+      let studentRes = await db.query(
+        `SELECT id FROM students
+         WHERE (user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)))
+           AND deleted_at IS NULL
+         LIMIT 1`,
+        [userSub, userEmail]
+      );
+      if (!studentRes.rows.length) {
+        return res.status(200).json({
+          success: true,
+          message: 'Student profile not linked',
+          data: { mode: 'individual', student: null, academicSummary: {}, subjectPerformance: [] },
+        });
+      }
+      targetStudentId = studentRes.rows[0].id;
+    } else if (role.includes('parent')) {
+      const childIds = req.parentScope?.child_student_ids || [];
+      const requestedChildId = req.query.studentId;
+
+      if (requestedChildId && isValidUUID(requestedChildId)) {
+        if (!childIds.includes(requestedChildId)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Parents can only view reports for their own children',
+            data: null,
+          });
+        }
+        targetStudentId = requestedChildId;
+      } else {
+        targetStudentId = childIds[0] || null;
+      }
+
+      if (!targetStudentId) {
+        return res.status(200).json({
+          success: true,
+          message: 'No linked children found for parent',
+          data: { mode: 'individual', student: null, academicSummary: {}, subjectPerformance: [] },
+        });
+      }
+    } else if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherId = req.teacherScope?.teacher_id;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher profile is not linked or has no active assignments',
+          data: null,
+        });
+      }
+
+      accessibleSectionIds = req.teacherScope?.all_accessible_section_ids || [];
+      if (sectionId) {
+        if (!accessibleSectionIds.includes(sectionId)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You are not assigned to teach or manage this section',
+            data: null,
+          });
+        }
+      }
+      filterTeacherId = teacherId;
+    }
+
+    const data = await resultService.generateAcademicReport({
+      academicYearId,
+      gradeId,
+      sectionId,
+      term,
+      userRole: role,
+      studentId: targetStudentId,
+      accessibleSectionIds,
+      teacherId: filterTeacherId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Academic report generated successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getSectionResults,
   getStudentReportCard,
+  getAcademicReport,
 };
+

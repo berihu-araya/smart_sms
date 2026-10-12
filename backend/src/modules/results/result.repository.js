@@ -243,6 +243,194 @@ class ResultRepository {
       marks: marksRes.rows,
     };
   }
+
+  async getAcademicReportCohortData({
+    academicYearId = null,
+    gradeId = null,
+    sectionId = null,
+    term = null,
+    accessibleSectionIds = null,
+    teacherId = null,
+  } = {}) {
+    // 1. Build Student filter
+    const studentParams = [];
+    let studentWhere = 'WHERE s.deleted_at IS NULL AND s.status = \'ACTIVE\'';
+
+    if (sectionId) {
+      studentParams.push(sectionId);
+      studentWhere += ` AND s.section_id = $${studentParams.length}`;
+    } else if (gradeId) {
+      studentParams.push(gradeId);
+      studentWhere += ` AND sec.grade_id = $${studentParams.length}`;
+    }
+
+    if (accessibleSectionIds && accessibleSectionIds.length > 0) {
+      studentParams.push(accessibleSectionIds);
+      studentWhere += ` AND s.section_id = ANY($${studentParams.length}::uuid[])`;
+    }
+
+    const studentsPromise = this.database.query(
+      `
+      SELECT
+        s.id,
+        s.admission_number,
+        s.first_name,
+        s.last_name,
+        s.gender,
+        s.date_of_birth,
+        sec.id AS section_id,
+        sec.name AS section_name,
+        g.id AS grade_id,
+        g.name AS grade_name,
+        p.full_name AS parent_name,
+        p.phone AS parent_phone
+      FROM students s
+      JOIN sections sec ON sec.id = s.section_id
+      JOIN grades g ON g.id = sec.grade_id
+      LEFT JOIN parents p ON p.id = s.parent_id
+      ${studentWhere}
+      ORDER BY g.name ASC, sec.name ASC, s.first_name ASC, s.last_name ASC
+      `,
+      studentParams
+    );
+
+    // 2. Build Marks filter
+    const marksParams = [];
+    let marksWhere = 'WHERE e.deleted_at IS NULL';
+
+    if (sectionId) {
+      marksParams.push(sectionId);
+      marksWhere += ` AND m.section_id = $${marksParams.length}`;
+    } else if (gradeId) {
+      marksParams.push(gradeId);
+      marksWhere += ` AND sec.grade_id = $${marksParams.length}`;
+    }
+
+    if (accessibleSectionIds && accessibleSectionIds.length > 0) {
+      marksParams.push(accessibleSectionIds);
+      marksWhere += ` AND m.section_id = ANY($${marksParams.length}::uuid[])`;
+    }
+
+    if (academicYearId) {
+      marksParams.push(academicYearId);
+      marksWhere += ` AND e.academic_year_id = $${marksParams.length}`;
+    }
+
+    if (term && term !== 'all' && term !== 'All' && term !== 'ALL') {
+      marksParams.push(term);
+      marksWhere += ` AND (LOWER(e.term_or_semester) = LOWER($${marksParams.length}) OR e.term_or_semester IS NULL)`;
+    }
+
+    if (teacherId) {
+      marksParams.push(teacherId);
+      marksWhere += ` AND m.subject_id IN (
+        SELECT ts.subject_id FROM teacher_subjects ts WHERE ts.teacher_id = $${marksParams.length} AND ts.deleted_at IS NULL
+      )`;
+    }
+
+    const marksPromise = this.database.query(
+      `
+      SELECT
+        m.student_id,
+        m.subject_id,
+        m.exam_id,
+        m.score,
+        m.is_absent,
+        m.section_id,
+        e.title AS exam_title,
+        e.exam_type,
+        e.weight_percentage,
+        e.max_marks,
+        e.term_or_semester,
+        sub.subject_name,
+        sub.subject_code
+      FROM marks m
+      JOIN exams e ON e.id = m.exam_id
+      JOIN subjects sub ON sub.id = m.subject_id
+      JOIN sections sec ON sec.id = m.section_id
+      ${marksWhere}
+      `,
+      marksParams
+    );
+
+    // 3. Subjects list
+    const subjectsPromise = this.database.query(
+      `SELECT id, subject_name AS name, subject_code AS code FROM subjects WHERE deleted_at IS NULL ORDER BY subject_name ASC`
+    );
+
+    // 4. Grading scales
+    const scalesPromise = this.getGradingScales();
+
+    // 5. Sections list with grade info
+    const sectionsPromise = this.database.query(
+      `
+      SELECT sec.id, sec.name, g.id AS grade_id, g.name AS grade_name
+      FROM sections sec
+      JOIN grades g ON g.id = sec.grade_id
+      WHERE sec.deleted_at IS NULL
+      ORDER BY g.name ASC, sec.name ASC
+      `
+    );
+
+    // 6. Settings (school name, etc.)
+    const settingsPromise = this.database.query(`SELECT * FROM settings LIMIT 1`);
+
+    const [studentsRes, marksRes, subjectsRes, scalesRes, sectionsRes, settingsRes] = await Promise.all([
+      studentsPromise,
+      marksPromise,
+      subjectsPromise,
+      scalesPromise,
+      sectionsPromise,
+      settingsPromise,
+    ]);
+
+    return {
+      students: studentsRes.rows,
+      marks: marksRes.rows,
+      subjects: subjectsRes.rows,
+      gradingScales: scalesRes,
+      sections: sectionsRes.rows,
+      school: settingsRes.rows[0] || {},
+    };
+  }
+
+  async getStudentAcademicAnalytics(studentId, { academicYearId = null, term = null } = {}) {
+    const reportCardData = await this.getStudentReportCardData(studentId, { academicYearId, term });
+    if (!reportCardData || !reportCardData.student) return null;
+
+    const student = reportCardData.student;
+
+    // Fetch cohort marks in the same section to compute section averages per subject
+    let sectionMarks = [];
+    if (student.section_id) {
+      const secParams = [student.section_id];
+      let secWhere = 'WHERE m.section_id = $1 AND e.deleted_at IS NULL';
+      if (academicYearId) {
+        secParams.push(academicYearId);
+        secWhere += ` AND e.academic_year_id = $${secParams.length}`;
+      }
+      if (term && term !== 'all' && term !== 'All' && term !== 'ALL') {
+        secParams.push(term);
+        secWhere += ` AND (LOWER(e.term_or_semester) = LOWER($${secParams.length}) OR e.term_or_semester IS NULL)`;
+      }
+
+      const secRes = await this.database.query(
+        `
+        SELECT m.subject_id, m.score, m.is_absent, e.max_marks, e.weight_percentage
+        FROM marks m
+        JOIN exams e ON e.id = m.exam_id
+        ${secWhere}
+        `,
+        secParams
+      );
+      sectionMarks = secRes.rows;
+    }
+
+    return {
+      ...reportCardData,
+      sectionMarks,
+    };
+  }
 }
 
 module.exports = ResultRepository;
