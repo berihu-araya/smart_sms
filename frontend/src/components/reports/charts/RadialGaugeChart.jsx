@@ -14,6 +14,9 @@ export default function RadialGaugeChart({
   subtitle = 'Overall academic achievement index',
   gradeLetter = 'B',
   gradeDescription = 'Very Good / Above Average',
+  badgeText = null,
+  midLabel = '50% Target',
+  valueSuffix = '%',
 }) {
   const numValue = Math.min(max, Math.max(0, Number(value || 0)));
   const percentage = (numValue / max) * 100;
@@ -75,20 +78,20 @@ export default function RadialGaugeChart({
 
         {/* Center Big Value & Grade Badge */}
         <div className={styles.gaugeCenterContent}>
-          <div className={styles.gaugeBigScore}>{numValue.toFixed(1)}%</div>
+          <div className={styles.gaugeBigScore}>{numValue.toFixed(1)}{valueSuffix}</div>
           <div
             className={styles.gaugeGradeBadge}
             style={{ background: currentColor }}
           >
-            Grade {gradeLetter || '—'} • {gradeDescription}
+            {badgeText || `Grade ${gradeLetter || '—'} • ${gradeDescription}`}
           </div>
         </div>
 
         {/* Min / Max Tick Row */}
         <div className={styles.gaugeTicksRow}>
-          <span>0%</span>
-          <span style={{ color: '#d97706', fontSize: '0.72rem' }}>50% Pass</span>
-          <span>100%</span>
+          <span>0{valueSuffix}</span>
+          <span style={{ color: '#d97706', fontSize: '0.72rem' }}>{midLabel}</span>
+          <span>{max}{valueSuffix}</span>
         </div>
       </div>
     </div>

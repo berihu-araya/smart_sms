@@ -9,20 +9,23 @@ import styles from './charts.module.css';
  */
 export default function DonutPieChart({
   data = [],
-  title = 'Grade Distribution',
-  subtitle = 'Breakdown of academic grade tiers',
+  title = 'Distribution Breakdown',
+  subtitle = 'Categorical allocation and percentages',
   centerValue = null,
-  centerLabel = 'Evaluated',
+  centerLabel = 'Total',
+  unit = 'items',
+  formatValue = null,
+  emptyMessage = 'No distribution data available for this selection.',
 }) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
   // Filter valid data items
   const validItems = useMemo(() => {
-    return data.filter((d) => (d.count ?? d.value ?? 0) >= 0);
+    return data.filter((d) => (d.count ?? d.value ?? d.total_amount ?? d.total_collected ?? 0) >= 0);
   }, [data]);
 
   const total = useMemo(() => {
-    return validItems.reduce((acc, curr) => acc + (curr.count ?? curr.value ?? 0), 0);
+    return validItems.reduce((acc, curr) => acc + Number(curr.count ?? curr.value ?? curr.total_amount ?? curr.total_collected ?? 0), 0);
   }, [validItems]);
 
   // Compute slice angles and SVG path data
@@ -36,7 +39,7 @@ export default function DonutPieChart({
     const r = 52; // inner radius
 
     return validItems.map((item, idx) => {
-      const val = item.count ?? item.value ?? 0;
+      const val = Number(item.count ?? item.value ?? item.total_amount ?? item.total_collected ?? 0);
       const angle = (val / total) * 2 * Math.PI;
 
       const startAngle = accumulatedAngle;
@@ -80,7 +83,7 @@ export default function DonutPieChart({
         `;
       }
 
-      const percent = item.percentage ?? (total > 0 ? Math.round((val / total) * 100) : 0);
+      const percent = item.percentage !== undefined ? item.percentage : (total > 0 ? Math.round((val / total) * 100) : 0);
 
       return {
         ...item,
@@ -88,12 +91,19 @@ export default function DonutPieChart({
         percent,
         val,
         color: item.color || item.gradeColor || '#4f46e5',
-        label: item.label || item.gradeLetter || `Item ${idx + 1}`,
+        label: item.label || item.name || item.payment_method || item.category_name || item.gradeLetter || `Item ${idx + 1}`,
       };
     });
   }, [validItems, total]);
 
   const activeSlice = hoveredIndex !== null ? slices[hoveredIndex] : null;
+
+  const displayVal = (val) => {
+    if (typeof formatValue === 'function') {
+      return formatValue(val);
+    }
+    return `${Number(val).toLocaleString()} ${unit}`;
+  };
 
   return (
     <div className={styles.chartWrapper}>
@@ -129,7 +139,13 @@ export default function DonutPieChart({
             {/* Center Dynamic Label */}
             <div className={styles.donutCenterLabel}>
               <span className={styles.donutCenterValue}>
-                {activeSlice ? `${activeSlice.percent}%` : (centerValue !== null ? centerValue : total)}
+                {activeSlice
+                  ? `${activeSlice.percent}%`
+                  : centerValue !== null
+                  ? centerValue
+                  : typeof formatValue === 'function'
+                  ? formatValue(total)
+                  : `${Number(total).toLocaleString()}`}
               </span>
               <span className={styles.donutCenterSubtext}>
                 {activeSlice ? activeSlice.label : centerLabel}
@@ -151,7 +167,7 @@ export default function DonutPieChart({
                   <span className={styles.legendName}>{slice.label}</span>
                 </div>
                 <div className={styles.legendMeta}>
-                  <span>{slice.val} students</span>
+                  <span>{displayVal(slice.val)}</span>
                   <span className={styles.legendPercentage}>({slice.percent}%)</span>
                 </div>
               </div>
@@ -160,7 +176,7 @@ export default function DonutPieChart({
         </div>
       ) : (
         <div className={styles.emptyChartMessage}>
-          No evaluation marks available for this cohort selection.
+          {emptyMessage}
         </div>
       )}
     </div>
