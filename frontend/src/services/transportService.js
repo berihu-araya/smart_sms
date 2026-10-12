@@ -214,7 +214,17 @@ export async function getAllocationById(id) {
 
 export async function getMyTransportInfo() {
   const res = await request('/api/v1/transport/allocations/my-info');
-  return res.data;
+  if (res?.data) {
+    return {
+      ...res.data,
+      student: res.student || res.data.student_profile || null,
+      has_allocation: true,
+    };
+  }
+  return {
+    student: res?.student || null,
+    has_allocation: false,
+  };
 }
 
 export async function createStudentAllocation(data) {
