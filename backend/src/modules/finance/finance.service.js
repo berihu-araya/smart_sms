@@ -4,6 +4,7 @@
  */
 
 const { calculateEmployeeSalary, calculateProgressivePAYE, calculateContractProration } = require('./payroll-calculator');
+const odooService = require('../../services/odoo.service');
 
 class FinanceService {
   constructor(repository, database) {
@@ -129,6 +130,27 @@ class FinanceService {
       }
 
       await client.query('COMMIT');
+
+      // Asynchronously sync invoice with Odoo ERP if enabled
+      if (odooService.isEnabled()) {
+        odooService.syncInvoice({
+          invoice,
+          student: { id: invoice.student_id },
+          lines: data.items,
+        }).then(async (odooRes) => {
+          if (odooRes?.odoo_invoice_id) {
+            await this.db.query(
+              `UPDATE student_fee_invoices 
+               SET odoo_move_id = $1, odoo_invoice_number = $2, odoo_synced_at = CURRENT_TIMESTAMP 
+               WHERE id = $3`,
+              [odooRes.odoo_invoice_id, odooRes.invoice_number, invoice.id]
+            ).catch((e) => console.error('[OdooSync] Invoice ID update error:', e.message));
+          }
+        }).catch((err) => {
+          console.error('[OdooSync] Invoice background sync error:', err.message);
+        });
+      }
+
       return invoice; 
     } catch (error) {
       await client.query('ROLLBACK'); 
@@ -403,6 +425,26 @@ class FinanceService {
       );
 
       await client.query('COMMIT');
+
+      // Asynchronously sync payment with Odoo ERP if enabled
+      if (odooService.isEnabled()) {
+        odooService.syncPayment({
+          payment,
+          invoice,
+        }).then(async (odooRes) => {
+          if (odooRes?.odoo_payment_id) {
+            await this.db.query(
+              `UPDATE fee_payments 
+               SET odoo_payment_id = $1, odoo_synced_at = CURRENT_TIMESTAMP 
+               WHERE id = $2`,
+              [odooRes.odoo_payment_id, payment.id]
+            ).catch((e) => console.error('[OdooSync] Payment ID update error:', e.message));
+          }
+        }).catch((err) => {
+          console.error('[OdooSync] Payment background sync error:', err.message);
+        });
+      }
+
       return payment;
     } catch (error) {
       await client.query('ROLLBACK');
