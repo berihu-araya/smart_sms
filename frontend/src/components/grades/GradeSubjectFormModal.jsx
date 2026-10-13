@@ -255,8 +255,7 @@ export default function GradeSubjectFormModal({
           displayOrder: Number(formData.display_order) || 1,
         });
         onSuccess?.(
-          `Subject "${selectedSubjectObj?.subject_name || "Subject"}" mapped to ${
-            selectedGradeObj?.name || "Grade"
+          `Subject "${selectedSubjectObj?.subject_name || "Subject"}" mapped to ${selectedGradeObj?.name || "Grade"
           } successfully!`
         );
       }
@@ -333,9 +332,8 @@ export default function GradeSubjectFormModal({
                     setFormData({ ...formData, grade_id: e.target.value });
                     if (errors.grade_id) setErrors({ ...errors, grade_id: null });
                   }}
-                  className={`${styles.select} ${
-                    errors.grade_id ? styles.inputError : ""
-                  }`}
+                  className={`${styles.select} ${errors.grade_id ? styles.inputError : ""
+                    }`}
                 >
                   <option value="">Select Grade</option>
                   {grades.map((g) => (
@@ -372,9 +370,8 @@ export default function GradeSubjectFormModal({
                     if (errors.subject_id)
                       setErrors({ ...errors, subject_id: null });
                   }}
-                  className={`${styles.select} ${
-                    errors.subject_id ? styles.inputError : ""
-                  }`}
+                  className={`${styles.select} ${errors.subject_id ? styles.inputError : ""
+                    }`}
                 >
                   <option value="">Select Subject</option>
                   {subjects.map((s) => (
@@ -411,9 +408,8 @@ export default function GradeSubjectFormModal({
                     if (errors.academic_year_id)
                       setErrors({ ...errors, academic_year_id: null });
                   }}
-                  className={`${styles.select} ${
-                    errors.academic_year_id ? styles.inputError : ""
-                  }`}
+                  className={`${styles.select} ${errors.academic_year_id ? styles.inputError : ""
+                    }`}
                 >
                   <option value="">Select Session Year</option>
                   {academicYears.map((y) => (
@@ -542,9 +538,8 @@ export default function GradeSubjectFormModal({
                   if (errors.weekly_periods)
                     setErrors({ ...errors, weekly_periods: null });
                 }}
-                className={`${styles.input} ${
-                  errors.weekly_periods ? styles.inputError : ""
-                }`}
+                className={`${styles.input} ${errors.weekly_periods ? styles.inputError : ""
+                  }`}
               />
             </div>
             {errors.weekly_periods && (
@@ -574,9 +569,8 @@ export default function GradeSubjectFormModal({
                   if (errors.total_marks)
                     setErrors({ ...errors, total_marks: null });
                 }}
-                className={`${styles.input} ${
-                  errors.total_marks ? styles.inputError : ""
-                }`}
+                className={`${styles.input} ${errors.total_marks ? styles.inputError : ""
+                  }`}
               />
             </div>
             {errors.total_marks && (
@@ -606,9 +600,8 @@ export default function GradeSubjectFormModal({
                   if (errors.pass_marks)
                     setErrors({ ...errors, pass_marks: null });
                 }}
-                className={`${styles.input} ${
-                  errors.pass_marks ? styles.inputError : ""
-                }`}
+                className={`${styles.input} ${errors.pass_marks ? styles.inputError : ""
+                  }`}
               />
             </div>
             {errors.pass_marks && (
@@ -627,9 +620,8 @@ export default function GradeSubjectFormModal({
             </label>
             <div className={styles.typeSelector}>
               <div
-                className={`${styles.typeCard} ${
-                  formData.is_compulsory ? styles.typeCardActive : ""
-                }`}
+                className={`${styles.typeCard} ${formData.is_compulsory ? styles.typeCardActive : ""
+                  }`}
                 onClick={() =>
                   setFormData((prev) => ({ ...prev, is_compulsory: true }))
                 }
@@ -652,9 +644,8 @@ export default function GradeSubjectFormModal({
               </div>
 
               <div
-                className={`${styles.typeCard} ${
-                  !formData.is_compulsory ? styles.typeCardActive : ""
-                }`}
+                className={`${styles.typeCard} ${!formData.is_compulsory ? styles.typeCardActive : ""
+                  }`}
                 onClick={() =>
                   setFormData((prev) => ({ ...prev, is_compulsory: false }))
                 }
@@ -669,7 +660,7 @@ export default function GradeSubjectFormModal({
                   className={styles.typeRadio}
                 />
                 <div className={styles.typeLabel}>
-                  <span className={styles.typeTitle}>○ Elective (Optional)</span>
+                  <span className={styles.typeTitle}> Elective (Optional)</span>
                   <span className={styles.typeDesc}>
                     Optional choice based on student selection
                   </span>
@@ -695,18 +686,17 @@ export default function GradeSubjectFormModal({
                   {selectedSubjectObj
                     ? `${selectedSubjectObj.subject_name} (${selectedSubjectObj.subject_code})`
                     : isEdit
-                    ? assignment?.subject_name
-                    : "Select a Subject"}
+                      ? assignment?.subject_name
+                      : "Select a Subject"}
                 </span>
                 <span className={styles.previewGradeTag}>
                   {selectedGradeObj?.name || assignment?.grade_name || "Grade"}
                 </span>
                 <span
-                  className={`${styles.previewTypeTag} ${
-                    formData.is_compulsory
+                  className={`${styles.previewTypeTag} ${formData.is_compulsory
                       ? styles.previewCompulsory
                       : styles.previewElective
-                  }`}
+                    }`}
                 >
                   {formData.is_compulsory ? "Core (Compulsory)" : "Elective"}
                 </span>
