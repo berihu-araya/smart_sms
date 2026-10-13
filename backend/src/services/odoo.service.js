@@ -30,6 +30,13 @@ class OdooService {
       return this.accessToken;
     }
 
+    // If apiKey is configured, use it directly (Odoo API key or shared secret)
+    if (config.odoo.apiKey) {
+      this.accessToken = config.odoo.apiKey;
+      this.tokenExpiresAt = Date.now() + 365 * 86400000;
+      return this.accessToken;
+    }
+
     const url = `${this.baseUrl}/api/auth/login`;
     try {
       const response = await fetch(url, {

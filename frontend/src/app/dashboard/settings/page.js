@@ -12,6 +12,7 @@ import {
   HiUserGroup,
   HiShieldCheck,
   HiCheckCircle,
+  HiBuildingOffice2,
 } from 'react-icons/hi2';
 
 export default function SettingsPage() {
@@ -131,6 +132,18 @@ export default function SettingsPage() {
             <div className={styles.navTitle}>Roles & Permissions</div>
             <div className={styles.navDesc}>
               View role hierarchy and access privilege assignments.
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/dashboard/settings/erp-integration" className={styles.navCard}>
+          <div className={styles.navIcon} style={{ background: '#e0e7ff', color: '#4338ca' }}>
+            <HiBuildingOffice2 />
+          </div>
+          <div>
+            <div className={styles.navTitle}>ERP Integration</div>
+            <div className={styles.navDesc}>
+              Connect with Odoo 18 for automated billing & student sync.
             </div>
           </div>
         </Link>

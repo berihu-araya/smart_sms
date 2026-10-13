@@ -34,6 +34,7 @@ module.exports = {
     db: process.env.ODOO_DB || "odoo",
     login: process.env.ODOO_LOGIN || "admin",
     password: process.env.ODOO_PASSWORD || "abttech_odoo_2026",
+    apiKey: process.env.ODOO_API_KEY || "abttech_sms_secret_2026",
     companyId: process.env.ODOO_COMPANY_ID ? Number(process.env.ODOO_COMPANY_ID) : undefined,
   },
 };
