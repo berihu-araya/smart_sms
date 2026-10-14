@@ -167,5 +167,8 @@ router.get('/odoo/status', authorizeRoles(...ADMIN_ROLES, 'Accountant'), (req, r
 router.post('/odoo/sync/students', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncStudents(req, res, next));
 router.post('/odoo/sync/invoices', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncInvoices(req, res, next));
 router.post('/odoo/sync/payments', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncPayments(req, res, next));
+router.post('/odoo/sync/staff', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncStaff(req, res, next));
+router.post('/odoo/sync/payroll', authorizeRoles(...ADMIN_ROLES, 'Accountant'), (req, res, next) => odooController.syncPayroll(req, res, next));
 
 module.exports = router;
+

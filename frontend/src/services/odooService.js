@@ -26,9 +26,26 @@ export async function triggerSyncPayments(limit = 50) {
   return response.data || response;
 }
 
+export async function triggerSyncStaff(limit = 50) {
+  const response = await request(`/api/v1/finance/odoo/sync/staff?limit=${limit}`, {
+    method: 'POST',
+  });
+  return response.data || response;
+}
+
+export async function triggerSyncPayroll(limit = 20) {
+  const response = await request(`/api/v1/finance/odoo/sync/payroll?limit=${limit}`, {
+    method: 'POST',
+  });
+  return response.data || response;
+}
+
 export default {
   getOdooStatus,
   triggerSyncStudents,
   triggerSyncInvoices,
   triggerSyncPayments,
+  triggerSyncStaff,
+  triggerSyncPayroll,
 };
+

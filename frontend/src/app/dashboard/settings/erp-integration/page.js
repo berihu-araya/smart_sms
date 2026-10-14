@@ -9,6 +9,8 @@ import {
   triggerSyncStudents,
   triggerSyncInvoices,
   triggerSyncPayments,
+  triggerSyncStaff,
+  triggerSyncPayroll,
 } from '@/services/odooService';
 import {
   HiArrowLeft,
@@ -19,6 +21,8 @@ import {
   HiAcademicCap,
   HiDocumentText,
   HiCreditCard,
+  HiUserGroup,
+  HiBanknotes,
 } from 'react-icons/hi2';
 
 export default function ErpIntegrationPage() {
@@ -150,6 +154,14 @@ export default function ErpIntegrationPage() {
                 <div className={styles.metricNumber}>{metrics?.fee_payments_reconciled ?? 0}</div>
                 <div className={styles.metricLabel}>Reconciled</div>
               </div>
+              <div className={styles.metricBox}>
+                <div className={styles.metricNumber}>{metrics?.staff_synced ?? 0}</div>
+                <div className={styles.metricLabel}>Staff (HR)</div>
+              </div>
+              <div className={styles.metricBox}>
+                <div className={styles.metricNumber}>{metrics?.payroll_entries_recorded ?? 0}</div>
+                <div className={styles.metricLabel}>Payroll GL</div>
+              </div>
             </div>
           </div>
         </div>
@@ -219,6 +231,44 @@ export default function ErpIntegrationPage() {
                 >
                   <HiArrowPath className={syncingType === 'payments' ? 'animate-spin' : ''} />
                   {syncingType === 'payments' ? 'Syncing...' : 'Sync Payments'}
+                </button>
+              </div>
+
+              <div className={styles.actionBox}>
+                <div>
+                  <div className={styles.actionTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <HiUserGroup style={{ color: '#9333ea' }} /> Staff & Teachers (HR)
+                  </div>
+                  <div className={styles.actionDesc}>
+                    Syncs teacher and staff employee profiles, job titles, departments, and wage contracts into Odoo hr.employee and hr.contract.
+                  </div>
+                </div>
+                <button
+                  className={styles.btnPrimary}
+                  disabled={syncingType !== null}
+                  onClick={() => handleSync('staff', triggerSyncStaff, 'Staff & Teachers')}
+                >
+                  <HiArrowPath className={syncingType === 'staff' ? 'animate-spin' : ''} />
+                  {syncingType === 'staff' ? 'Syncing...' : 'Sync Staff'}
+                </button>
+              </div>
+
+              <div className={styles.actionBox}>
+                <div>
+                  <div className={styles.actionTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <HiBanknotes style={{ color: '#d97706' }} /> Payroll Disbursement (GL)
+                  </div>
+                  <div className={styles.actionDesc}>
+                    Syncs approved and paid monthly payroll runs to balanced General Ledger double-entry journal entries (account.move) in Odoo.
+                  </div>
+                </div>
+                <button
+                  className={styles.btnPrimary}
+                  disabled={syncingType !== null}
+                  onClick={() => handleSync('payroll', triggerSyncPayroll, 'Payroll Disbursement')}
+                >
+                  <HiArrowPath className={syncingType === 'payroll' ? 'animate-spin' : ''} />
+                  {syncingType === 'payroll' ? 'Syncing...' : 'Sync Payroll'}
                 </button>
               </div>
             </div>

@@ -251,6 +251,155 @@ class OdooIntegrationController {
       return next(err);
     }
   }
+
+  /**
+   * Batch synchronize unsynced staff / teachers to Odoo ERP
+   */
+  async syncStaff(req, res, next) {
+    try {
+      if (!odooService.isEnabled()) {
+        return res.status(400).json({ success: false, message: 'Odoo integration is disabled' });
+      }
+
+      const schoolId = req.user.school_id;
+      const limit = Number(req.query.limit || 50);
+
+      // Select teachers joined with their optional salary structure
+      const staffQuery = `
+        SELECT t.*, 
+               ss.base_salary, ss.contract_type, ss.contract_start_date
+        FROM teachers t
+        LEFT JOIN salary_structures ss ON t.user_id = ss.user_id AND ss.deleted_at IS NULL AND ss.is_active = TRUE
+        WHERE (t.school_id = $1 OR t.school_id IS NULL)
+          AND t.deleted_at IS NULL
+          AND (t.odoo_employee_id IS NULL OR t.updated_at > t.odoo_synced_at)
+        LIMIT $2
+      `;
+
+      const staffRes = await db.query(staffQuery, [schoolId, limit]);
+      const staffMembers = staffRes.rows;
+      const synced = [];
+      const errors = [];
+
+      for (const staff of staffMembers) {
+        try {
+          const resData = await odooService.syncStaff({
+            staff,
+            salaryStructure: staff.base_salary ? {
+              base_salary: staff.base_salary,
+              contract_type: staff.contract_type,
+              contract_start_date: staff.contract_start_date,
+            } : null,
+          });
+
+          if (resData?.odoo_employee_id) {
+            await db.query(
+              `UPDATE teachers SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [resData.odoo_employee_id, staff.id]
+            );
+            if (staff.user_id) {
+              await db.query(
+                `UPDATE users SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                [resData.odoo_employee_id, staff.user_id]
+              );
+            }
+            synced.push({
+              staff_id: staff.id,
+              name: `${staff.first_name} ${staff.last_name}`,
+              odoo_employee_id: resData.odoo_employee_id,
+              contract_id: resData.odoo_contract_id,
+            });
+          }
+        } catch (e) {
+          errors.push({ staff_id: staff.id, error: e.message });
+        }
+      }
+
+      return res.json({
+        success: true,
+        total_found: staffMembers.length,
+        synced_count: synced.length,
+        synced,
+        errors,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  /**
+   * Batch synchronize disbursed payroll runs to Odoo ERP (General Ledger journal entries)
+   */
+  async syncPayroll(req, res, next) {
+    try {
+      if (!odooService.isEnabled()) {
+        return res.status(400).json({ success: false, message: 'Odoo integration is disabled' });
+      }
+
+      const schoolId = req.user.school_id;
+      const limit = Number(req.query.limit || 20);
+
+      // Select approved or paid payroll runs that haven't been synced to Odoo
+      const runQuery = `
+        SELECT pr.*
+        FROM payroll_runs pr
+        WHERE (pr.school_id = $1 OR pr.school_id IS NULL)
+          AND pr.deleted_at IS NULL
+          AND pr.status IN ('APPROVED', 'PAID', 'DONE')
+          AND pr.odoo_entry_id IS NULL
+        ORDER BY pr.year DESC, pr.month DESC
+        LIMIT $2
+      `;
+
+      const runRes = await db.query(runQuery, [schoolId, limit]);
+      const runs = runRes.rows;
+      const synced = [];
+      const errors = [];
+
+      for (const run of runs) {
+        try {
+          // Fetch payslips for this run to aggregate taxes and pensions if needed
+          const slipsRes = await db.query(
+            `SELECT * FROM payslips WHERE payroll_run_id = $1`,
+            [run.id]
+          );
+
+          const odooRes = await odooService.syncPayrollRun({
+            payrollRun: run,
+            payslips: slipsRes.rows,
+          });
+
+          if (odooRes?.odoo_entry_id) {
+            await db.query(
+              `UPDATE payroll_runs 
+               SET odoo_entry_id = $1, odoo_entry_number = $2, odoo_synced_at = CURRENT_TIMESTAMP
+               WHERE id = $3`,
+              [odooRes.odoo_entry_id, odooRes.entry_number, run.id]
+            );
+            synced.push({
+              payroll_run_id: run.id,
+              batch_reference: run.batch_reference,
+              odoo_entry_id: odooRes.odoo_entry_id,
+              entry_number: odooRes.entry_number,
+              state: odooRes.state,
+            });
+          }
+        } catch (e) {
+          errors.push({ payroll_run_id: run.id, batch_reference: run.batch_reference, error: e.message });
+        }
+      }
+
+      return res.json({
+        success: true,
+        total_found: runs.length,
+        synced_count: synced.length,
+        synced,
+        errors,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
 }
 
 module.exports = new OdooIntegrationController();

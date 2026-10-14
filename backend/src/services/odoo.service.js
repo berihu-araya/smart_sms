@@ -237,6 +237,89 @@ class OdooService {
   }
 
   /**
+   * Push staff/teacher record and compensation to Odoo ERP (hr.employee & hr.contract)
+   * @param {Object} params
+   */
+  async syncStaff({ staff, salaryStructure }) {
+    if (!this.isEnabled()) {
+      return { skipped: true };
+    }
+
+    const payload = {
+      staff_id: String(staff.id || staff.user_id),
+      employee_number: String(staff.employee_number || staff.id),
+      full_name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || staff.name || 'Staff Member',
+      email: staff.email || undefined,
+      phone: staff.phone || undefined,
+      gender: staff.gender ? staff.gender.toLowerCase() : undefined,
+      designation: staff.designation || staff.role_name || 'Teacher',
+      department_name: staff.department || 'Academics',
+      base_salary: Number(salaryStructure?.base_salary || staff.base_salary || 0),
+      contract_type: salaryStructure?.contract_type || 'PERMANENT',
+      contract_start_date: staff.joining_date
+        ? new Date(staff.joining_date).toISOString().split('T')[0]
+        : salaryStructure?.contract_start_date
+          ? new Date(salaryStructure.contract_start_date).toISOString().split('T')[0]
+          : undefined,
+      company_id: this.companyId,
+    };
+
+    const result = await this.request('api/v1/sms/staff/push', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    return result?.data || result;
+  }
+
+  /**
+   * Push monthly payroll run disbursement to Odoo ERP as balanced General Ledger journal entry
+   * @param {Object} params
+   */
+  async syncPayrollRun({ payrollRun, payslips = [] }) {
+    if (!this.isEnabled()) {
+      return { skipped: true };
+    }
+
+    // Calculate aggregated taxes and pensions across payslips if not directly on payrollRun
+    let totalTax = Number(payrollRun.total_tax_amount || 0);
+    let totalPensionEmp = Number(payrollRun.total_pension_employee_amount || 0);
+    let totalPensionEmpr = Number(payrollRun.total_pension_employer_amount || 0);
+
+    if (payslips.length > 0 && totalTax === 0) {
+      totalTax = payslips.reduce((sum, p) => sum + Number(p.tax_deduction || 0), 0);
+    }
+    if (payslips.length > 0 && totalPensionEmp === 0) {
+      totalPensionEmp = payslips.reduce((sum, p) => sum + Number(p.pension_deduction || p.employee_pension || 0), 0);
+    }
+    if (payslips.length > 0 && totalPensionEmpr === 0) {
+      totalPensionEmpr = payslips.reduce((sum, p) => sum + Number(p.employer_pension || 0), 0);
+    }
+
+    const payload = {
+      payroll_run_id: String(payrollRun.id),
+      batch_reference: String(payrollRun.batch_reference || `PAY-${payrollRun.year}-${payrollRun.month}`),
+      month: Number(payrollRun.month),
+      year: Number(payrollRun.year),
+      total_staff_count: Number(payrollRun.total_staff_count || payslips.length || 1),
+      total_gross: Number(payrollRun.total_gross_amount || 0),
+      total_deductions: Number(payrollRun.total_deductions_amount || 0),
+      total_net: Number(payrollRun.total_net_amount || 0),
+      total_tax: Math.round(totalTax * 100) / 100,
+      total_pension_employee: Math.round(totalPensionEmp * 100) / 100,
+      total_pension_employer: Math.round(totalPensionEmpr * 100) / 100,
+      company_id: this.companyId,
+    };
+
+    const result = await this.request('api/v1/sms/payroll/push', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    return result?.data || result;
+  }
+
+  /**
    * Check synchronization status and health with Odoo ERP
    */
   async getSyncStatus() {

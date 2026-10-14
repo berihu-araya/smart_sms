@@ -4,6 +4,7 @@
  */
 
 const { calculateEmployeeSalary, calculateProgressivePAYE, calculateContractProration } = require('./payroll-calculator');
+const { db } = require('../../config/database');
 const odooService = require('../../services/odoo.service');
 
 class FinanceService {
@@ -139,7 +140,7 @@ class FinanceService {
           lines: data.items,
         }).then(async (odooRes) => {
           if (odooRes?.odoo_invoice_id) {
-            await this.db.query(
+            await db.query(
               `UPDATE student_fee_invoices 
                SET odoo_move_id = $1, odoo_invoice_number = $2, odoo_synced_at = CURRENT_TIMESTAMP 
                WHERE id = $3`,
@@ -433,7 +434,7 @@ class FinanceService {
           invoice,
         }).then(async (odooRes) => {
           if (odooRes?.odoo_payment_id) {
-            await this.db.query(
+            await db.query(
               `UPDATE fee_payments 
                SET odoo_payment_id = $1, odoo_synced_at = CURRENT_TIMESTAMP 
                WHERE id = $2`,
@@ -858,6 +859,33 @@ class FinanceService {
       }
 
       await client.query('COMMIT');
+
+      // Asynchronously sync disbursed payroll to Odoo ERP General Ledger
+      if (requestedStatus === 'PAID' && odooService.isEnabled()) {
+        (async () => {
+          try {
+            const slipsRes = await db.query(
+              `SELECT * FROM payslips WHERE payroll_run_id = $1`,
+              [runId]
+            );
+            const odooRes = await odooService.syncPayrollRun({
+              payrollRun: { ...run, status: 'PAID' },
+              payslips: slipsRes.rows,
+            });
+            if (odooRes?.odoo_entry_id) {
+              await db.query(
+                `UPDATE payroll_runs
+                 SET odoo_entry_id = $1, odoo_entry_number = $2, odoo_synced_at = CURRENT_TIMESTAMP
+                 WHERE id = $3`,
+                [odooRes.odoo_entry_id, odooRes.entry_number, runId]
+              );
+            }
+          } catch (err) {
+            console.error('[OdooService] Failed to sync paid payroll run to ERP:', err.message);
+          }
+        })();
+      }
+
       return { id: runId, previousStatus: run.status, status: requestedStatus };
     } catch (error) {
       await client.query('ROLLBACK');

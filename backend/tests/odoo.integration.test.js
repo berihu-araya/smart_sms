@@ -161,4 +161,86 @@ describe('Odoo 18 ERP Integration Service Tests', () => {
       odooService.enabled = originalEnabled;
     }
   });
+
+  test('OdooService correctly formats staff and payroll payloads', async () => {
+    let capturedStaff = null;
+    let capturedPayroll = null;
+    const originalRequest = odooService.request;
+
+    odooService.request = async (path, options) => {
+      if (path.includes('staff')) {
+        capturedStaff = JSON.parse(options.body);
+        return { status: 'success', data: { odoo_employee_id: 303, odoo_contract_id: 404 } };
+      }
+      if (path.includes('payroll')) {
+        capturedPayroll = JSON.parse(options.body);
+        return { status: 'success', data: { odoo_entry_id: 505, entry_number: 'MISC/2026/0001', state: 'posted' } };
+      }
+    };
+
+    const originalEnabled = odooService.enabled;
+    odooService.enabled = true;
+
+    try {
+      // 1. Test Staff Push
+      const staffRes = await odooService.syncStaff({
+        staff: {
+          id: 'tch-uuid-1',
+          employee_number: 'TCH-001',
+          first_name: 'Almaz',
+          last_name: 'Ayana',
+          gender: 'female',
+          email: 'almaz@school.com',
+          phone: '+251911223344',
+          designation: 'Senior Mathematics Teacher',
+          department: 'Mathematics',
+          joining_date: '2024-09-01',
+        },
+        salaryStructure: {
+          base_salary: 18000,
+          contract_type: 'PERMANENT',
+          contract_start_date: '2024-09-01',
+        },
+      });
+
+      assert.strictEqual(staffRes.odoo_employee_id, 303);
+      assert.strictEqual(capturedStaff.staff_id, 'tch-uuid-1');
+      assert.strictEqual(capturedStaff.employee_number, 'TCH-001');
+      assert.strictEqual(capturedStaff.full_name, 'Almaz Ayana');
+      assert.strictEqual(capturedStaff.gender, 'female');
+      assert.strictEqual(capturedStaff.base_salary, 18000);
+
+      // 2. Test Payroll Push
+      const payrollRes = await odooService.syncPayrollRun({
+        payrollRun: {
+          id: 'run-uuid-1',
+          batch_reference: 'PAY-RUN-202610-001',
+          month: 10,
+          year: 2026,
+          total_staff_count: 15,
+          total_gross_amount: 350000,
+          total_deductions_amount: 70000,
+          total_net_amount: 280000,
+          total_tax_amount: 45000,
+          total_pension_employee_amount: 24500,
+          total_pension_employer_amount: 38500,
+        },
+      });
+
+      assert.strictEqual(payrollRes.odoo_entry_id, 505);
+      assert.strictEqual(capturedPayroll.payroll_run_id, 'run-uuid-1');
+      assert.strictEqual(capturedPayroll.batch_reference, 'PAY-RUN-202610-001');
+      assert.strictEqual(capturedPayroll.month, 10);
+      assert.strictEqual(capturedPayroll.year, 2026);
+      assert.strictEqual(capturedPayroll.total_gross, 350000);
+      assert.strictEqual(capturedPayroll.total_net, 280000);
+      assert.strictEqual(capturedPayroll.total_tax, 45000);
+      assert.strictEqual(capturedPayroll.total_pension_employee, 24500);
+      assert.strictEqual(capturedPayroll.total_pension_employer, 38500);
+    } finally {
+      odooService.request = originalRequest;
+      odooService.enabled = originalEnabled;
+    }
+  });
 });
+

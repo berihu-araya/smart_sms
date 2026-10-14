@@ -1,5 +1,6 @@
 const { TEACHER_STATUSES } = require('./teacher.model');
 const { db } = require('../../config/database');
+const odooService = require('../../services/odoo.service');
 
 class TeacherNotFoundError extends Error {
   constructor(message = 'Teacher not found') {
@@ -54,6 +55,21 @@ class TeacherService {
       }
 
       await client.query('COMMIT');
+
+      // Asynchronously push teacher to Odoo ERP as hr.employee
+      if (odooService.isEnabled()) {
+        odooService.syncStaff({ staff: teacher }).then(async (odooRes) => {
+          if (odooRes?.odoo_employee_id) {
+            await db.query(
+              `UPDATE teachers SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [odooRes.odoo_employee_id, teacher.id]
+            );
+          }
+        }).catch((err) => {
+          console.error('[OdooService] Failed to sync new teacher to ERP:', err.message);
+        });
+      }
+
       return teacher;
     } catch (error) {
       await client.query('ROLLBACK');
