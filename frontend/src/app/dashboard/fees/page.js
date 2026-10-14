@@ -135,6 +135,7 @@ export default function FeesManagementPage() {
   const [isSlipReviewModalOpen, setIsSlipReviewModalOpen] = useState(false);
   const [isSlipUploadModalOpen, setIsSlipUploadModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isInvoiceDetailModalOpen, setIsInvoiceDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [confirmDeleteAck, setConfirmDeleteAck] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState({
@@ -152,6 +153,7 @@ export default function FeesManagementPage() {
 
   // Selected Records for Modals
   const [activeInvoice, setActiveInvoice] = useState(null);
+  const [activeInvoiceDetail, setActiveInvoiceDetail] = useState(null);
   const [activePaymentReceipt, setActivePaymentReceipt] = useState(null);
   const [activeBankSlip, setActiveBankSlip] = useState(null);
 
@@ -655,6 +657,19 @@ export default function FeesManagementPage() {
     }
   };
 
+  const handleOpenInvoiceDetailModal = async (invoiceId) => {
+    try {
+      setLoading(true);
+      const res = await financeApi.getInvoiceById(invoiceId);
+      setActiveInvoiceDetail(res.data);
+      setIsInvoiceDetailModalOpen(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       {/* Header */}
@@ -895,6 +910,13 @@ export default function FeesManagementPage() {
                         </td>
                         <td>
                           <div className={styles.actionBtns}>
+                            <button
+                              className={styles.btnAction}
+                              onClick={() => handleOpenInvoiceDetailModal(inv.id)}
+                              title="View & Print Invoice Statement"
+                            >
+                              <FaPrint /> View / Print
+                            </button>
                             {Number(inv.balance_amount) > 0 && inv.status !== 'CANCELLED' && (
                               <button className={`${styles.btnAction} ${styles.btnActionPay}`} onClick={() => handleOpenPaymentModal(inv)} title="Record Payment">
                                 <FaMoneyBillWave /> Pay
@@ -1484,22 +1506,31 @@ export default function FeesManagementPage() {
                         </span>
                       </td>
                       <td>
-                        {Number(inv.balance_amount) > 0 && (
+                        <div className={styles.actionBtns}>
                           <button
-                            className={`${styles.btnAction} ${styles.btnActionPay}`}
-                            onClick={() => {
-                              setSlipUploadForm((prev) => ({
-                                ...prev,
-                                invoice_id: inv.id,
-                                student_id: inv.student_id,
-                                amount: inv.balance_amount,
-                              }));
-                              setIsSlipUploadModalOpen(true);
-                            }}
+                            className={styles.btnAction}
+                            onClick={() => handleOpenInvoiceDetailModal(inv.id)}
+                            title="View & Print Invoice Statement"
                           >
-                            <FaUpload /> Upload Bank Slip
+                            <FaPrint /> View / Print
                           </button>
-                        )}
+                          {Number(inv.balance_amount) > 0 && (
+                            <button
+                              className={`${styles.btnAction} ${styles.btnActionPay}`}
+                              onClick={() => {
+                                setSlipUploadForm((prev) => ({
+                                  ...prev,
+                                  invoice_id: inv.id,
+                                  student_id: inv.student_id,
+                                  amount: inv.balance_amount,
+                                }));
+                                setIsSlipUploadModalOpen(true);
+                              }}
+                            >
+                              <FaUpload /> Upload Bank Slip
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -2212,7 +2243,7 @@ export default function FeesManagementPage() {
 
       {/* MODAL 7: PRINTABLE RECEIPT */}
       <ModalPortal isOpen={isReceiptModalOpen} onClose={() => setIsReceiptModalOpen(false)}>
-        <div className={styles.modalContent}>
+        <div className={`${styles.modalContent} ${styles.modalLarge}`}>
           <div className={styles.modalHeader}>
             <h3>
               <FaReceipt /> Official Payment Receipt
@@ -2224,33 +2255,187 @@ export default function FeesManagementPage() {
           <div className={styles.modalBody}>
             {activePaymentReceipt && (
               <div className={styles.receiptPrintContainer}>
+                {/* Header: School Identity & Document Meta */}
                 <div className={styles.receiptHeader}>
-                  <div className={styles.receiptSchoolName}>{activePaymentReceipt.school_name || 'SMART SMS ACADEMY'}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{activePaymentReceipt.school_address || 'Addis Ababa, Ethiopia'}</div>
-                  <div className={styles.receiptNumber}>OFFICIAL RECEIPT: {activePaymentReceipt.receipt_number}</div>
+                  {/* Left: School Identity */}
+                  <div className={styles.receiptHeaderBrand}>
+                    <div className={styles.receiptLogoBadge}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={activePaymentReceipt.school_logo || "/school-logo-1.png"}
+                        alt="School Logo"
+                        className={styles.receiptLogoImg}
+                      />
+                    </div>
+                    <div className={styles.receiptHeaderInfo}>
+                      <div className={styles.receiptSchoolName}>{activePaymentReceipt.school_name || 'SMART SMS ACADEMY'}</div>
+                      <div className={styles.receiptSchoolTagline}>Excellence in Education • Finance Office</div>
+                      <div className={styles.receiptSchoolAddress}>
+                        <span>📍</span> {activePaymentReceipt.school_address || 'Addis Ababa, Ethiopia'}
+                        {activePaymentReceipt.school_phone ? ` • Tel: ${activePaymentReceipt.school_phone}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Receipt Meta */}
+                  <div className={styles.receiptDocCard}>
+                    <div className={styles.receiptDocTypeTitle}>OFFICIAL RECEIPT</div>
+                    <div className={styles.receiptNumberPill}>
+                      <span className={styles.receiptNumberPrefix}>RECEIPT</span>
+                      <span className={styles.receiptNumberValue}>{activePaymentReceipt.receipt_number}</span>
+                    </div>
+                    <div className={styles.receiptMetaRow}>
+                      <span className={`${styles.statusPill} ${styles.statusPillPaid}`}>
+                        <span className={styles.statusDot}></span>
+                        PAYMENT CONFIRMED
+                      </span>
+                      <div className={styles.receiptDateChip}>
+                        <span className={styles.dateChipLabel}>Paid:</span>
+                        <span className={styles.dateChipValue}>
+                          {new Date(activePaymentReceipt.payment_date || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className={styles.receiptGrid}>
-                  <div><strong>Student Name:</strong> {activePaymentReceipt.student_first_name} {activePaymentReceipt.student_last_name}</div>
-                  <div><strong>Admission #:</strong> {activePaymentReceipt.student_admission_number}</div>
-                  <div><strong>Grade / Class:</strong> {activePaymentReceipt.grade_name || 'N/A'}</div>
-                  <div><strong>Payment Date:</strong> {new Date(activePaymentReceipt.payment_date).toLocaleDateString()}</div>
-                  <div><strong>Payment Method:</strong> {activePaymentReceipt.payment_method}</div>
-                  <div><strong>Transaction Ref:</strong> {activePaymentReceipt.transaction_reference || 'N/A'}</div>
+                {/* Student Profile Card */}
+                <div className={styles.receiptStudentCard}>
+                  <div className={styles.receiptStudentAvatarBox}>
+                    {activePaymentReceipt.student_photo ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={activePaymentReceipt.student_photo}
+                        alt="Student"
+                        className={styles.receiptStudentAvatarImg}
+                      />
+                    ) : (
+                      <div className={styles.receiptStudentAvatarFallback}>
+                        {activePaymentReceipt.student_first_name?.[0] || 'S'}
+                        {activePaymentReceipt.student_last_name?.[0] || 'T'}
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.receiptStudentDetails}>
+                    <div className={styles.receiptStudentName}>
+                      {activePaymentReceipt.student_first_name} {activePaymentReceipt.student_last_name}
+                    </div>
+                    <div className={styles.receiptStudentBadges}>
+                      <span className={styles.receiptStudentBadge}>
+                        <strong>Admission No:</strong> {activePaymentReceipt.student_admission_number || 'N/A'}
+                      </span>
+                      <span className={styles.receiptStudentBadge}>
+                        <strong>Grade / Class:</strong> {activePaymentReceipt.grade_name || 'N/A'} {activePaymentReceipt.section_name ? `(${activePaymentReceipt.section_name})` : ''}
+                      </span>
+                      {activePaymentReceipt.parent_name && (
+                        <span className={styles.receiptStudentBadge}>
+                          <strong>Parent:</strong> {activePaymentReceipt.parent_name} {activePaymentReceipt.parent_phone ? `(${activePaymentReceipt.parent_phone})` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '0.75rem' }}>
-                  <div><strong>Invoice Billed:</strong> {activePaymentReceipt.invoice_title} ({activePaymentReceipt.invoice_number})</div>
+                {/* 4-Tile Meta Grid */}
+                <div className={styles.receiptMetaGrid}>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Payment Method</span>
+                    <span className={styles.receiptMetaTileValue}>{activePaymentReceipt.payment_method || 'CASH'}</span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Transaction Ref</span>
+                    <span className={styles.receiptMetaTileValue}>{activePaymentReceipt.transaction_reference || 'N/A'}</span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Payment Date</span>
+                    <span className={styles.receiptMetaTileValue}>
+                      {new Date(activePaymentReceipt.payment_date || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Cashier / Officer</span>
+                    <span className={styles.receiptMetaTileValue}>
+                      {activePaymentReceipt.received_by_first_name
+                        ? `${activePaymentReceipt.received_by_first_name} ${activePaymentReceipt.received_by_last_name || ''}`
+                        : 'Finance Office'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className={styles.receiptTotalBox}>
-                  <span>AMOUNT PAID:</span>
-                  <span style={{ color: '#059669' }}>{Number(activePaymentReceipt.amount).toLocaleString()} ETB</span>
+                {/* Invoice Allocation Table */}
+                <div className={styles.receiptTableBox}>
+                  <div className={styles.receiptSectionTitle}>Payment Allocation Details</div>
+                  <table className={styles.receiptTable}>
+                    <thead>
+                      <tr>
+                        <th>Invoice Billed</th>
+                        <th style={{ textAlign: 'right' }}>Total Invoiced</th>
+                        <th style={{ textAlign: 'right' }}>Amount Paid</th>
+                        <th style={{ textAlign: 'right' }}>Remaining Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{activePaymentReceipt.invoice_title || 'Fee Invoice'}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>
+                            Invoice No: {activePaymentReceipt.invoice_number}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                          {Number(activePaymentReceipt.invoice_total || 0).toLocaleString()} ETB
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#059669' }}>
+                          {Number(activePaymentReceipt.amount).toLocaleString()} ETB
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: Number(activePaymentReceipt.invoice_balance) > 0 ? '#dc2626' : '#059669' }}>
+                          {Number(activePaymentReceipt.invoice_balance || 0).toLocaleString()} ETB
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-                  <span>Remaining Invoice Balance: {Number(activePaymentReceipt.invoice_balance).toLocaleString()} ETB</span>
-                  <span>Cashier: {activePaymentReceipt.received_by_first_name} {activePaymentReceipt.received_by_last_name}</span>
+                {/* Big Amount Box */}
+                <div className={styles.receiptAmountBox}>
+                  <div className={styles.receiptAmountLabel}>
+                    <span>TOTAL AMOUNT RECEIVED</span>
+                    <span className={styles.receiptAmountSubtext}>Official payment received and verified in full</span>
+                  </div>
+                  <div className={styles.receiptAmountValue}>
+                    {Number(activePaymentReceipt.amount).toLocaleString()} <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>ETB</span>
+                  </div>
+                </div>
+
+                {/* Official Signatures & Stamp */}
+                <div className={styles.receiptSignaturesRow}>
+                  <div className={styles.receiptSignatureCol}>
+                    <div className={styles.receiptSignatureLine}></div>
+                    <div className={styles.receiptSignerTitle}>Received By (Cashier)</div>
+                    <div className={styles.receiptSignerName}>
+                      {activePaymentReceipt.received_by_first_name
+                        ? `${activePaymentReceipt.received_by_first_name} ${activePaymentReceipt.received_by_last_name || ''}`
+                        : 'Finance Officer'}
+                    </div>
+                  </div>
+
+                  <div className={styles.receiptStampCol}>
+                    <div className={styles.receiptStampCircle}>
+                      <span>SMART SMS</span>
+                      <span>★ OFFICIAL ★</span>
+                      <span>PAID & VERIFIED</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.receiptSignatureCol}>
+                    <div className={styles.receiptSignatureLine}></div>
+                    <div className={styles.receiptSignerTitle}>Authorized School Seal / Stamp</div>
+                    <div className={styles.receiptSignerName}>Finance & Administration Directorate</div>
+                  </div>
+                </div>
+
+                <div className={styles.receiptFooterNotice}>
+                  This is an official computer-generated receipt issued by Smart SMS Academy. Retain this receipt for future reference.
                 </div>
               </div>
             )}
@@ -2259,8 +2444,217 @@ export default function FeesManagementPage() {
             <button type="button" className={styles.btnSecondary} onClick={() => setIsReceiptModalOpen(false)}>
               Close
             </button>
-            <button type="button" className={styles.btnPrimary} onClick={() => window.print()}>
+            <button type="button" className={styles.btnPrimary} onClick={() => { window.scrollTo(0, 0); window.print(); }}>
               <FaPrint /> Print Receipt
+            </button>
+          </div>
+        </div>
+      </ModalPortal>
+
+      {/* MODAL 8: PRINTABLE INVOICE STATEMENT */}
+      <ModalPortal isOpen={isInvoiceDetailModalOpen} onClose={() => setIsInvoiceDetailModalOpen(false)}>
+        <div className={`${styles.modalContent} ${styles.modalLarge}`}>
+          <div className={styles.modalHeader}>
+            <h3>
+              <FaFileInvoiceDollar /> Fee Invoice Statement
+            </h3>
+            <button className={styles.closeBtn} onClick={() => setIsInvoiceDetailModalOpen(false)}>
+              <FaTimes />
+            </button>
+          </div>
+          <div className={styles.modalBody}>
+            {activeInvoiceDetail && (
+              <div className={styles.receiptPrintContainer}>
+                <div className={styles.receiptHeader}>
+                  {/* Left: School Identity */}
+                  <div className={styles.receiptHeaderBrand}>
+                    <div className={styles.receiptLogoBadge}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={activeInvoiceDetail.school_logo || "/school-logo-1.png"}
+                        alt="School Logo"
+                        className={styles.receiptLogoImg}
+                      />
+                    </div>
+                    <div className={styles.receiptHeaderInfo}>
+                      <div className={styles.receiptSchoolName}>{activeInvoiceDetail.school_name || 'SMART SMS ACADEMY'}</div>
+                      <div className={styles.receiptSchoolTagline}>Excellence in Education • Finance Office</div>
+                      <div className={styles.receiptSchoolAddress}>
+                        <span>📍</span> {activeInvoiceDetail.school_address || 'Addis Ababa, Ethiopia'}
+                        {activeInvoiceDetail.school_phone ? ` • Tel: ${activeInvoiceDetail.school_phone}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Invoice Meta */}
+                  <div className={styles.receiptDocCard}>
+                    <div className={styles.receiptDocTypeTitle}>OFFICIAL INVOICE</div>
+                    <div className={styles.receiptNumberPill}>
+                      <span className={styles.receiptNumberPrefix}>INVOICE</span>
+                      <span className={styles.receiptNumberValue}>{activeInvoiceDetail.invoice_number}</span>
+                    </div>
+                    <div className={styles.receiptMetaRow}>
+                      <span className={`${styles.statusPill} ${
+                        activeInvoiceDetail.status === 'PAID'
+                          ? styles.statusPillPaid
+                          : activeInvoiceDetail.status === 'PARTIALLY_PAID'
+                            ? styles.statusPillPartial
+                            : activeInvoiceDetail.status === 'CANCELLED'
+                              ? styles.statusPillCancelled
+                              : styles.statusPillUnpaid
+                      }`}>
+                        <span className={styles.statusDot}></span>
+                        {activeInvoiceDetail.status === 'PAID'
+                          ? 'PAID'
+                          : activeInvoiceDetail.status === 'PARTIALLY_PAID'
+                            ? 'PARTIALLY PAID'
+                            : activeInvoiceDetail.status === 'CANCELLED'
+                              ? 'CANCELLED'
+                              : 'UNPAID'}
+                      </span>
+                      <div className={styles.receiptDateChip}>
+                        <span className={styles.dateChipLabel}>Due:</span>
+                        <span className={styles.dateChipValue}>
+                          {activeInvoiceDetail.due_date ? new Date(activeInvoiceDetail.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'On Receipt'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Student Profile Card */}
+                <div className={styles.receiptStudentCard}>
+                  <div className={styles.receiptStudentAvatarBox}>
+                    {activeInvoiceDetail.student_photo ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={activeInvoiceDetail.student_photo}
+                        alt="Student"
+                        className={styles.receiptStudentAvatarImg}
+                      />
+                    ) : (
+                      <div className={styles.receiptStudentAvatarFallback}>
+                        {activeInvoiceDetail.student_first_name?.[0] || 'S'}
+                        {activeInvoiceDetail.student_last_name?.[0] || 'T'}
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.receiptStudentDetails}>
+                    <div className={styles.receiptStudentName}>
+                      {activeInvoiceDetail.student_first_name} {activeInvoiceDetail.student_last_name}
+                    </div>
+                    <div className={styles.receiptStudentBadges}>
+                      <span className={styles.receiptStudentBadge}>
+                        <strong>Admission No:</strong> {activeInvoiceDetail.student_admission_number || 'N/A'}
+                      </span>
+                      <span className={styles.receiptStudentBadge}>
+                        <strong>Grade / Class:</strong> {activeInvoiceDetail.grade_name || 'N/A'} {activeInvoiceDetail.section_name ? `(${activeInvoiceDetail.section_name})` : ''}
+                      </span>
+                      <span className={styles.receiptStudentBadge}>
+                        <strong>Academic Year:</strong> {activeInvoiceDetail.academic_year_name || 'Current'}
+                      </span>
+                      {activeInvoiceDetail.parent_name && (
+                        <span className={styles.receiptStudentBadge}>
+                          <strong>Parent:</strong> {activeInvoiceDetail.parent_name} {activeInvoiceDetail.parent_phone ? `(${activeInvoiceDetail.parent_phone})` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4-Tile Meta Grid for Invoice */}
+                <div className={styles.receiptMetaGrid}>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Billing Title</span>
+                    <span className={styles.receiptMetaTileValue}>{activeInvoiceDetail.title}</span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Due Date</span>
+                    <span className={styles.receiptMetaTileValue}>
+                      {activeInvoiceDetail.due_date ? new Date(activeInvoiceDetail.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Invoice Status</span>
+                    <span className={styles.receiptMetaTileValue}>{activeInvoiceDetail.status}</span>
+                  </div>
+                  <div className={styles.receiptMetaTile}>
+                    <span className={styles.receiptMetaTileLabel}>Issued By</span>
+                    <span className={styles.receiptMetaTileValue}>
+                      {activeInvoiceDetail.created_by_first_name ? `${activeInvoiceDetail.created_by_first_name} ${activeInvoiceDetail.created_by_last_name || ''}` : 'Finance Office'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items Breakdown */}
+                {activeInvoiceDetail.items && activeInvoiceDetail.items.length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155', marginBottom: '0.35rem' }}>Fee Line Items</div>
+                    <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
+                      <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                        <tr>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Item / Category</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'right' }}>Amount (ETB)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeInvoiceDetail.items.map((it, idx) => (
+                          <tr key={it.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.4rem 0.6rem' }}>{it.title || it.category_name || 'Tuition Fee'}</td>
+                            <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontWeight: 600 }}>{Number(it.amount).toLocaleString()} ETB</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Payment History */}
+                {activeInvoiceDetail.payments && activeInvoiceDetail.payments.length > 0 && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155', marginBottom: '0.35rem' }}>Payment Transactions</div>
+                    <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
+                      <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                        <tr>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Receipt #</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Date</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Method</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'right' }}>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeInvoiceDetail.payments.map((p, idx) => (
+                          <tr key={p.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.4rem 0.6rem', fontWeight: 700, color: '#4f46e5' }}>{p.receipt_number}</td>
+                            <td style={{ padding: '0.4rem 0.6rem' }}>{new Date(p.payment_date).toLocaleDateString()}</td>
+                            <td style={{ padding: '0.4rem 0.6rem' }}>{p.payment_method}</td>
+                            <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontWeight: 700, color: '#059669' }}>{Number(p.amount).toLocaleString()} ETB</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className={styles.receiptTotalBox} style={{ marginTop: '1rem' }}>
+                  <span>TOTAL BILLED:</span>
+                  <span>{Number(activeInvoiceDetail.total_amount).toLocaleString()} ETB</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: '#f1f5f9', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 700 }}>
+                  <span style={{ color: '#059669' }}>Total Paid: {Number(activeInvoiceDetail.paid_amount || 0).toLocaleString()} ETB</span>
+                  <span style={{ color: Number(activeInvoiceDetail.balance_amount) > 0 ? '#dc2626' : '#059669' }}>
+                    Balance Due: {Number(activeInvoiceDetail.balance_amount).toLocaleString()} ETB
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className={styles.modalFooter}>
+            <button type="button" className={styles.btnSecondary} onClick={() => setIsInvoiceDetailModalOpen(false)}>
+              Close
+            </button>
+            <button type="button" className={styles.btnPrimary} onClick={() => { window.scrollTo(0, 0); window.print(); }}>
+              <FaPrint /> Print Invoice
             </button>
           </div>
         </div>

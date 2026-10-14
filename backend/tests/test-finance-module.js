@@ -77,10 +77,23 @@ async function testFinanceModule() {
       await db.query(`DELETE FROM payroll_runs WHERE id = $1`, [payrollRun.id]);
     }
 
-    // 6. Clean up test records
+    // 6. Test Fee Invoice & Payment Receipt Retrieval (Verifying student_photo without errors)
+    console.log('6. Testing getInvoiceById & getPaymentById (student_photo resolution)...');
+    const invRes = await db.query(`SELECT id FROM student_fee_invoices WHERE deleted_at IS NULL LIMIT 1`);
+    if (invRes.rows.length > 0) {
+      const invDetails = await repo.getInvoiceById(invRes.rows[0].id, null);
+      console.log('   Invoice retrieved successfully:', invDetails.invoice_number, '| student:', invDetails.student_first_name);
+    }
+    const payRes = await db.query(`SELECT id FROM fee_payments WHERE deleted_at IS NULL LIMIT 1`);
+    if (payRes.rows.length > 0) {
+      const payDetails = await repo.getPaymentById(payRes.rows[0].id, null);
+      console.log('   Payment receipt retrieved successfully:', payDetails.receipt_number, '| student:', payDetails.student_first_name);
+    }
+
+    // 7. Clean up test records
     await repo.deleteFeeStructure(testStructure.id, null);
     await repo.deleteFeeCategory(testCategory.id, null);
-    console.log('6. Test clean up completed.');
+    console.log('7. Test clean up completed.');
 
     console.log('--- ALL FINANCE MODULE TESTS PASSED SUCCESSFULLY! ---');
     process.exit(0);

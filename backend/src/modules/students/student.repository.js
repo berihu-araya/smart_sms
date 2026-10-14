@@ -113,6 +113,7 @@ class StudentRepository {
           s.address,
           s.email,
           s.phone,
+          s.photo,
           s.parent_id,
           s.section_id,
           s.created_at,
@@ -161,6 +162,7 @@ class StudentRepository {
           s.address,
           s.email,
           s.phone,
+          s.photo,
           s.status,
           s.created_at,
           s.updated_at,
@@ -247,9 +249,10 @@ class StudentRepository {
           address,
           email,
           phone,
+          photo,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING *
       `,
       [
@@ -265,6 +268,7 @@ class StudentRepository {
         payload.address || null,
         payload.email || null,
         payload.phone || null,
+        payload.photo || null,
         payload.status || 'ACTIVE',
       ]
     );

@@ -38,6 +38,7 @@ function validateCreateStudentInput(input = {}) {
   const address = normalizeOptionalString(input.address);
   const email = normalizeOptionalString(input.email);
   const phone = normalizeOptionalString(input.phone);
+  const photo = normalizeOptionalString(input.photo);
   const status = normalizeOptionalString(input.status).toUpperCase() || STUDENT_STATUSES.ACTIVE;
   const errors = {};
 
@@ -138,6 +139,7 @@ function validateCreateStudentInput(input = {}) {
     address: address || null,
     email: email || null,
     phone: phone || null,
+    photo: photo || null,
     status,
     errors,
   };
@@ -155,6 +157,7 @@ function validateUpdateStudentInput(input = {}) {
   const address = normalizeOptionalString(input.address);
   const email = normalizeOptionalString(input.email);
   const phone = normalizeOptionalString(input.phone);
+  const photo = input.photo !== undefined ? normalizeOptionalString(input.photo) : undefined;
   const status = normalizeOptionalString(input.status).toUpperCase();
   const errors = {};
 
@@ -255,6 +258,7 @@ function validateUpdateStudentInput(input = {}) {
     address: address || undefined,
     email: email || null,
     phone: phone || null,
+    photo: photo !== undefined ? (photo || null) : undefined,
     status: status || undefined,
     errors,
   };
