@@ -182,33 +182,50 @@ describe('Odoo 18 ERP Integration Service Tests', () => {
     odooService.enabled = true;
 
     try {
-      // 1. Test Staff Push
+      // 1. Test Staff Push with full allowances & department mapping
       const staffRes = await odooService.syncStaff({
         staff: {
-          id: 'tch-uuid-1',
-          employee_number: 'TCH-001',
-          first_name: 'Almaz',
-          last_name: 'Ayana',
+          id: 'stf-uuid-1',
+          employee_number: 'LIB-001',
+          first_name: 'Sara',
+          last_name: 'Worku',
           gender: 'female',
-          email: 'almaz@school.com',
+          email: 'sara.worku@school.com',
           phone: '+251911223344',
-          designation: 'Senior Mathematics Teacher',
-          department: 'Mathematics',
+          designation: 'Head Librarian',
+          role_name: 'Librarian',
+          department: 'Library Services',
           joining_date: '2024-09-01',
         },
         salaryStructure: {
-          base_salary: 18000,
+          base_salary: 22000,
+          housing_allowance: 4000,
+          transport_allowance: 2000,
+          medical_allowance: 1000,
+          professional_allowance: 1500,
+          other_allowances: 500,
           contract_type: 'PERMANENT',
           contract_start_date: '2024-09-01',
+          contract_end_date: '2026-08-31',
         },
       });
 
       assert.strictEqual(staffRes.odoo_employee_id, 303);
-      assert.strictEqual(capturedStaff.staff_id, 'tch-uuid-1');
-      assert.strictEqual(capturedStaff.employee_number, 'TCH-001');
-      assert.strictEqual(capturedStaff.full_name, 'Almaz Ayana');
+      assert.strictEqual(staffRes.odoo_contract_id, 404);
+      assert.strictEqual(capturedStaff.staff_id, 'stf-uuid-1');
+      assert.strictEqual(capturedStaff.employee_number, 'LIB-001');
+      assert.strictEqual(capturedStaff.full_name, 'Sara Worku');
       assert.strictEqual(capturedStaff.gender, 'female');
-      assert.strictEqual(capturedStaff.base_salary, 18000);
+      assert.strictEqual(capturedStaff.designation, 'Head Librarian');
+      assert.strictEqual(capturedStaff.department_name, 'Library Services');
+      assert.strictEqual(capturedStaff.base_salary, 22000);
+      assert.strictEqual(capturedStaff.housing_allowance, 4000);
+      assert.strictEqual(capturedStaff.transport_allowance, 2000);
+      assert.strictEqual(capturedStaff.medical_allowance, 1000);
+      assert.strictEqual(capturedStaff.professional_allowance, 1500);
+      assert.strictEqual(capturedStaff.other_allowances, 500);
+      assert.strictEqual(capturedStaff.contract_start_date, '2024-09-01');
+      assert.strictEqual(capturedStaff.contract_end_date, '2026-08-31');
 
       // 2. Test Payroll Push
       const payrollRes = await odooService.syncPayrollRun({

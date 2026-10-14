@@ -237,19 +237,19 @@ export default function ErpIntegrationPage() {
               <div className={styles.actionBox}>
                 <div>
                   <div className={styles.actionTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <HiUserGroup style={{ color: '#9333ea' }} /> Staff & Teachers (HR)
+                    <HiUserGroup style={{ color: '#9333ea' }} /> All Staff & Contracts (HR)
                   </div>
                   <div className={styles.actionDesc}>
-                    Syncs teacher and staff employee profiles, job titles, departments, and wage contracts into Odoo hr.employee and hr.contract.
+                    Syncs all school staff (teachers, librarians, accountants, drivers, guards, admins) into Odoo hr.employee and full contracts with independent allowances (housing, transport, medical, professional, other) into hr.contract.
                   </div>
                 </div>
                 <button
                   className={styles.btnPrimary}
                   disabled={syncingType !== null}
-                  onClick={() => handleSync('staff', triggerSyncStaff, 'Staff & Teachers')}
+                  onClick={() => handleSync('staff', triggerSyncStaff, 'All Staff & Contracts')}
                 >
                   <HiArrowPath className={syncingType === 'staff' ? 'animate-spin' : ''} />
-                  {syncingType === 'staff' ? 'Syncing...' : 'Sync Staff'}
+                  {syncingType === 'staff' ? 'Syncing...' : 'Sync All Staff'}
                 </button>
               </div>
 

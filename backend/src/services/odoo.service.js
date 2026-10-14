@@ -237,7 +237,8 @@ class OdooService {
   }
 
   /**
-   * Push staff/teacher record and compensation to Odoo ERP (hr.employee & hr.contract)
+   * Push any school staff member (Teacher, Librarian, Accountant, Driver, Guard, Admin)
+   * and their complete contract with independent allowances to Odoo ERP (hr.employee & hr.contract)
    * @param {Object} params
    */
   async syncStaff({ staff, salaryStructure }) {
@@ -246,21 +247,29 @@ class OdooService {
     }
 
     const payload = {
-      staff_id: String(staff.id || staff.user_id),
-      employee_number: String(staff.employee_number || staff.id),
+      staff_id: String(staff.user_id || staff.id),
+      employee_number: String(staff.employee_number || `EMP-${(staff.role_name || 'STF').slice(0, 3).toUpperCase()}-${String(staff.user_id || staff.id).slice(0, 8)}`),
       full_name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || staff.name || 'Staff Member',
       email: staff.email || undefined,
       phone: staff.phone || undefined,
       gender: staff.gender ? staff.gender.toLowerCase() : undefined,
-      designation: staff.designation || staff.role_name || 'Teacher',
-      department_name: staff.department || 'Academics',
+      designation: staff.designation || staff.role_name || 'Staff',
+      department_name: staff.department || this._mapRoleToDepartment(staff.role_name),
       base_salary: Number(salaryStructure?.base_salary || staff.base_salary || 0),
+      housing_allowance: Number(salaryStructure?.housing_allowance || staff.housing_allowance || 0),
+      transport_allowance: Number(salaryStructure?.transport_allowance || staff.transport_allowance || 0),
+      medical_allowance: Number(salaryStructure?.medical_allowance || staff.medical_allowance || 0),
+      professional_allowance: Number(salaryStructure?.professional_allowance || staff.professional_allowance || 0),
+      other_allowances: Number(salaryStructure?.other_allowances || staff.other_allowances || 0),
       contract_type: salaryStructure?.contract_type || 'PERMANENT',
       contract_start_date: staff.joining_date
         ? new Date(staff.joining_date).toISOString().split('T')[0]
         : salaryStructure?.contract_start_date
           ? new Date(salaryStructure.contract_start_date).toISOString().split('T')[0]
           : undefined,
+      contract_end_date: salaryStructure?.contract_end_date
+        ? new Date(salaryStructure.contract_end_date).toISOString().split('T')[0]
+        : undefined,
       company_id: this.companyId,
     };
 
@@ -270,6 +279,17 @@ class OdooService {
     });
 
     return result?.data || result;
+  }
+
+  _mapRoleToDepartment(roleName) {
+    const role = String(roleName || '').toLowerCase();
+    if (role.includes('teach')) return 'Academics & Teaching';
+    if (role.includes('account') || role.includes('finance')) return 'Finance & Accounting';
+    if (role.includes('librar')) return 'Library & Learning Resources';
+    if (role.includes('driv') || role.includes('transport')) return 'Transportation Services';
+    if (role.includes('admin')) return 'School Administration';
+    if (role.includes('guard') || role.includes('secur') || role.includes('facil')) return 'Security & Facilities';
+    return 'Operations & Support';
   }
 
   /**

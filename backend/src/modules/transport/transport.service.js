@@ -3,6 +3,8 @@
  * Business logic layer for school transport operations with capacity enforcement and validation.
  */
 
+const odooService = require('../../services/odoo.service');
+
 class TransportService {
   constructor(repository) {
     this.repository = repository;
@@ -82,7 +84,36 @@ class TransportService {
       err.status = 400;
       throw err;
     }
-    return this.repository.createDriver(schoolId, data);
+    const driver = await this.repository.createDriver(schoolId, data);
+
+    // Asynchronously push driver to Odoo ERP as hr.employee
+    if (odooService.isEnabled() && driver?.user_id) {
+      odooService.syncStaff({
+        staff: {
+          id: driver.user_id,
+          user_id: driver.user_id,
+          employee_number: `DRV-${String(driver.id).slice(0, 8)}`,
+          first_name: driver.first_name,
+          last_name: driver.last_name,
+          email: driver.email,
+          phone: driver.user_phone,
+          designation: 'School Transport Driver',
+          role_name: 'Driver',
+          department: 'Transportation Services',
+        },
+      }).then(async (odooRes) => {
+        if (odooRes?.odoo_employee_id) {
+          await this.repository.db.query(
+            `UPDATE users SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [odooRes.odoo_employee_id, driver.user_id]
+          );
+        }
+      }).catch((err) => {
+        console.error('[OdooService] Failed to sync new driver to ERP:', err.message);
+      });
+    }
+
+    return driver;
   }
 
   async updateDriver(id, schoolId, data) {

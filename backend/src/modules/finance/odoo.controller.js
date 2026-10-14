@@ -253,7 +253,8 @@ class OdooIntegrationController {
   }
 
   /**
-   * Batch synchronize unsynced staff / teachers to Odoo ERP
+   * Batch synchronize unsynced staff members (Teachers, Librarians, Accountants, Drivers, Guards, Admins)
+   * along with their full contract and independent allowances to Odoo ERP
    */
   async syncStaff(req, res, next) {
     try {
@@ -262,17 +263,49 @@ class OdooIntegrationController {
       }
 
       const schoolId = req.user.school_id;
-      const limit = Number(req.query.limit || 50);
+      const limit = Number(req.query.limit || 100);
 
-      // Select teachers joined with their optional salary structure
+      // Select all staff users (excluding students & parents) joined with teachers & salary structures
       const staffQuery = `
-        SELECT t.*, 
-               ss.base_salary, ss.contract_type, ss.contract_start_date
-        FROM teachers t
-        LEFT JOIN salary_structures ss ON t.user_id = ss.user_id AND ss.deleted_at IS NULL AND ss.is_active = TRUE
-        WHERE (t.school_id = $1 OR t.school_id IS NULL)
-          AND t.deleted_at IS NULL
-          AND (t.odoo_employee_id IS NULL OR t.updated_at > t.odoo_synced_at)
+        SELECT u.id as user_id, 
+               u.first_name, 
+               u.last_name, 
+               u.email, 
+               u.phone, 
+               r.name as role_name,
+               t.id as teacher_pk,
+               t.employee_number as teacher_employee_number,
+               t.gender as teacher_gender,
+               t.designation as teacher_designation,
+               t.department as teacher_department,
+               t.joining_date as teacher_joining_date,
+               ss.base_salary,
+               ss.housing_allowance,
+               ss.transport_allowance,
+               ss.medical_allowance,
+               ss.professional_allowance,
+               ss.other_allowances,
+               ss.contract_type,
+               ss.contract_start_date,
+               ss.contract_end_date,
+               u.odoo_employee_id as user_odoo_id,
+               t.odoo_employee_id as teacher_odoo_id,
+               u.odoo_synced_at as user_odoo_synced_at,
+               t.odoo_synced_at as teacher_odoo_synced_at
+        FROM users u
+        JOIN roles r ON u.role_id = r.id
+        LEFT JOIN teachers t ON t.user_id = u.id AND t.deleted_at IS NULL
+        LEFT JOIN salary_structures ss ON ss.user_id = u.id AND ss.deleted_at IS NULL AND ss.is_active = TRUE
+        WHERE r.name NOT IN ('Student', 'Parent')
+          AND (u.school_id = $1 OR u.school_id IS NULL)
+          AND u.deleted_at IS NULL
+          AND (
+            u.odoo_employee_id IS NULL 
+            OR u.updated_at > u.odoo_synced_at
+            OR (t.id IS NOT NULL AND (t.odoo_employee_id IS NULL OR t.updated_at > t.odoo_synced_at))
+            OR (ss.id IS NOT NULL AND ss.updated_at > COALESCE(u.odoo_synced_at, '1970-01-01'::timestamptz))
+          )
+        ORDER BY r.name ASC, u.first_name ASC
         LIMIT $2
       `;
 
@@ -281,37 +314,71 @@ class OdooIntegrationController {
       const synced = [];
       const errors = [];
 
-      for (const staff of staffMembers) {
+      for (const row of staffMembers) {
         try {
+          // Construct normalized staff profile
+          const staffPayload = {
+            id: row.teacher_pk || row.user_id,
+            user_id: row.user_id,
+            employee_number: row.teacher_employee_number || `EMP-${row.role_name.slice(0, 3).toUpperCase()}-${row.user_id.slice(0, 8)}`,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            email: row.email,
+            phone: row.phone,
+            gender: row.teacher_gender,
+            role_name: row.role_name,
+            designation: row.teacher_designation || (row.role_name === 'Staff' ? 'Support & Operations Staff' : row.role_name),
+            department: row.teacher_department,
+            joining_date: row.teacher_joining_date,
+          };
+
+          // Construct salary structure and independent allowances breakdown
+          const salaryStructurePayload = row.base_salary ? {
+            base_salary: Number(row.base_salary || 0),
+            housing_allowance: Number(row.housing_allowance || 0),
+            transport_allowance: Number(row.transport_allowance || 0),
+            medical_allowance: Number(row.medical_allowance || 0),
+            professional_allowance: Number(row.professional_allowance || 0),
+            other_allowances: Number(row.other_allowances || 0),
+            contract_type: row.contract_type || 'PERMANENT',
+            contract_start_date: row.contract_start_date,
+            contract_end_date: row.contract_end_date,
+          } : null;
+
           const resData = await odooService.syncStaff({
-            staff,
-            salaryStructure: staff.base_salary ? {
-              base_salary: staff.base_salary,
-              contract_type: staff.contract_type,
-              contract_start_date: staff.contract_start_date,
-            } : null,
+            staff: staffPayload,
+            salaryStructure: salaryStructurePayload,
           });
 
           if (resData?.odoo_employee_id) {
+            // Update users table
             await db.query(
-              `UPDATE teachers SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
-              [resData.odoo_employee_id, staff.id]
+              `UPDATE users SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [resData.odoo_employee_id, row.user_id]
             );
-            if (staff.user_id) {
+
+            // Update teachers table if teacher record exists
+            if (row.teacher_pk) {
               await db.query(
-                `UPDATE users SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
-                [resData.odoo_employee_id, staff.user_id]
+                `UPDATE teachers SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                [resData.odoo_employee_id, row.teacher_pk]
               );
             }
+
             synced.push({
-              staff_id: staff.id,
-              name: `${staff.first_name} ${staff.last_name}`,
+              user_id: row.user_id,
+              name: `${row.first_name} ${row.last_name}`,
+              role: row.role_name,
+              designation: staffPayload.designation,
+              department: resData.department,
               odoo_employee_id: resData.odoo_employee_id,
               contract_id: resData.odoo_contract_id,
+              wage: resData.base_salary,
+              allowances: resData.allowances,
             });
           }
         } catch (e) {
-          errors.push({ staff_id: staff.id, error: e.message });
+          errors.push({ user_id: row.user_id, name: `${row.first_name} ${row.last_name}`, error: e.message });
         }
       }
 
