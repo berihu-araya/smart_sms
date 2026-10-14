@@ -74,6 +74,7 @@ export const translations = {
     "Permissions": "Permissions",
     "Audit Logs": "Audit Logs",
     "Backups": "Backups",
+    "ERP Integration": "ERP Integration",
     "General Settings": "General Settings",
   },
 
@@ -146,6 +147,7 @@ export const translations = {
     "Permissions": "ፈቃዶች",
     "Audit Logs": "የኦዲት ምዝገባ",
     "Backups": "የመጠባበቂያ ቅጂ",
+    "ERP Integration": "ከኢአርፒ ውህደት",
     "General Settings": "አጠቃላይ ቅንብሮች",
   },
 
@@ -218,6 +220,7 @@ export const translations = {
     "Permissions": "ፍቓዳት",
     "Audit Logs": "ናይ ኦዲት መዝገብ",
     "Backups": "መዕቀቢ ቅዳሕ",
+    "ERP Integration": "ናይ ኢአርፒ ውህደት",
     "General Settings": "ሓፈሻዊ ቅጥዕታት",
   },
 };
