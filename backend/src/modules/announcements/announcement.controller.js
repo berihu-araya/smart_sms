@@ -88,6 +88,15 @@ async function createAnnouncement(req, res, next) {
       });
     }
 
+    // Guard: school_id must exist in the token (stale tokens from old sessions won't have it)
+    if (!req.user?.school_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your session is missing school context. Please log out and log back in.',
+        data: null,
+      });
+    }
+
     // Role-specific creation constraints
     const role = (req.user?.role || '').toLowerCase().trim();
     if (role === 'teacher') {

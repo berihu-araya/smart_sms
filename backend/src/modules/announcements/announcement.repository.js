@@ -70,9 +70,7 @@ class AnnouncementRepository {
     const schoolId = user.school_id;
     const userId = user.sub;
 
-    const values = [schoolId, userId];
-    let paramIndex = 3;
-
+    const filterValues = [schoolId];
     const conditions = [
       'a.school_id = $1',
       'a.deleted_at IS NULL',
@@ -82,9 +80,8 @@ class AnnouncementRepository {
     if (isAdmin) {
       // Admins see all announcements; filter by status if requested
       if (status) {
-        conditions.push(`a.status = $${paramIndex}`);
-        values.push(status.toUpperCase());
-        paramIndex++;
+        conditions.push(`a.status = $${filterValues.length + 1}`);
+        filterValues.push(status.toUpperCase());
       }
     } else {
       // Non-admins only see published, active announcements
@@ -93,7 +90,8 @@ class AnnouncementRepository {
       conditions.push(`(a.expires_at IS NULL OR a.expires_at >= CURRENT_TIMESTAMP)`);
 
       if (isTeacher) {
-        conditions.push(`(a.audience IN ('ALL', 'TEACHERS') OR a.created_by = $2)`);
+        conditions.push(`(a.audience IN ('ALL', 'TEACHERS') OR a.created_by = $${filterValues.length + 1})`);
+        filterValues.push(userId);
       } else if (isParent) {
         const parentScope = userContext.parentScope || {};
         const childGradeIds = parentScope.child_grade_ids || [];
@@ -102,14 +100,14 @@ class AnnouncementRepository {
         conditions.push(`a.audience IN ('ALL', 'PARENTS')`);
 
         if (childGradeIds.length > 0 || childSectionIds.length > 0) {
+          const pSec = filterValues.length + 1;
+          const pGrade = filterValues.length + 2;
           conditions.push(`(
             (a.grade_id IS NULL AND a.section_id IS NULL)
-            OR (a.section_id IS NOT NULL AND a.section_id = ANY($${paramIndex + 1}::uuid[]))
-            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND a.grade_id = ANY($${paramIndex}::uuid[]))
+            OR (a.section_id IS NOT NULL AND a.section_id = ANY($${pSec}::uuid[]))
+            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND a.grade_id = ANY($${pGrade}::uuid[]))
           )`);
-          values.push(childGradeIds);
-          values.push(childSectionIds);
-          paramIndex += 2;
+          filterValues.push(childSectionIds, childGradeIds);
         } else {
           // Parent with no active enrolled children only sees general parent notices
           conditions.push(`(a.grade_id IS NULL AND a.section_id IS NULL)`);
@@ -119,14 +117,14 @@ class AnnouncementRepository {
         conditions.push(`a.audience IN ('ALL', 'STUDENTS')`);
 
         if (enrollment.gradeId || enrollment.sectionId) {
+          const pSec = filterValues.length + 1;
+          const pGrade = filterValues.length + 2;
           conditions.push(`(
             (a.grade_id IS NULL AND a.section_id IS NULL)
-            OR (a.section_id IS NOT NULL AND $${paramIndex + 1}::uuid IS NOT NULL AND a.section_id = $${paramIndex + 1}::uuid)
-            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND $${paramIndex}::uuid IS NOT NULL AND a.grade_id = $${paramIndex}::uuid)
+            OR (a.section_id IS NOT NULL AND $${pSec}::uuid IS NOT NULL AND a.section_id = $${pSec}::uuid)
+            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND $${pGrade}::uuid IS NOT NULL AND a.grade_id = $${pGrade}::uuid)
           )`);
-          values.push(enrollment.gradeId);
-          values.push(enrollment.sectionId);
-          paramIndex += 2;
+          filterValues.push(enrollment.sectionId || null, enrollment.gradeId || null);
         } else {
           conditions.push(`(a.grade_id IS NULL AND a.section_id IS NULL)`);
         }
@@ -140,45 +138,40 @@ class AnnouncementRepository {
     // 2. Additional Optional Query Filters
     if (search && search.trim() !== '') {
       const searchPattern = `%${search.trim()}%`;
-      conditions.push(`(a.title ILIKE $${paramIndex} OR a.content ILIKE $${paramIndex})`);
-      values.push(searchPattern);
-      paramIndex++;
+      const p1 = filterValues.length + 1;
+      const p2 = filterValues.length + 2;
+      conditions.push(`(a.title ILIKE $${p1} OR a.content ILIKE $${p2})`);
+      filterValues.push(searchPattern, searchPattern);
     }
 
     if (category) {
-      conditions.push(`a.category = $${paramIndex}`);
-      values.push(category.toUpperCase());
-      paramIndex++;
+      conditions.push(`a.category = $${filterValues.length + 1}`);
+      filterValues.push(category.toUpperCase());
     }
 
     if (priority) {
-      conditions.push(`a.priority = $${paramIndex}`);
-      values.push(priority.toUpperCase());
-      paramIndex++;
+      conditions.push(`a.priority = $${filterValues.length + 1}`);
+      filterValues.push(priority.toUpperCase());
     }
 
     if (audience && isAdmin) {
-      conditions.push(`a.audience = $${paramIndex}`);
-      values.push(audience.toUpperCase());
-      paramIndex++;
+      conditions.push(`a.audience = $${filterValues.length + 1}`);
+      filterValues.push(audience.toUpperCase());
     }
 
     if (grade_id) {
-      conditions.push(`a.grade_id = $${paramIndex}`);
-      values.push(grade_id);
-      paramIndex++;
+      conditions.push(`a.grade_id = $${filterValues.length + 1}`);
+      filterValues.push(grade_id);
     }
 
     if (section_id) {
-      conditions.push(`a.section_id = $${paramIndex}`);
-      values.push(section_id);
-      paramIndex++;
+      conditions.push(`a.section_id = $${filterValues.length + 1}`);
+      filterValues.push(section_id);
     }
 
     if (is_pinned !== undefined && is_pinned !== null && is_pinned !== '') {
-      conditions.push(`a.is_pinned = $${paramIndex}`);
-      values.push(is_pinned === 'true' || is_pinned === true);
-      paramIndex++;
+      conditions.push(`a.is_pinned = $${filterValues.length + 1}`);
+      filterValues.push(is_pinned === 'true' || is_pinned === true);
     }
 
     if (date_range === 'TODAY') {
@@ -200,16 +193,20 @@ class AnnouncementRepository {
 
     const whereClause = conditions.join(' AND ');
 
-    // 3. Count Query
+    // 3. Count Query - strictly uses filterValues for whereClause
     const countSql = `
       SELECT COUNT(*) AS total
       FROM announcements a
       WHERE ${whereClause}
     `;
-    const countResult = await this.database.query(countSql, values);
+    const countResult = await this.database.query(countSql, [...filterValues]);
     const total = parseInt(countResult.rows[0]?.total || 0, 10);
 
     // 4. Data Query with Joins & Acknowledgement Tracking
+    const pUser = filterValues.length + 1;
+    const pLimit = filterValues.length + 2;
+    const pOffset = filterValues.length + 3;
+
     const dataSql = `
       SELECT
         a.id,
@@ -247,14 +244,14 @@ class AnnouncementRepository {
       LEFT JOIN roles r ON r.id = u.role_id
       LEFT JOIN grades g ON g.id = a.grade_id AND g.deleted_at IS NULL
       LEFT JOIN sections sec ON sec.id = a.section_id AND sec.deleted_at IS NULL
-      LEFT JOIN announcement_acknowledgements ack ON ack.announcement_id = a.id AND ack.user_id = $2
+      LEFT JOIN announcement_acknowledgements ack ON ack.announcement_id = a.id AND ack.user_id = $${pUser}
       WHERE ${whereClause}
       ORDER BY ${orderClause}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT $${pLimit} OFFSET $${pOffset}
     `;
 
-    values.push(limitNum, offset);
-    const result = await this.database.query(dataSql, values);
+    const dataValues = [...filterValues, userId || null, limitNum, offset];
+    const result = await this.database.query(dataSql, dataValues);
 
     return {
       items: result.rows,
@@ -394,6 +391,10 @@ class AnnouncementRepository {
     const user = userContext.user || {};
     const schoolId = user.school_id;
     const userId = user.sub;
+
+    if (!schoolId) {
+      throw new Error('school_id is required: token is missing school context.');
+    }
 
     const sql = `
       INSERT INTO announcements (

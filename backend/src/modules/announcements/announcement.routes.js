@@ -22,6 +22,22 @@ router.use(authMiddleware);
 router.use(attachParentScope);
 router.use(attachTeacherScope);
 
+/**
+ * Guard: Every request to this module requires a valid school context in the JWT.
+ * If school_id is missing (stale token from a session before this field was added),
+ * return a clear 401 telling the user to re-authenticate.
+ */
+router.use((req, res, next) => {
+  if (!req.user?.school_id) {
+    return res.status(401).json({
+      success: false,
+      message: 'Session expired or school context missing. Please log out and log in again.',
+      data: null,
+    });
+  }
+  return next();
+});
+
 // General Listings & Analytics
 router.get('/', listAnnouncements);
 router.get('/stats', getStats);
