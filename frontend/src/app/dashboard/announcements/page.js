@@ -6,6 +6,7 @@ import announcementService from '@/services/announcementService';
 import { listGrades } from '@/services/gradeService';
 import { listSections } from '@/services/sectionService';
 import { useAuth } from '@/hooks/useAuth';
+import Modal from '@/components/common/Modal';
 import {
   FaBullhorn,
   FaSearch,
@@ -33,9 +34,7 @@ import {
   FaUniversity,
   FaUserGraduate,
   FaChalkboardTeacher,
-  FaFilter,
   FaFileAlt,
-  FaSortAmountDown,
   FaUndo,
 } from 'react-icons/fa';
 
@@ -146,7 +145,7 @@ export default function AnnouncementsPage() {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [previewMode, setPreviewMode] = useState('card'); // 'card' or 'letterhead'
+  const [previewMode, setPreviewMode] = useState('card');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -176,20 +175,6 @@ export default function AnnouncementsPage() {
         .catch(() => {});
     }
   }, [canManage]);
-
-  // Keyboard navigation: Escape key closes active modals
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (viewingNotice) setViewingNotice(null);
-        else if (showCreateModal) setShowCreateModal(false);
-        else if (showAckModal) setShowAckModal(false);
-        else if (deleteConfirmId) setDeleteConfirmId(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingNotice, showCreateModal, showAckModal, deleteConfirmId]);
 
   // Deep-linking: auto-open notice if `?notice=ID` is in URL
   useEffect(() => {
@@ -1143,159 +1128,161 @@ ${notice.author_role || 'Office of Communications'}, ${schoolName}
           })}
         </div>
       ) : (
-        /* ================= TABLE VIEW ================= */
-        <div className={styles.tableContainer}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Announcement Subject</th>
-                <th>Category</th>
-                <th>Priority</th>
-                <th>Audience</th>
-                <th>Published</th>
-                <th>Status</th>
-                <th>Acknowledgement</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {announcements.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    <div className={styles.tableTitleCell}>
-                      <span
-                        className={styles.tableTitleText}
-                        onClick={() => setViewingNotice(a)}
-                      >
-                        {a.is_pinned && <FaThumbtack style={{ color: '#4f46e5', marginRight: 6 }} />}
-                        {a.title}
-                      </span>
-                      {a.attachment_url && (
-                        <a
-                          href={a.attachment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <FaPaperclip /> {a.attachment_name || 'Attached Document'}
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`${styles.categoryBadge} ${styles[`cat${a.category}`] || styles.catGENERAL}`}>
-                      {a.category}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`${styles.priorityBadge} ${styles[`prio${a.priority}`] || styles.prioNORMAL}`}>
-                      {a.priority}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={styles.audiencePill}>
-                      {a.audience}
-                      {a.grade_name ? ` • ${a.grade_name}` : ''}
-                    </span>
-                  </td>
-                  <td>{formatDate(a.published_at)}</td>
-                  <td>
-                    <span className={`${styles.statusPill} ${styles[`status${a.status}`]}`}>
-                      {a.status}
-                    </span>
-                  </td>
-                  <td>
-                    {a.requires_acknowledgement ? (
-                      canManage ? (
-                        <button
-                          type="button"
-                          className={styles.ackTrackerBtn}
-                          onClick={() => handleOpenAckTracker(a)}
-                        >
-                          <FaUsers /> {a.acknowledgement_count || 0}
-                        </button>
-                      ) : a.is_acknowledged ? (
-                        <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.82rem' }}>
-                          ✓ Confirmed
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className={styles.ackActionBtn}
-                          onClick={() => handleAcknowledge(a.id)}
-                        >
-                          Acknowledge
-                        </button>
-                      )
-                    ) : (
-                      <span style={{ color: '#94a3b8' }}>None</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className={styles.cardActionBtns}>
-                      <button
-                        type="button"
-                        className={styles.iconActionBtn}
-                        onClick={() => setViewingNotice(a)}
-                        title="View Official Circular"
-                      >
-                        <FaEye />
-                      </button>
-
-                      <button
-                        type="button"
-                        className={styles.iconActionBtn}
-                        onClick={() => handleShareNotice(a)}
-                        title="Copy Link"
-                      >
-                        <FaShareAlt />
-                      </button>
-
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className={styles.iconActionBtn}
-                          onClick={() => handleTogglePin(a.id, a.is_pinned)}
-                          title="Toggle Pin"
-                        >
-                          <FaThumbtack style={{ color: a.is_pinned ? '#4f46e5' : undefined }} />
-                        </button>
-                      )}
-
-                      {canManage && (
-                        <>
-                          <button
-                            type="button"
-                            className={styles.iconActionBtn}
-                            onClick={() => handleOpenEdit(a)}
-                            title="Edit"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.iconActionBtn}
-                            onClick={() => handleToggleStatus(a.id, a.status)}
-                            title="Toggle Status"
-                          >
-                            <FaArchive />
-                          </button>
-                          <button
-                            type="button"
-                            className={`${styles.iconActionBtn} ${styles.iconActionBtnDanger}`}
-                            onClick={() => setDeleteConfirmId(a.id)}
-                            title="Delete"
-                          >
-                            <FaTrash />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        /* ================= TABLE CARD WITH DEDICATED HORIZONTAL SCROLL ================= */
+        <div className={styles.tableCard}>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ minWidth: '320px' }}>Announcement Subject</th>
+                  <th style={{ width: '140px', minWidth: '140px' }}>Category</th>
+                  <th style={{ width: '120px', minWidth: '120px' }}>Priority</th>
+                  <th style={{ width: '150px', minWidth: '150px' }}>Audience</th>
+                  <th style={{ width: '120px', minWidth: '120px' }}>Published</th>
+                  <th style={{ width: '110px', minWidth: '110px' }}>Status</th>
+                  <th style={{ width: '160px', minWidth: '160px' }}>Acknowledgement</th>
+                  <th className={styles.thActions}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {announcements.map((a) => (
+                  <tr key={a.id}>
+                    <td>
+                      <div className={styles.tableTitleCell}>
+                        <span
+                          className={styles.tableTitleText}
+                          onClick={() => setViewingNotice(a)}
+                        >
+                          {a.is_pinned && <FaThumbtack style={{ color: '#4f46e5', marginRight: 6 }} />}
+                          {a.title}
+                        </span>
+                        {a.attachment_url && (
+                          <a
+                            href={a.attachment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <FaPaperclip /> {a.attachment_name || 'Attached Document'}
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`${styles.categoryBadge} ${styles[`cat${a.category}`] || styles.catGENERAL}`}>
+                        {a.category?.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`${styles.priorityBadge} ${styles[`prio${a.priority}`] || styles.prioNORMAL}`}>
+                        {a.priority}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.audiencePill}>
+                        {a.audience}
+                        {a.grade_name ? ` • ${a.grade_name}` : ''}
+                      </span>
+                    </td>
+                    <td>{formatDate(a.published_at)}</td>
+                    <td>
+                      <span className={`${styles.statusPill} ${styles[`status${a.status}`]}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td>
+                      {a.requires_acknowledgement ? (
+                        canManage ? (
+                          <button
+                            type="button"
+                            className={styles.ackTrackerBtn}
+                            onClick={() => handleOpenAckTracker(a)}
+                          >
+                            <FaUsers /> {a.acknowledgement_count || 0}
+                          </button>
+                        ) : a.is_acknowledged ? (
+                          <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.82rem' }}>
+                            ✓ Confirmed
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.ackActionBtn}
+                            onClick={() => handleAcknowledge(a.id)}
+                          >
+                            Acknowledge
+                          </button>
+                        )
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>None</span>
+                      )}
+                    </td>
+                    <td className={styles.tdActions}>
+                      <div className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => setViewingNotice(a)}
+                          title="View Official Circular"
+                        >
+                          <FaEye />
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.actionBtn}
+                          onClick={() => handleShareNotice(a)}
+                          title="Copy Link"
+                        >
+                          <FaShareAlt />
+                        </button>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            className={styles.actionBtn}
+                            onClick={() => handleTogglePin(a.id, a.is_pinned)}
+                            title="Toggle Pin"
+                          >
+                            <FaThumbtack style={{ color: a.is_pinned ? '#4f46e5' : undefined }} />
+                          </button>
+                        )}
+
+                        {canManage && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleOpenEdit(a)}
+                              title="Edit"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.actionBtn}
+                              onClick={() => handleToggleStatus(a.id, a.status)}
+                              title="Toggle Status"
+                            >
+                              <FaArchive />
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                              onClick={() => setDeleteConfirmId(a.id)}
+                              title="Delete"
+                            >
+                              <FaTrash />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1326,576 +1313,536 @@ ${notice.author_role || 'Office of Communications'}, ${schoolName}
         </div>
       )}
 
-      {/* ================= MODAL: FORMAL CIRCULAR LETTERHEAD ================= */}
+      {/* ================= MODAL 1: FORMAL CIRCULAR LETTERHEAD ================= */}
       {viewingNotice && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setViewingNotice(null);
-          }}
+        <Modal
+          isOpen={Boolean(viewingNotice)}
+          onClose={() => setViewingNotice(null)}
+          title="Official Institutional Circular"
+          subtitle={`Ref: SMS-CIR-${viewingNotice.id?.slice(0, 8)?.toUpperCase()} • Issued by ${viewingNotice.author_name || 'Academic Administration'}`}
+          icon={FaUniversity}
+          size="2xl"
         >
-          <div className={styles.modalBox} style={{ maxWidth: 840 }}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Official Institutional Circular</h3>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setViewingNotice(null)}
-              >
-                <FaTimes />
-              </button>
+          <div className={styles.letterheadContainer}>
+            {/* School Letterhead Top */}
+            <div className={styles.letterheadHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <FaUniversity style={{ color: '#4f46e5', fontSize: '1.4rem' }} />
+                <h2 className={styles.letterheadSchool}>{schoolName}</h2>
+              </div>
+              <p className={styles.letterheadSub}>
+                OFFICE OF ACADEMIC AFFAIRS & INSTITUTIONAL COMMUNICATIONS
+              </p>
+              <span className={styles.letterheadBadge}>
+                CIRCULAR REF: SMS-CIR-{viewingNotice.id?.slice(0, 8)?.toUpperCase()}
+              </span>
             </div>
 
-            <div className={styles.modalBody}>
-              <div className={styles.letterheadContainer}>
-                {/* School Letterhead Top */}
-                <div className={styles.letterheadHeader}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                    <FaUniversity style={{ color: '#4f46e5', fontSize: '1.4rem' }} />
-                    <h2 className={styles.letterheadSchool}>{schoolName}</h2>
-                  </div>
-                  <p className={styles.letterheadSub}>
-                    OFFICE OF ACADEMIC AFFAIRS & INSTITUTIONAL COMMUNICATIONS
-                  </p>
-                  <span className={styles.letterheadBadge}>
-                    CIRCULAR REF: SMS-CIR-{viewingNotice.id?.slice(0, 8)?.toUpperCase()}
-                  </span>
-                </div>
+            {/* Metadata Grid */}
+            <div className={styles.letterheadMetaGrid}>
+              <div><strong>Date Issued:</strong> {new Date(viewingNotice.published_at).toLocaleDateString('en-US', { dateStyle: 'long' })}</div>
+              <div><strong>Target Audience:</strong> {viewingNotice.audience} {viewingNotice.grade_name ? `(${viewingNotice.grade_name})` : ''}</div>
+              <div><strong>Category:</strong> {viewingNotice.category?.replace('_', ' ')}</div>
+              <div><strong>Priority:</strong> {viewingNotice.priority}</div>
+            </div>
 
-                {/* Metadata Grid */}
-                <div className={styles.letterheadMetaGrid}>
-                  <div><strong>Date Issued:</strong> {new Date(viewingNotice.published_at).toLocaleDateString('en-US', { dateStyle: 'long' })}</div>
-                  <div><strong>Target Audience:</strong> {viewingNotice.audience} {viewingNotice.grade_name ? `(${viewingNotice.grade_name})` : ''}</div>
-                  <div><strong>Category:</strong> {viewingNotice.category?.replace('_', ' ')}</div>
-                  <div><strong>Priority:</strong> {viewingNotice.priority}</div>
-                </div>
+            {/* Subject */}
+            <div className={styles.letterheadSubject}>
+              SUBJECT: {viewingNotice.title}
+            </div>
 
-                {/* Subject */}
-                <div className={styles.letterheadSubject}>
-                  SUBJECT: {viewingNotice.title}
-                </div>
+            {/* Body Text */}
+            <div className={styles.letterheadText}>
+              {viewingNotice.content}
+            </div>
 
-                {/* Body Text */}
-                <div className={styles.letterheadText}>
-                  {viewingNotice.content}
-                </div>
-
-                {/* Attachment if present */}
-                {viewingNotice.attachment_url && (
-                  <div style={{ marginBottom: '2rem' }}>
-                    <strong style={{ fontSize: '0.88rem', color: '#334155' }}>Attached Official Documentation:</strong>
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <a
-                        href={viewingNotice.attachment_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.attachmentPill}
-                      >
-                        <FaPaperclip /> {viewingNotice.attachment_name || 'View Attached Circular File'}
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {/* Sign-off Block */}
-                <div className={styles.letterheadSignBlock}>
-                  <div>
-                    <div className={styles.signRole}>{viewingNotice.author_name || 'Academic Administration'}</div>
-                    <div className={styles.signOrg}>{viewingNotice.author_role || 'Office of Communications'}, {schoolName}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: '0.8rem' }}>
-                    Official Digital Notice Stamp • Verified
-                  </div>
+            {/* Attachment if present */}
+            {viewingNotice.attachment_url && (
+              <div style={{ marginBottom: '2rem' }}>
+                <strong style={{ fontSize: '0.88rem', color: '#334155' }}>Attached Official Documentation:</strong>
+                <div style={{ marginTop: '0.5rem' }}>
+                  <a
+                    href={viewingNotice.attachment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.attachmentPill}
+                  >
+                    <FaPaperclip /> {viewingNotice.attachment_name || 'View Attached Circular File'}
+                  </a>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => handleDownloadNoticeText(viewingNotice)}
-                title="Download Plain Text Document"
-              >
-                <FaFileAlt /> Download Text
-              </button>
-
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => window.print()}
-              >
-                <FaPrint /> Print Circular
-              </button>
-
-              {viewingNotice.requires_acknowledgement && !viewingNotice.is_acknowledged && (
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  style={{ background: '#059669' }}
-                  onClick={() => handleAcknowledge(viewingNotice.id)}
-                >
-                  <FaCheckCircle /> Confirm & Acknowledge Receipt
-                </button>
-              )}
-
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setViewingNotice(null)}
-              >
-                Close
-              </button>
+            {/* Sign-off Block */}
+            <div className={styles.letterheadSignBlock}>
+              <div>
+                <div className={styles.signRole}>{viewingNotice.author_name || 'Academic Administration'}</div>
+                <div className={styles.signOrg}>{viewingNotice.author_role || 'Office of Communications'}, {schoolName}</div>
+              </div>
+              <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: '0.8rem' }}>
+                Official Digital Notice Stamp • Verified
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ================= MODAL: CREATE / EDIT ANNOUNCEMENT ================= */}
-      {showCreateModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowCreateModal(false);
-          }}
-        >
-          <div className={styles.modalBox}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>
-                {editingId ? 'Edit Circular Notice' : 'Compose & Publish Announcement'}
-              </h3>
+          <div className={styles.modalFormActions}>
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => handleDownloadNoticeText(viewingNotice)}
+              title="Download Plain Text Document"
+            >
+              <FaFileAlt /> Download Text
+            </button>
+
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => window.print()}
+            >
+              <FaPrint /> Print Circular
+            </button>
+
+            {viewingNotice.requires_acknowledgement && !viewingNotice.is_acknowledged && (
               <button
                 type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setShowCreateModal(false)}
+                className={styles.primaryBtn}
+                style={{ background: '#059669' }}
+                onClick={() => handleAcknowledge(viewingNotice.id)}
               >
-                <FaTimes />
+                <FaCheckCircle /> Confirm & Acknowledge Receipt
               </button>
+            )}
+
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => setViewingNotice(null)}
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ================= MODAL 2: COMPOSE / EDIT ANNOUNCEMENT ================= */}
+      {showCreateModal && (
+        <Modal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          title={editingId ? 'Edit Announcement Circular' : 'Compose Official Announcement'}
+          subtitle={
+            editingId
+              ? 'Modify and update official circular details'
+              : 'Draft and publish official institutional circular to school noticeboard'
+          }
+          icon={FaBullhorn}
+          size="xl"
+        >
+          <form onSubmit={handleSave} className={styles.form}>
+            {formErrors.length > 0 && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', padding: '0.85rem', borderRadius: 10, color: '#dc2626', fontSize: '0.86rem' }}>
+                {formErrors.map((err, i) => (
+                  <p key={i} style={{ margin: 0 }}>{err}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Title */}
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Circular Subject / Title <span className={styles.required}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. End of Semester Examination Timetable & Regulations"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className={styles.formInput}
+              />
             </div>
 
-            <form onSubmit={handleSave}>
-              <div className={styles.modalBody}>
-                {formErrors.length > 0 && (
-                  <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', padding: '0.85rem', borderRadius: 10, color: '#dc2626', fontSize: '0.86rem' }}>
-                    {formErrors.map((err, i) => (
-                      <p key={i} style={{ margin: 0 }}>{err}</p>
+            {/* Category & Priority */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Notice Category</label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className={styles.formSelect}
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Urgency Priority</label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                  className={styles.formSelect}
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Circular Body Text <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                required
+                placeholder="Provide full official text, instructions, and guidance for recipients..."
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                className={styles.formTextarea}
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#94a3b8' }}>
+                {formData.content.length} characters
+              </div>
+            </div>
+
+            {/* Audience & Status */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Target Audience Scope</label>
+                <select
+                  value={formData.audience}
+                  onChange={(e) => setFormData({ ...formData, audience: e.target.value })}
+                  className={styles.formSelect}
+                >
+                  {AUDIENCES.map((a) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Publishing Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className={styles.formSelect}
+                >
+                  <option value="PUBLISHED">Publish to Noticeboard Immediately</option>
+                  <option value="DRAFT">Save as Internal Draft</option>
+                  <option value="ARCHIVED">Archived / Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Grade & Section Selective Targeting */}
+            {(formData.audience === 'ALL' || formData.audience === 'STUDENTS' || formData.audience === 'PARENTS') && (
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>Target Specific Grade (Optional)</label>
+                  <select
+                    value={formData.grade_id}
+                    onChange={(e) => setFormData({ ...formData, grade_id: e.target.value, section_id: '' })}
+                    className={styles.formSelect}
+                  >
+                    <option value="">All Grades (School-Wide)</option>
+                    {grades.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
                     ))}
-                  </div>
-                )}
+                  </select>
+                </div>
 
-                {/* Title */}
                 <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Circular Subject / Title *</label>
+                  <label className={styles.formLabel}>Target Specific Section (Optional)</label>
+                  <select
+                    value={formData.section_id}
+                    onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
+                    className={styles.formSelect}
+                  >
+                    <option value="">All Sections in Selected Grade</option>
+                    {sections
+                      .filter((sec) => !formData.grade_id || sec.grade_id === formData.grade_id)
+                      .map((sec) => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.name} {sec.grade_name ? `(${sec.grade_name})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Attachment Fields */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Attachment Document URL</label>
+                <input
+                  type="url"
+                  placeholder="https://smart-sms.edu.et/docs/exam-rules.pdf"
+                  value={formData.attachment_url}
+                  onChange={(e) => setFormData({ ...formData, attachment_url: e.target.value })}
+                  className={styles.formInput}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Attachment Label / Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Official_Examination_Schedule.pdf"
+                  value={formData.attachment_name}
+                  onChange={(e) => setFormData({ ...formData, attachment_name: e.target.value })}
+                  className={styles.formInput}
+                />
+              </div>
+            </div>
+
+            {/* Expiration Date */}
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Auto-Expiration Date (Optional)</label>
+              <input
+                type="datetime-local"
+                value={formData.expires_at}
+                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                className={styles.formInput}
+              />
+              <small style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                Notice will automatically be archived after this timestamp.
+              </small>
+            </div>
+
+            {/* Toggles */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '0.5rem' }}>
+              {isAdmin && (
+                <label className={styles.checkboxLabel}>
                   <input
-                    type="text"
-                    required
-                    placeholder="e.g. End of Semester Examination Timetable & Regulations"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={styles.formInput}
+                    type="checkbox"
+                    checked={formData.is_pinned}
+                    onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
+                    className={styles.checkboxInput}
                   />
-                </div>
+                  <span>Pin this announcement to top of the Noticeboard</span>
+                </label>
+              )}
 
-                {/* Category & Priority */}
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Notice Category</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className={styles.formSelect}
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={formData.requires_acknowledgement}
+                  onChange={(e) => setFormData({ ...formData, requires_acknowledgement: e.target.checked })}
+                  className={styles.checkboxInput}
+                />
+                <span>Require Read Acknowledgement receipt from recipients</span>
+              </label>
+            </div>
+
+            {/* Live Preview Box */}
+            {formData.title && (
+              <div className={styles.livePreviewBox}>
+                <div className={styles.livePreviewHeader}>
+                  <span>Live Preview</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode('card')}
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: previewMode === 'card' ? 700 : 500,
+                        color: previewMode === 'card' ? '#4f46e5' : '#64748b',
+                        textDecoration: previewMode === 'card' ? 'underline' : 'none',
+                      }}
                     >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Urgency Priority</label>
-                    <select
-                      value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                      className={styles.formSelect}
+                      Card Mode
+                    </button>
+                    <span style={{ color: '#cbd5e1' }}>|</span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMode('letterhead')}
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: previewMode === 'letterhead' ? 700 : 500,
+                        color: previewMode === 'letterhead' ? '#4f46e5' : '#64748b',
+                        textDecoration: previewMode === 'letterhead' ? 'underline' : 'none',
+                      }}
                     >
-                      {PRIORITIES.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Circular Body Text *</label>
-                  <textarea
-                    required
-                    placeholder="Provide full official text, instructions, and guidance for recipients..."
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    className={styles.formTextarea}
-                  />
-                  <div style={{ textAlign: 'right', fontSize: '0.78rem', color: '#94a3b8' }}>
-                    {formData.content.length} characters
-                  </div>
-                </div>
-
-                {/* Audience & Status */}
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Target Audience Scope</label>
-                    <select
-                      value={formData.audience}
-                      onChange={(e) => setFormData({ ...formData, audience: e.target.value })}
-                      className={styles.formSelect}
-                    >
-                      {AUDIENCES.map((a) => (
-                        <option key={a.value} value={a.value}>
-                          {a.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Publishing Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className={styles.formSelect}
-                    >
-                      <option value="PUBLISHED">Publish to Noticeboard Immediately</option>
-                      <option value="DRAFT">Save as Internal Draft</option>
-                      <option value="ARCHIVED">Archived / Inactive</option>
-                    </select>
+                      Letterhead Mode
+                    </button>
                   </div>
                 </div>
 
-                {/* Grade & Section Selective Targeting */}
-                {(formData.audience === 'ALL' || formData.audience === 'STUDENTS' || formData.audience === 'PARENTS') && (
-                  <div className={styles.formRow}>
-                    <div className={styles.formGroup}>
-                      <label className={styles.formLabel}>Target Specific Grade (Optional)</label>
-                      <select
-                        value={formData.grade_id}
-                        onChange={(e) => setFormData({ ...formData, grade_id: e.target.value, section_id: '' })}
-                        className={styles.formSelect}
-                      >
-                        <option value="">All Grades (School-Wide)</option>
-                        {grades.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
+                {previewMode === 'card' ? (
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.3rem' }}>
+                      {formData.title}
                     </div>
-
-                    <div className={styles.formGroup}>
-                      <label className={styles.formLabel}>Target Specific Section (Optional)</label>
-                      <select
-                        value={formData.section_id}
-                        onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
-                        className={styles.formSelect}
-                      >
-                        <option value="">All Sections in Selected Grade</option>
-                        {sections
-                          .filter((sec) => !formData.grade_id || sec.grade_id === formData.grade_id)
-                          .map((sec) => (
-                            <option key={sec.id} value={sec.id}>
-                              {sec.name} {sec.grade_name ? `(${sec.grade_name})` : ''}
-                            </option>
-                          ))}
-                      </select>
+                    <div style={{ fontSize: '0.84rem', color: '#64748b', lineHeight: 1.5 }}>
+                      {formData.content ? (formData.content.length > 140 ? `${formData.content.slice(0, 140)}...` : formData.content) : 'No content yet...'}
                     </div>
                   </div>
-                )}
-
-                {/* Attachment Fields */}
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Attachment Document URL</label>
-                    <input
-                      type="url"
-                      placeholder="https://smart-sms.edu.et/docs/exam-rules.pdf"
-                      value={formData.attachment_url}
-                      onChange={(e) => setFormData({ ...formData, attachment_url: e.target.value })}
-                      className={styles.formInput}
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Attachment Label / Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Official_Examination_Schedule.pdf"
-                      value={formData.attachment_name}
-                      onChange={(e) => setFormData({ ...formData, attachment_name: e.target.value })}
-                      className={styles.formInput}
-                    />
-                  </div>
-                </div>
-
-                {/* Expiration Date */}
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Auto-Expiration Date (Optional)</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.expires_at}
-                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-                    className={styles.formInput}
-                  />
-                  <small style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
-                    Notice will automatically be archived after this timestamp.
-                  </small>
-                </div>
-
-                {/* Toggles */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '0.5rem' }}>
-                  {isAdmin && (
-                    <label className={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={formData.is_pinned}
-                        onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
-                        className={styles.checkboxInput}
-                      />
-                      <span>Pin this announcement to top of the Noticeboard</span>
-                    </label>
-                  )}
-
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={formData.requires_acknowledgement}
-                      onChange={(e) => setFormData({ ...formData, requires_acknowledgement: e.target.checked })}
-                      className={styles.checkboxInput}
-                    />
-                    <span>Require Read Acknowledgement receipt from recipients</span>
-                  </label>
-                </div>
-
-                {/* Live Card Preview Box */}
-                {formData.title && (
-                  <div className={styles.livePreviewBox}>
-                    <div className={styles.livePreviewHeader}>
-                      <span>Live Preview</span>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewMode('card')}
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: previewMode === 'card' ? 700 : 500,
-                            color: previewMode === 'card' ? '#4f46e5' : '#64748b',
-                            textDecoration: previewMode === 'card' ? 'underline' : 'none',
-                          }}
-                        >
-                          Card Mode
-                        </button>
-                        <span style={{ color: '#cbd5e1' }}>|</span>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewMode('letterhead')}
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: previewMode === 'letterhead' ? 700 : 500,
-                            color: previewMode === 'letterhead' ? '#4f46e5' : '#64748b',
-                            textDecoration: previewMode === 'letterhead' ? 'underline' : 'none',
-                          }}
-                        >
-                          Letterhead Mode
-                        </button>
-                      </div>
+                ) : (
+                  <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '1rem' }}>
+                    <div style={{ textAlign: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>{schoolName}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>OFFICIAL CIRCULAR PREVIEW</div>
                     </div>
-
-                    {previewMode === 'card' ? (
-                      <div>
-                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.3rem' }}>
-                          {formData.title}
-                        </div>
-                        <div style={{ fontSize: '0.84rem', color: '#64748b', lineHeight: 1.5 }}>
-                          {formData.content ? (formData.content.length > 140 ? `${formData.content.slice(0, 140)}...` : formData.content) : 'No content yet...'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '1rem' }}>
-                        <div style={{ textAlign: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-                          <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>{schoolName}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>OFFICIAL CIRCULAR PREVIEW</div>
-                        </div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
-                          SUBJ: {formData.title}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#334155', whiteSpace: 'pre-wrap' }}>
-                          {formData.content || 'Draft content will be rendered here...'}
-                        </div>
-                      </div>
-                    )}
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+                      SUBJ: {formData.title}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#334155', whiteSpace: 'pre-wrap' }}>
+                      {formData.content || 'Draft content will be rendered here...'}
+                    </div>
                   </div>
                 )}
               </div>
+            )}
 
-              <div className={styles.modalFooter}>
+            <div className={styles.modalFormActions}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={styles.primaryBtn}
+                disabled={submitting}
+              >
+                {submitting ? <FaSpinner className="spin" /> : editingId ? 'Update Circular' : 'Publish Notice'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ================= MODAL 3: ACKNOWLEDGEMENT TRACKER ================= */}
+      {showAckModal && (
+        <Modal
+          isOpen={showAckModal}
+          onClose={() => setShowAckModal(false)}
+          title="Acknowledgement Audit Log"
+          subtitle={ackNotice ? `Receipt tracker for "${ackNotice.title}"` : 'Recipient confirmation tracker'}
+          icon={FaUsers}
+          size="lg"
+        >
+          {ackLoading ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem' }}>
+              <FaSpinner className="spin" style={{ color: '#4f46e5', fontSize: '1.75rem' }} />
+            </div>
+          ) : ackData ? (
+            <>
+              <div className={styles.ackSummaryBar}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                    Receipt Confirmation Rate
+                  </span>
+                  <span style={{ fontWeight: 800, color: '#059669', fontSize: '1.25rem' }}>
+                    {ackData.percentage}%
+                  </span>
+                </div>
+                <div className={styles.progressBarContainer}>
+                  <div
+                    className={styles.progressBarFill}
+                    style={{ width: `${ackData.percentage}%` }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.6rem', fontSize: '0.82rem', color: '#64748b' }}>
+                  <span>{ackData.total} of ~{ackData.targetCount} target recipients confirmed</span>
+                  <span>Target: {ackNotice?.audience}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div className={styles.searchWrapper} style={{ minWidth: 200, flex: 1 }}>
+                  <FaSearch className={styles.searchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Filter recipients by name or role..."
+                    value={ackSearch}
+                    onChange={(e) => setAckSearch(e.target.value)}
+                    className={styles.searchInput}
+                  />
+                </div>
+
                 <button
                   type="button"
                   className={styles.secondaryBtn}
-                  onClick={() => setShowCreateModal(false)}
+                  style={{ padding: '0.55rem 0.95rem', fontSize: '0.84rem' }}
+                  onClick={handleExportAckCSV}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.primaryBtn}
-                  disabled={submitting}
-                >
-                  {submitting ? <FaSpinner className="spin" /> : editingId ? 'Update Circular' : 'Publish Notice'}
+                  <FaFileDownload /> Export CSV
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* ================= MODAL: ACKNOWLEDGEMENT TRACKER ================= */}
-      {showAckModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAckModal(false);
-          }}
-        >
-          <div className={styles.modalBox} style={{ maxWidth: 720 }}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h3 className={styles.modalTitle}>Acknowledgement Audit Log</h3>
-                <small style={{ color: '#64748b' }}>{ackNotice?.title}</small>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setShowAckModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              {ackLoading ? (
-                <div style={{ textAlign: 'center', padding: '2.5rem' }}>
-                  <FaSpinner className="spin" style={{ color: '#4f46e5', fontSize: '1.75rem' }} />
-                </div>
-              ) : ackData ? (
-                <>
-                  <div className={styles.ackSummaryBar}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.92rem' }}>
-                        Receipt Confirmation Rate
-                      </span>
-                      <span style={{ fontWeight: 800, color: '#059669', fontSize: '1.25rem' }}>
-                        {ackData.percentage}%
-                      </span>
-                    </div>
-                    <div className={styles.progressBarContainer}>
-                      <div
-                        className={styles.progressBarFill}
-                        style={{ width: `${ackData.percentage}%` }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.6rem', fontSize: '0.82rem', color: '#64748b' }}>
-                      <span>{ackData.total} of ~{ackData.targetCount} target recipients confirmed</span>
-                      <span>Target: {ackNotice?.audience}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                    <div className={styles.searchWrapper} style={{ minWidth: 200, flex: 1 }}>
-                      <FaSearch className={styles.searchIcon} />
-                      <input
-                        type="text"
-                        placeholder="Filter recipients by name or role..."
-                        value={ackSearch}
-                        onChange={(e) => setAckSearch(e.target.value)}
-                        className={styles.searchInput}
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.secondaryBtn}
-                      style={{ padding: '0.55rem 0.95rem', fontSize: '0.84rem' }}
-                      onClick={handleExportAckCSV}
-                    >
-                      <FaFileDownload /> Export CSV
-                    </button>
-                  </div>
-
-                  {filteredAckUsers.length === 0 ? (
-                    <p style={{ color: '#94a3b8', fontSize: '0.88rem', textAlign: 'center', padding: '1.5rem 0' }}>
-                      {ackSearch ? 'No confirmed recipients match your search.' : 'No recipients have acknowledged this notice yet.'}
-                    </p>
-                  ) : (
-                    <div className={styles.ackUserList}>
-                      {filteredAckUsers.map((u) => (
-                        <div key={u.id} className={styles.ackUserItem}>
-                          <div>
-                            <div className={styles.ackUserName}>{u.full_name}</div>
-                            <div className={styles.ackUserMeta}>
-                              <span style={{ fontWeight: 600, color: '#4f46e5' }}>{u.role_name}</span> {u.email ? `• ${u.email}` : ''}
-                            </div>
-                          </div>
-                          <div className={styles.ackTime}>
-                            ✓ {new Date(u.acknowledged_at).toLocaleString()}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
+              {filteredAckUsers.length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '0.88rem', textAlign: 'center', padding: '1.5rem 0' }}>
+                  {ackSearch ? 'No confirmed recipients match your search.' : 'No recipients have acknowledged this notice yet.'}
+                </p>
               ) : (
-                <p style={{ color: '#dc2626' }}>Could not load acknowledgement records.</p>
+                <div className={styles.ackUserList}>
+                  {filteredAckUsers.map((u) => (
+                    <div key={u.id} className={styles.ackUserItem}>
+                      <div>
+                        <div className={styles.ackUserName}>{u.full_name}</div>
+                        <div className={styles.ackUserMeta}>
+                          <span style={{ fontWeight: 600, color: '#4f46e5' }}>{u.role_name}</span> {u.email ? `• ${u.email}` : ''}
+                        </div>
+                      </div>
+                      <div className={styles.ackTime}>
+                        ✓ {new Date(u.acknowledged_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
+            </>
+          ) : (
+            <p style={{ color: '#dc2626' }}>Could not load acknowledgement records.</p>
+          )}
 
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setShowAckModal(false)}
-              >
-                Close Audit
-              </button>
-            </div>
+          <div className={styles.modalFormActions}>
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={() => setShowAckModal(false)}
+            >
+              Close Audit
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* ================= MODAL: DELETE CONFIRMATION ================= */}
+      {/* ================= MODAL 4: DELETE CONFIRMATION ================= */}
       {deleteConfirmId && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={styles.modalOverlay}
+        <Modal
+          isOpen={Boolean(deleteConfirmId)}
+          onClose={() => setDeleteConfirmId(null)}
+          title="Delete Circular Notice"
+          subtitle="Confirm removal from school noticeboard"
+          icon={FaTrash}
+          size="sm"
         >
-          <div className={styles.modalBox} style={{ maxWidth: 440 }}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Delete Circular Notice?</h3>
-            </div>
-            <div className={styles.modalBody}>
-              <p style={{ margin: 0, color: '#64748b', fontSize: '0.92rem', lineHeight: 1.5 }}>
-                Are you sure you want to permanently remove this announcement from the school noticeboard? This action will archive all associated acknowledgements.
-              </p>
-            </div>
-            <div className={styles.modalFooter}>
+          <div className={styles.deleteConfirmBody}>
+            <p className={styles.deleteConfirmMessage}>
+              Are you sure you want to permanently remove{' '}
+              <strong style={{ color: '#0f172a' }}>
+                &ldquo;{announcements.find((a) => a.id === deleteConfirmId)?.title || 'this notice'}&rdquo;
+              </strong>{' '}
+              from the school noticeboard? This action will archive all associated acknowledgements.
+            </p>
+            <div className={styles.modalFormActions}>
               <button
                 type="button"
                 className={styles.secondaryBtn}
@@ -1905,15 +1852,14 @@ ${notice.author_role || 'Office of Communications'}, ${schoolName}
               </button>
               <button
                 type="button"
-                className={styles.primaryBtn}
-                style={{ background: '#dc2626' }}
+                className={styles.dangerBtn}
                 onClick={handleDelete}
               >
                 Confirm Delete
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
