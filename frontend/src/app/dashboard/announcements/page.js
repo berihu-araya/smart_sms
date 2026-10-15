@@ -376,7 +376,7 @@ export default function AnnouncementsPage() {
   // Acknowledge Notice
   const handleAcknowledge = async (id) => {
     try {
-      await announcementService.acknowledgeAnnouncement(id, user);
+      await announcementService.acknowledgeAnnouncement(id);
       setAnnouncements((prev) =>
         prev.map((a) =>
           a.id === id

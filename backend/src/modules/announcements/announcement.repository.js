@@ -51,6 +51,8 @@ class AnnouncementRepository {
       grade_id,
       section_id,
       is_pinned,
+      date_range,
+      sort,
     } = params;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -179,6 +181,23 @@ class AnnouncementRepository {
       paramIndex++;
     }
 
+    if (date_range === 'TODAY') {
+      conditions.push(`a.published_at >= CURRENT_DATE`);
+    } else if (date_range === 'WEEK') {
+      conditions.push(`a.published_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'`);
+    } else if (date_range === 'MONTH') {
+      conditions.push(`a.published_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'`);
+    }
+
+    let orderClause = 'a.is_pinned DESC, a.published_at DESC';
+    if (sort === 'OLDEST') {
+      orderClause = 'a.is_pinned DESC, a.published_at ASC';
+    } else if (sort === 'PRIORITY') {
+      orderClause = `a.is_pinned DESC, CASE a.priority WHEN 'URGENT' THEN 3 WHEN 'IMPORTANT' THEN 2 ELSE 1 END DESC, a.published_at DESC`;
+    } else if (sort === 'MOST_ACKNOWLEDGED') {
+      orderClause = 'a.is_pinned DESC, acknowledgement_count DESC, a.published_at DESC';
+    }
+
     const whereClause = conditions.join(' AND ');
 
     // 3. Count Query
@@ -230,7 +249,7 @@ class AnnouncementRepository {
       LEFT JOIN sections sec ON sec.id = a.section_id AND sec.deleted_at IS NULL
       LEFT JOIN announcement_acknowledgements ack ON ack.announcement_id = a.id AND ack.user_id = $2
       WHERE ${whereClause}
-      ORDER BY a.is_pinned DESC, a.published_at DESC
+      ORDER BY ${orderClause}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
