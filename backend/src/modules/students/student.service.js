@@ -1,6 +1,7 @@
 const { STUDENT_STATUSES } = require('./student.model');
 const ParentRepository = require('../parents/parent.repository');
 const { db } = require('../../config/database');
+const odooService = require('../../services/odoo.service');
 
 class StudentNotFoundError extends Error {
   constructor(message = 'Student not found') {
@@ -82,7 +83,26 @@ class StudentService {
       const student = await this.repository.createStudent(studentPayload, client);
       await client.query('COMMIT');
 
-      return await this.repository.findById(student.id);
+      const createdStudent = await this.repository.findById(student.id);
+
+      // Asynchronously sync student with Odoo ERP if enabled
+      if (odooService.isEnabled()) {
+        odooService.syncStudent({
+          student: createdStudent,
+          parent: studentPayload.parent || null,
+        }).then(async (odooRes) => {
+          if (odooRes?.odoo_partner_id) {
+            await db.query(
+              `UPDATE students SET odoo_partner_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [odooRes.odoo_partner_id, student.id]
+            ).catch((e) => console.error('[OdooSync] Student partner ID update error:', e.message));
+          }
+        }).catch((err) => {
+          console.error('[OdooSync] Student background sync error:', err.message);
+        });
+      }
+
+      return createdStudent;
     } catch (error) {
       await client.query('ROLLBACK');
       if (error.code === '23505') {

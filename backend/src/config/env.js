@@ -1,4 +1,4 @@
-﻿const dotenv = require("dotenv");
+const dotenv = require("dotenv");
 const path = require("path");
 
 //dotenv.config({ path: path.resolve(__dirname, "../../.env") });
@@ -26,5 +26,15 @@ module.exports = {
     user: requireEnvironmentVariable("DATABASE_USER"),
     password: requireEnvironmentVariable("DATABASE_PASSWORD"),
     name: requireEnvironmentVariable("DATABASE_NAME"),
+  },
+
+  odoo: {
+    enabled: process.env.ODOO_ENABLED === "true",
+    baseUrl: process.env.ODOO_URL || "http://localhost:8070",
+    db: process.env.ODOO_DB || "odoo",
+    login: process.env.ODOO_LOGIN || "admin",
+    password: process.env.ODOO_PASSWORD || "abttech_odoo_2026",
+    apiKey: process.env.ODOO_API_KEY || "abttech_sms_secret_2026",
+    companyId: process.env.ODOO_COMPANY_ID ? Number(process.env.ODOO_COMPANY_ID) : undefined,
   },
 };

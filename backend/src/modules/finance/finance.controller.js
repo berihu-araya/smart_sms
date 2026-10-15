@@ -19,6 +19,7 @@ const {
   validateSalaryStructure,
   validatePayrollRun,
 } = require('./finance.validation');
+const odooService = require('../../services/odoo.service');
 
 const repo = new FinanceRepository(db); // Initialize the repository with the database connection
 const service = new FinanceService(repo, db); // Initialize the service with the repository and database connection
@@ -516,6 +517,39 @@ async function upsertSalaryStructure(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join('; '), data: null });
     }
     const data = await repo.upsertSalaryStructure(getSchoolId(req), req.body);
+
+    // Asynchronously push staff and updated contract with all allowances to Odoo ERP
+    if (odooService.isEnabled() && data?.user_id) {
+      db.query(
+        `SELECT u.id AS user_id, u.first_name, u.last_name, u.email, u.phone,
+                t.gender, r.name AS role_name, t.id AS teacher_id, t.employee_number, t.department
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+         LEFT JOIN teachers t ON t.user_id = u.id AND t.deleted_at IS NULL
+         WHERE u.id = $1`,
+        [data.user_id]
+      ).then(async (userRes) => {
+        const staff = userRes.rows[0];
+        if (staff) {
+          const odooRes = await odooService.syncStaff({ staff, salaryStructure: data });
+          if (odooRes?.odoo_employee_id) {
+            await db.query(
+              `UPDATE users SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [odooRes.odoo_employee_id, staff.user_id]
+            );
+            if (staff.teacher_id) {
+              await db.query(
+                `UPDATE teachers SET odoo_employee_id = $1, odoo_synced_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                [odooRes.odoo_employee_id, staff.teacher_id]
+              );
+            }
+          }
+        }
+      }).catch((err) => {
+        console.error('[OdooService] Failed to sync updated staff contract to ERP:', err.message);
+      });
+    }
+
     res.status(200).json({ success: true, message: 'Staff salary structure configured', data });
   } catch (err) {
     next(err);

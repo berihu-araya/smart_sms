@@ -161,4 +161,14 @@ router.get('/reports/defaulters', authorizeRoles(...FINANCE_STAFF), getDefaulter
 router.get('/reports/income-vs-expense', authorizeRoles(...ADMIN_ROLES, 'Accountant'), getIncomeVsExpenseReport);
 router.get('/reports/cashier-shift', authorizeRoles(...FINANCE_STAFF), getCashierShiftReport);
 
+// 12. ODOO 18 ERP INTEGRATION
+const odooController = require('./odoo.controller');
+router.get('/odoo/status', authorizeRoles(...ADMIN_ROLES, 'Accountant'), (req, res, next) => odooController.getStatus(req, res, next));
+router.post('/odoo/sync/students', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncStudents(req, res, next));
+router.post('/odoo/sync/invoices', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncInvoices(req, res, next));
+router.post('/odoo/sync/payments', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncPayments(req, res, next));
+router.post('/odoo/sync/staff', authorizeRoles(...ADMIN_ROLES), (req, res, next) => odooController.syncStaff(req, res, next));
+router.post('/odoo/sync/payroll', authorizeRoles(...ADMIN_ROLES, 'Accountant'), (req, res, next) => odooController.syncPayroll(req, res, next));
+
 module.exports = router;
+

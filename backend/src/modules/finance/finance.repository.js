@@ -466,20 +466,25 @@ class FinanceRepository {
     const invRes = await this.db.query(
       `SELECT inv.*,
               s.first_name as student_first_name, s.last_name as student_last_name,
-              s.admission_number as student_admission_number, s.photo as student_photo,
+              s.admission_number as student_admission_number,
+              COALESCE(s.photo, stu_u.profile_image) as student_photo,
               s.gender as student_gender,
               g.name as grade_name,
               sec.name as section_name,
               ay.name as academic_year_name,
               p.full_name as parent_name, p.phone as parent_phone, p.email as parent_email,
-              u.first_name as created_by_first_name, u.last_name as created_by_last_name
+              u.first_name as created_by_first_name, u.last_name as created_by_last_name,
+              sch.name as school_name, sch.address as school_address, sch.phone as school_phone,
+              sch.email as school_email
        FROM student_fee_invoices inv
        INNER JOIN students s ON s.id = inv.student_id
+       LEFT JOIN users stu_u ON stu_u.id = s.user_id
        LEFT JOIN grades g ON g.id = inv.grade_id
        LEFT JOIN sections sec ON sec.id = inv.section_id
        LEFT JOIN academic_years ay ON ay.id = inv.academic_year_id
        LEFT JOIN parents p ON p.id = s.parent_id
        LEFT JOIN users u ON u.id = inv.created_by
+       LEFT JOIN schools sch ON sch.id = inv.school_id
        WHERE inv.id = $1 AND (inv.school_id = $2 OR inv.school_id IS NULL) AND inv.deleted_at IS NULL`,
       [id, schoolId]
     );
@@ -634,7 +639,8 @@ class FinanceRepository {
               inv.invoice_number, inv.title as invoice_title, inv.total_amount as invoice_total,
               inv.balance_amount as invoice_balance, inv.paid_amount as invoice_total_paid,
               s.first_name as student_first_name, s.last_name as student_last_name,
-              s.admission_number as student_admission_number, s.photo as student_photo,
+              s.admission_number as student_admission_number,
+              COALESCE(s.photo, stu_u.profile_image) as student_photo,
               g.name as grade_name, sec.name as section_name,
               pnt.full_name as parent_name, pnt.phone as parent_phone,
               u.first_name as received_by_first_name, u.last_name as received_by_last_name,
@@ -643,6 +649,7 @@ class FinanceRepository {
        FROM fee_payments p
        INNER JOIN student_fee_invoices inv ON inv.id = p.invoice_id
        INNER JOIN students s ON s.id = p.student_id
+       LEFT JOIN users stu_u ON stu_u.id = s.user_id
        LEFT JOIN grades g ON g.id = inv.grade_id
        LEFT JOIN sections sec ON sec.id = inv.section_id
        LEFT JOIN parents pnt ON pnt.id = s.parent_id

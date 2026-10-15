@@ -44,6 +44,7 @@ import {
   FaHistory,
   FaDatabase,
   FaSlidersH,
+  FaSyncAlt,
 } from "react-icons/fa";
 
 const ALL_ROLES = ["School Admin", "Admin", "Teacher", "Student", "Parent", "Staff", "Librarian", "Driver"];
@@ -367,6 +368,12 @@ const menuData = [
         title: "Backups",
         icon: FaDatabase,
         link: "/dashboard/settings/backups",
+        roles: ADMIN_ONLY,
+      },
+      {
+        title: "ERP Integration",
+        icon: FaSyncAlt,
+        link: "/dashboard/settings/erp-integration",
         roles: ADMIN_ONLY,
       },
       {
