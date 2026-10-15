@@ -102,8 +102,8 @@ class AnnouncementRepository {
         if (childGradeIds.length > 0 || childSectionIds.length > 0) {
           conditions.push(`(
             (a.grade_id IS NULL AND a.section_id IS NULL)
-            OR (a.grade_id = ANY($${paramIndex}::uuid[]))
-            OR (a.section_id = ANY($${paramIndex + 1}::uuid[]))
+            OR (a.section_id IS NOT NULL AND a.section_id = ANY($${paramIndex + 1}::uuid[]))
+            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND a.grade_id = ANY($${paramIndex}::uuid[]))
           )`);
           values.push(childGradeIds);
           values.push(childSectionIds);
@@ -119,8 +119,8 @@ class AnnouncementRepository {
         if (enrollment.gradeId || enrollment.sectionId) {
           conditions.push(`(
             (a.grade_id IS NULL AND a.section_id IS NULL)
-            OR ($${paramIndex}::uuid IS NOT NULL AND a.grade_id = $${paramIndex}::uuid)
-            OR ($${paramIndex + 1}::uuid IS NOT NULL AND a.section_id = $${paramIndex + 1}::uuid)
+            OR (a.section_id IS NOT NULL AND $${paramIndex + 1}::uuid IS NOT NULL AND a.section_id = $${paramIndex + 1}::uuid)
+            OR (a.section_id IS NULL AND a.grade_id IS NOT NULL AND $${paramIndex}::uuid IS NOT NULL AND a.grade_id = $${paramIndex}::uuid)
           )`);
           values.push(enrollment.gradeId);
           values.push(enrollment.sectionId);

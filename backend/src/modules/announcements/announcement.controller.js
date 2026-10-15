@@ -105,6 +105,24 @@ async function createAnnouncement(req, res, next) {
       user: req.user,
     });
 
+    // Auto-sync to notifications table so mobile/inbox feeds reflect published announcement
+    if (data.status === 'PUBLISHED') {
+      db.query(
+        `INSERT INTO notifications (school_id, grade_id, section_id, audience, title, body, published_at, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          req.user.school_id,
+          data.grade_id || null,
+          data.section_id || null,
+          data.audience || 'ALL',
+          data.title,
+          data.content,
+          data.published_at || new Date().toISOString(),
+          req.user.sub,
+        ]
+      ).catch((err) => console.error('Notification auto-sync error:', err.message));
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Announcement published successfully',
@@ -120,6 +138,25 @@ async function createAnnouncement(req, res, next) {
  */
 async function updateAnnouncement(req, res, next) {
   try {
+    const existing = await repository.findById(req.params.id, { user: req.user });
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Announcement not found',
+        data: null,
+      });
+    }
+
+    const role = (req.user?.role || '').toLowerCase().trim();
+    const isAdmin = ['admin', 'school admin'].includes(role);
+    if (!isAdmin && existing.created_by !== req.user.sub) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only edit announcements that you created',
+        data: null,
+      });
+    }
+
     const validation = validateUpdateAnnouncement(req.body);
     if (!validation.isValid) {
       return res.status(400).json({
@@ -133,14 +170,6 @@ async function updateAnnouncement(req, res, next) {
     const data = await repository.update(req.params.id, validation.sanitized, {
       user: req.user,
     });
-
-    if (!data) {
-      return res.status(404).json({
-        success: false,
-        message: 'Announcement not found or cannot be modified',
-        data: null,
-      });
-    }
 
     return res.status(200).json({
       success: true,
@@ -254,6 +283,25 @@ async function getAcknowledgements(req, res, next) {
  */
 async function deleteAnnouncement(req, res, next) {
   try {
+    const existing = await repository.findById(req.params.id, { user: req.user });
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Announcement not found',
+        data: null,
+      });
+    }
+
+    const role = (req.user?.role || '').toLowerCase().trim();
+    const isAdmin = ['admin', 'school admin'].includes(role);
+    if (!isAdmin && existing.created_by !== req.user.sub) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete announcements that you created',
+        data: null,
+      });
+    }
+
     const success = await repository.delete(req.params.id, req.user.school_id);
     if (!success) {
       return res.status(404).json({
