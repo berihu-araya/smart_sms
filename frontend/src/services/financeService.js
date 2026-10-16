@@ -127,6 +127,25 @@ export function cancelInvoice(id, reason) {
   });
 }
 
+export function sendInvoiceReminder(id) {
+  return request(`/api/v1/finance/invoices/${id}/send-reminder`, {
+    method: 'POST',
+  });
+}
+
+export function dispatchDueSoonReminders(days = 3) {
+  return request('/api/v1/finance/invoices/reminders/due-soon', {
+    method: 'POST',
+    body: JSON.stringify({ days }),
+  });
+}
+
+export function dispatchOverdueReminders() {
+  return request('/api/v1/finance/invoices/reminders/overdue', {
+    method: 'POST',
+  });
+}
+
 // ==========================================
 // 6. PAYMENTS & RECEIPTS
 // ==========================================
@@ -141,6 +160,13 @@ export function getPaymentById(id) {
 
 export function recordPayment(data) {
   return request('/api/v1/finance/payments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function refundPayment(id, data = {}) {
+  return request(`/api/v1/finance/payments/${id}/refund`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

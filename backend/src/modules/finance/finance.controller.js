@@ -20,6 +20,7 @@ const {
   validatePayrollRun,
 } = require('./finance.validation');
 const odooService = require('../../services/odoo.service');
+const notificationTriggerService = require('../notifications/notification-trigger.service');
 
 const repo = new FinanceRepository(db); // Initialize the repository with the database connection
 const service = new FinanceService(repo, db); // Initialize the service with the repository and database connection
@@ -218,6 +219,16 @@ async function createInvoice(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join('; '), data: null });
     }
     const data = await service.createCustomInvoice(getSchoolId(req), getUserId(req), req.body);
+
+    // Non-blocking notification to student and parents
+    if (data?.id) {
+      notificationTriggerService.triggerFeeInvoiceIssuedAlert({
+        schoolId: getSchoolId(req),
+        invoiceId: data.id,
+        recordedBy: getUserId(req),
+      }).catch((err) => console.error('[finance.controller] Failed to dispatch invoice issued alert:', err));
+    }
+
     res.status(201).json({ success: true, message: 'Student invoice generated successfully', data });
   } catch (err) {
     next(err);
@@ -231,6 +242,20 @@ async function generateBatchInvoices(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join('; '), data: null });
     }
     const data = await service.generateBatchInvoices(getSchoolId(req), getUserId(req), req.body);
+
+    // Non-blocking notifications for batch generated invoices
+    if (Array.isArray(data?.invoiceIds) && data.invoiceIds.length > 0) {
+      (async () => {
+        for (const invId of data.invoiceIds) {
+          await notificationTriggerService.triggerFeeInvoiceIssuedAlert({
+            schoolId: getSchoolId(req),
+            invoiceId: invId,
+            recordedBy: getUserId(req),
+          }).catch(() => {});
+        }
+      })().catch((err) => console.error('[finance.controller] Failed to dispatch batch invoice alerts:', err));
+    }
+
     res.status(201).json({ success: true, message: 'Batch invoices generated successfully', data });
   } catch (err) {
     next(err);
@@ -240,6 +265,15 @@ async function generateBatchInvoices(req, res, next) {
 async function cancelInvoice(req, res, next) {
   try {
     const data = await service.cancelInvoice(getSchoolId(req), req.params.id, req.body.reason);
+
+    // Non-blocking cancellation notification
+    notificationTriggerService.triggerInvoiceCancelledAlert({
+      schoolId: getSchoolId(req),
+      invoiceId: req.params.id,
+      reason: req.body.reason,
+      recordedBy: getUserId(req),
+    }).catch((err) => console.error('[finance.controller] Failed to dispatch invoice cancelled alert:', err));
+
     res.json({ success: true, message: 'Invoice cancelled successfully', data });
   } catch (err) {
     next(err);
@@ -273,7 +307,36 @@ async function recordPayment(req, res, next) {
       return res.status(400).json({ success: false, message: errors.join('; '), data: null });
     }
     const data = await service.recordPayment(getSchoolId(req), getUserId(req), req.body);
+
+    // Non-blocking payment confirmation and receipt notification
+    if (data?.id) {
+      notificationTriggerService.triggerPaymentConfirmedAlert({
+        schoolId: getSchoolId(req),
+        paymentId: data.id,
+        recordedBy: getUserId(req),
+      }).catch((err) => console.error('[finance.controller] Failed to dispatch payment confirmed alert:', err));
+    }
+
     res.status(201).json({ success: true, message: 'Payment recorded and receipt generated', data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function refundPayment(req, res, next) {
+  try {
+    const data = await service.refundPayment(getSchoolId(req), getUserId(req), req.params.id, req.body);
+
+    // Non-blocking refund/reversal alert to student and parents
+    notificationTriggerService.triggerRefundProcessedAlert({
+      schoolId: getSchoolId(req),
+      paymentId: req.params.id,
+      refundAmount: data.refundAmount,
+      reason: data.reason,
+      recordedBy: getUserId(req),
+    }).catch((err) => console.error('[finance.controller] Failed to dispatch refund processed alert:', err));
+
+    res.json({ success: true, message: 'Payment refund processed and invoice updated', data });
   } catch (err) {
     next(err);
   }
@@ -305,6 +368,30 @@ async function submitBankSlip(req, res, next) {
 async function reviewBankSlip(req, res, next) {
   try {
     const data = await service.reviewBankSlip(getSchoolId(req), getUserId(req), req.params.id, req.body);
+
+    // Non-blocking notification for bank slip approval or rejection
+    if (req.body.action === 'APPROVE') {
+      const payRes = await db.query(
+        `SELECT id FROM fee_payments WHERE slip_image_url = (SELECT slip_attachment_url FROM bank_slip_submissions WHERE id = $1) ORDER BY created_at DESC LIMIT 1`,
+        [req.params.id]
+      ).catch(() => ({ rows: [] }));
+      const paymentId = payRes.rows[0]?.id;
+      if (paymentId) {
+        notificationTriggerService.triggerPaymentConfirmedAlert({
+          schoolId: getSchoolId(req),
+          paymentId,
+          recordedBy: getUserId(req),
+        }).catch((err) => console.error('[finance.controller] Failed to dispatch payment confirmed alert:', err));
+      }
+    } else if (req.body.action === 'REJECT') {
+      notificationTriggerService.triggerPaymentRejectedAlert({
+        schoolId: getSchoolId(req),
+        submissionId: req.params.id,
+        rejectionReason: req.body.rejection_reason,
+        recordedBy: getUserId(req),
+      }).catch((err) => console.error('[finance.controller] Failed to dispatch payment rejected alert:', err));
+    }
+
     res.json({ success: true, message: `Bank slip has been ${req.body.action.toLowerCase()}ed`, data });
   } catch (err) {
     next(err);
@@ -711,6 +798,83 @@ async function getCashierShiftReport(req, res, next) {
   }
 }
 
+async function sendInvoiceReminder(req, res, next) {
+  try {
+    const invoiceId = req.params.id;
+    const invRes = await db.query(
+      `SELECT id, due_date, status, balance_amount FROM student_fee_invoices WHERE id = $1 AND (school_id = $2 OR $2::uuid IS NULL) AND deleted_at IS NULL`,
+      [invoiceId, getSchoolId(req)]
+    );
+    if (invRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Invoice not found', data: null });
+    }
+    const inv = invRes.rows[0];
+    if (Number(inv.balance_amount) <= 0 || inv.status === 'PAID') {
+      return res.status(400).json({ success: false, message: 'Invoice has already been fully paid', data: null });
+    }
+
+    const isOverdue = inv.due_date && new Date(inv.due_date) < new Date();
+    let result;
+    if (isOverdue) {
+      result = await notificationTriggerService.triggerPaymentOverdueAlert({
+        schoolId: getSchoolId(req),
+        invoiceId,
+        recordedBy: getUserId(req),
+      });
+    } else {
+      const daysRemaining = inv.due_date ? Math.ceil((new Date(inv.due_date) - new Date()) / (1000 * 60 * 60 * 24)) : 3;
+      result = await notificationTriggerService.triggerPaymentDueSoonAlert({
+        schoolId: getSchoolId(req),
+        invoiceId,
+        daysRemaining: Math.max(1, daysRemaining),
+        recordedBy: getUserId(req),
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Payment reminder (${isOverdue ? 'OVERDUE' : 'DUE SOON'}) dispatched successfully`,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function dispatchDueSoonReminders(req, res, next) {
+  try {
+    const days = Number(req.query.days || 3);
+    const result = await notificationTriggerService.dispatchDueSoonFeeReminders({
+      schoolId: getSchoolId(req),
+      days,
+      recordedBy: getUserId(req),
+    });
+    res.json({
+      success: true,
+      message: `Dispatched ${result.dispatchedCount} due-soon payment reminder(s) across ${result.invoicesProcessed} invoice(s)`,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function dispatchOverdueReminders(req, res, next) {
+  try {
+    const result = await notificationTriggerService.dispatchOverdueFeeReminders({
+      schoolId: getSchoolId(req),
+      recordedBy: getUserId(req),
+    });
+    res.json({
+      success: true,
+      message: `Dispatched ${result.dispatchedCount} overdue payment reminder(s) across ${result.invoicesProcessed} invoice(s)`,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -735,9 +899,13 @@ module.exports = {
   listPayments,
   getPaymentById,
   recordPayment,
+  refundPayment,
   listBankSlips,
   submitBankSlip,
   reviewBankSlip,
+  sendInvoiceReminder,
+  dispatchDueSoonReminders,
+  dispatchOverdueReminders,
   listExpenseCategories,
   createExpenseCategory,
   updateExpenseCategory,

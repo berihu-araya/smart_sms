@@ -23,9 +23,13 @@ const {
   createInvoice,
   generateBatchInvoices,
   cancelInvoice,
+  sendInvoiceReminder,
+  dispatchDueSoonReminders,
+  dispatchOverdueReminders,
   listPayments,
   getPaymentById,
   recordPayment,
+  refundPayment,
   listBankSlips,
   submitBankSlip,
   reviewBankSlip,
@@ -100,15 +104,19 @@ router.delete('/fee-discounts/:id', authorizeRoles(...ADMIN_ROLES), deleteFeeDis
 // 5. INVOICES
 router.get('/invoices/my-invoices', authorizeRoles('Parent', 'Student'), getMyInvoices);
 router.get('/invoices', authorizeRoles(...FINANCE_STAFF), listInvoices);
+router.post('/invoices/reminders/due-soon', authorizeRoles(...FINANCE_STAFF), dispatchDueSoonReminders);
+router.post('/invoices/reminders/overdue', authorizeRoles(...FINANCE_STAFF), dispatchOverdueReminders);
 router.get('/invoices/:id', authorizeRoles(...PARENT_STUDENT_STAFF), getInvoiceById);
 router.post('/invoices/batch', authorizeRoles(...FINANCE_STAFF), generateBatchInvoices);
 router.post('/invoices', authorizeRoles(...FINANCE_STAFF), createInvoice);
 router.post('/invoices/:id/cancel', authorizeRoles(...ADMIN_ROLES), cancelInvoice);
+router.post('/invoices/:id/send-reminder', authorizeRoles(...FINANCE_STAFF), sendInvoiceReminder);
 
 // 6. PAYMENTS & RECEIPTS
 router.get('/payments', authorizeRoles(...FINANCE_STAFF), listPayments);
 router.get('/payments/:id', authorizeRoles(...PARENT_STUDENT_STAFF), getPaymentById);
 router.post('/payments', authorizeRoles(...FINANCE_STAFF), recordPayment);
+router.post('/payments/:id/refund', authorizeRoles(...ADMIN_ROLES, 'Accountant'), refundPayment);
 
 // 7. BANK SLIPS
 router.get('/payments/bank-slips/list', authorizeRoles(...FINANCE_STAFF), listBankSlips);

@@ -791,75 +791,844 @@ class NotificationTriggerService {
   }
 
   /**
-   * Safe asynchronous dispatcher for fee invoices and payment due dates.
-   * Triggered when fee obligation or invoice is generated.
+   * Safe asynchronous dispatcher when a fee invoice is issued.
+   * Triggered when custom invoice is created or generated in batch.
    *
    * @param {Object} params
-   * @param {string} params.schoolId - School ID
-   * @param {string} params.studentId - Student ID
-   * @param {number|string} params.amount - Amount
-   * @param {string} params.currency - Currency (e.g., 'ETB', 'USD')
-   * @param {string} params.invoiceNumber - Invoice number
-   * @param {string} params.dueDate - Due date (YYYY-MM-DD)
-   * @param {string} params.recordedBy - User ID generating invoice
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} [params.invoiceId] - Invoice ID
+   * @param {string} [params.studentId] - Student ID
+   * @param {number|string} [params.amount] - Amount
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} [params.invoiceNumber] - Invoice number
+   * @param {string} [params.dueDate] - Due date
+   * @param {string} [params.title] - Invoice title
+   * @param {string} params.recordedBy - User ID
    */
-  async triggerFeeInvoiceAlerts({ schoolId, studentId, amount, currency = 'ETB', invoiceNumber, dueDate, recordedBy }) {
+  async triggerFeeInvoiceIssuedAlert({ schoolId, invoiceId, studentId, amount, currency = 'ETB', invoiceNumber, dueDate, title, recordedBy }) {
     try {
-      const studentQuery = `
-        SELECT 
-          s.id,
-          s.first_name,
-          s.last_name,
-          s.school_id,
-          s.user_id AS student_user_id,
-          p.user_id AS parent_user_id,
-          p.phone AS parent_phone
-        FROM students s
-        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
-        WHERE s.id = $1 AND s.deleted_at IS NULL
-      `;
+      let invMeta = null;
 
-      const studentRes = await this.database.query(studentQuery, [studentId]);
-      if (studentRes.rows.length === 0) return { dispatchedCount: 0 };
+      if (invoiceId) {
+        const invQuery = `
+          SELECT 
+            inv.id AS invoice_id,
+            inv.invoice_number,
+            inv.title,
+            inv.total_amount,
+            inv.balance_amount,
+            inv.due_date,
+            inv.school_id,
+            inv.student_id,
+            s.first_name,
+            s.last_name,
+            s.user_id AS student_user_id,
+            p.id AS parent_id,
+            p.user_id AS parent_user_id,
+            p.phone AS parent_phone
+          FROM student_fee_invoices inv
+          JOIN students s ON s.id = inv.student_id
+          LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+          WHERE inv.id = $1
+        `;
+        const res = await this.database.query(invQuery, [invoiceId]);
+        if (res.rows.length > 0) invMeta = res.rows[0];
+      }
 
-      const student = studentRes.rows[0];
-      const studentName = `${student.first_name} ${student.last_name}`.trim();
+      if (!invMeta && studentId) {
+        const sQuery = `
+          SELECT 
+            s.id AS student_id,
+            s.first_name,
+            s.last_name,
+            s.school_id,
+            s.user_id AS student_user_id,
+            p.id AS parent_id,
+            p.user_id AS parent_user_id,
+            p.phone AS parent_phone
+          FROM students s
+          LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+          WHERE s.id = $1 AND s.deleted_at IS NULL
+        `;
+        const sRes = await this.database.query(sQuery, [studentId]);
+        if (sRes.rows.length > 0) {
+          const s = sRes.rows[0];
+          invMeta = {
+            invoice_id: invoiceId || null,
+            invoice_number: invoiceNumber || 'New Invoice',
+            title: title || 'Tuition Fee',
+            total_amount: amount,
+            balance_amount: amount,
+            due_date: dueDate,
+            school_id: schoolId || s.school_id,
+            student_id: s.student_id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            student_user_id: s.student_user_id,
+            parent_id: s.parent_id,
+            parent_user_id: s.parent_user_id,
+            parent_phone: s.parent_phone,
+          };
+        }
+      }
 
-      const title = `Tuition Fee Invoice: ${invoiceNumber || 'New Due'}`;
-      const body = `An invoice of ${Number(amount).toLocaleString()} ${currency} for ${studentName} has been issued. Payment is due on ${dueDate || 'the scheduled date'}.`;
+      if (!invMeta) return { dispatchedCount: 0 };
 
-      const targetUserId = student.parent_user_id || student.student_user_id || null;
+      const studentName = `${invMeta.first_name} ${invMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || invMeta.school_id;
+      const formattedDueDate = invMeta.due_date ? new Date(invMeta.due_date).toLocaleDateString() : 'the scheduled date';
+      const dispatched = [];
 
-      const createdNotif = await this.notificationRepo.create({
-        schoolId: schoolId || student.school_id,
-        audience: student.parent_user_id ? 'PARENTS' : 'ALL',
+      const basePayload = {
+        schoolId: effectiveSchoolId,
         type: 'FINANCE',
-        priority: 'NORMAL',
-        title,
-        body,
+        priority: 'HIGH',
+        title: `Fee Invoice Issued: ${invMeta.invoice_number}`,
+        body: `An invoice of ${Number(invMeta.total_amount).toLocaleString()} ${currency} for ${studentName} (${invMeta.title || 'Tuition Fee'}) has been issued. Payment is due on ${formattedDueDate}.`,
         actionUrl: '/dashboard/fees',
         actionLabel: 'View Fee Statement',
         channel: 'IN_APP_AND_SMS',
         metadata: {
-          studentId,
+          studentId: invMeta.student_id,
           studentName,
-          amount,
-          currency,
-          invoiceNumber,
-          dueDate,
-          parentPhone: student.parent_phone,
+          invoiceId: invMeta.invoice_id,
+          invoiceNumber: invMeta.invoice_number,
+          amount: invMeta.total_amount,
+          balance: invMeta.balance_amount,
+          dueDate: invMeta.due_date,
+          parentPhone: invMeta.parent_phone,
         },
-        recipientUserId: targetUserId,
         publishedAt: new Date(),
         createdBy: recordedBy,
-      });
+      };
 
-      console.log(`[NotificationTriggerService] Dispatched Fee Invoice notification for ${studentName}.`);
-      return { dispatchedCount: 1, notification: createdNotif };
+      // Deliver directly to parent user account if linked
+      if (invMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: invMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      // Deliver directly to student user account if linked
+      if (invMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: invMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      // If neither has a linked web account yet, create institutional notification with studentId in metadata
+      if (!invMeta.parent_user_id && !invMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched ${dispatched.length} Fee Invoice alert(s) for ${studentName} (${invMeta.invoice_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
     } catch (error) {
-      console.error('[NotificationTriggerService] Failed to dispatch fee alert:', error);
+      console.error('[NotificationTriggerService] Failed to dispatch fee invoice alert:', error);
       return { dispatchedCount: 0, error: error.message };
     }
+  }
+
+  // Alias for backward compatibility
+  async triggerFeeInvoiceAlerts(params) {
+    return this.triggerFeeInvoiceIssuedAlert(params);
+  }
+
+  /**
+   * Safe asynchronous dispatcher when an invoice payment is due soon.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.invoiceId - Invoice ID
+   * @param {number} [params.daysRemaining] - Days remaining until due date
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerPaymentDueSoonAlert({ schoolId, invoiceId, daysRemaining, currency = 'ETB', recordedBy }) {
+    if (!invoiceId) return { dispatchedCount: 0 };
+
+    try {
+      const invQuery = `
+        SELECT 
+          inv.id AS invoice_id,
+          inv.invoice_number,
+          inv.title,
+          inv.total_amount,
+          inv.balance_amount,
+          inv.due_date,
+          inv.school_id,
+          inv.student_id,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM student_fee_invoices inv
+        JOIN students s ON s.id = inv.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE inv.id = $1 AND inv.deleted_at IS NULL
+      `;
+      const res = await this.database.query(invQuery, [invoiceId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const invMeta = res.rows[0];
+      const studentName = `${invMeta.first_name} ${invMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || invMeta.school_id;
+      const formattedDueDate = invMeta.due_date ? new Date(invMeta.due_date).toLocaleDateString() : 'soon';
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'HIGH',
+        title: `Payment Reminder: ${invMeta.invoice_number} Due Soon`,
+        body: `Payment reminder: Fee invoice ${invMeta.invoice_number} for ${studentName} with outstanding balance of ${Number(invMeta.balance_amount).toLocaleString()} ${currency} is due ${daysRemaining ? `in ${daysRemaining} day(s)` : 'soon'} (${formattedDueDate}). Please settle promptly.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'Pay Now',
+        channel: 'IN_APP_AND_SMS',
+        metadata: {
+          studentId: invMeta.student_id,
+          studentName,
+          invoiceId: invMeta.invoice_id,
+          invoiceNumber: invMeta.invoice_number,
+          amount: invMeta.balance_amount,
+          dueDate: invMeta.due_date,
+          parentPhone: invMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (invMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: invMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (invMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: invMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!invMeta.parent_user_id && !invMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Payment Due Soon alert for ${studentName} (${invMeta.invoice_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch payment due soon alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Safe asynchronous dispatcher when an invoice payment is overdue.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.invoiceId - Invoice ID
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerPaymentOverdueAlert({ schoolId, invoiceId, currency = 'ETB', recordedBy }) {
+    if (!invoiceId) return { dispatchedCount: 0 };
+
+    try {
+      const invQuery = `
+        SELECT 
+          inv.id AS invoice_id,
+          inv.invoice_number,
+          inv.title,
+          inv.total_amount,
+          inv.balance_amount,
+          inv.due_date,
+          inv.school_id,
+          inv.student_id,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM student_fee_invoices inv
+        JOIN students s ON s.id = inv.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE inv.id = $1 AND inv.deleted_at IS NULL
+      `;
+      const res = await this.database.query(invQuery, [invoiceId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const invMeta = res.rows[0];
+      const studentName = `${invMeta.first_name} ${invMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || invMeta.school_id;
+      const formattedDueDate = invMeta.due_date ? new Date(invMeta.due_date).toLocaleDateString() : 'the scheduled date';
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'URGENT',
+        title: `Payment Overdue: Invoice ${invMeta.invoice_number}`,
+        body: `Urgent Notice: Fee invoice ${invMeta.invoice_number} for ${studentName} (${Number(invMeta.balance_amount).toLocaleString()} ${currency}) is now overdue (was due on ${formattedDueDate}). Please settle the outstanding balance immediately.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'View Fee Statement',
+        channel: 'IN_APP_AND_SMS',
+        metadata: {
+          studentId: invMeta.student_id,
+          studentName,
+          invoiceId: invMeta.invoice_id,
+          invoiceNumber: invMeta.invoice_number,
+          amount: invMeta.balance_amount,
+          dueDate: invMeta.due_date,
+          isOverdue: true,
+          parentPhone: invMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (invMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: invMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (invMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: invMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!invMeta.parent_user_id && !invMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Payment Overdue alert for ${studentName} (${invMeta.invoice_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch payment overdue alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Safe asynchronous dispatcher when payment is confirmed and receipt generated.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.paymentId - Payment ID
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerPaymentConfirmedAlert({ schoolId, paymentId, currency = 'ETB', recordedBy }) {
+    if (!paymentId) return { dispatchedCount: 0 };
+
+    try {
+      const payQuery = `
+        SELECT 
+          pay.id AS payment_id,
+          pay.receipt_number,
+          pay.amount,
+          pay.payment_method,
+          pay.payment_date,
+          pay.school_id,
+          pay.invoice_id,
+          pay.student_id,
+          inv.invoice_number,
+          inv.balance_amount,
+          inv.total_amount,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM fee_payments pay
+        JOIN student_fee_invoices inv ON inv.id = pay.invoice_id
+        JOIN students s ON s.id = pay.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE pay.id = $1
+      `;
+      const res = await this.database.query(payQuery, [paymentId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const payMeta = res.rows[0];
+      const studentName = `${payMeta.first_name} ${payMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || payMeta.school_id;
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'HIGH',
+        title: `Payment Confirmed: Receipt ${payMeta.receipt_number}`,
+        body: `Payment of ${Number(payMeta.amount).toLocaleString()} ${currency} for ${studentName} has been confirmed. Official Receipt ${payMeta.receipt_number} generated. Remaining balance: ${Number(payMeta.balance_amount).toLocaleString()} ${currency}.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'View Receipt',
+        channel: 'IN_APP_AND_SMS',
+        metadata: {
+          studentId: payMeta.student_id,
+          studentName,
+          paymentId: payMeta.payment_id,
+          receiptNumber: payMeta.receipt_number,
+          invoiceId: payMeta.invoice_id,
+          invoiceNumber: payMeta.invoice_number,
+          amountPaid: payMeta.amount,
+          remainingBalance: payMeta.balance_amount,
+          parentPhone: payMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (payMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: payMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (payMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: payMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!payMeta.parent_user_id && !payMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Payment Confirmed alert for ${studentName} (Receipt: ${payMeta.receipt_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch payment confirmed alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Safe asynchronous dispatcher when a bank slip or payment is rejected.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.submissionId - Bank slip submission ID
+   * @param {string} [params.rejectionReason] - Reason for rejection
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerPaymentRejectedAlert({ schoolId, submissionId, rejectionReason, currency = 'ETB', recordedBy }) {
+    if (!submissionId) return { dispatchedCount: 0 };
+
+    try {
+      const slipQuery = `
+        SELECT 
+          slip.id AS submission_id,
+          slip.reference_number,
+          slip.amount,
+          slip.status,
+          slip.rejection_reason,
+          slip.school_id,
+          slip.student_id,
+          slip.invoice_id,
+          inv.invoice_number,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM bank_slip_submissions slip
+        LEFT JOIN student_fee_invoices inv ON inv.id = slip.invoice_id
+        JOIN students s ON s.id = slip.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE slip.id = $1
+      `;
+      const res = await this.database.query(slipQuery, [submissionId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const slipMeta = res.rows[0];
+      const studentName = `${slipMeta.first_name} ${slipMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || slipMeta.school_id;
+      const effectiveReason = rejectionReason || slipMeta.rejection_reason || 'Verification rejected by finance office';
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'URGENT',
+        title: `Payment Rejected: ${slipMeta.reference_number || 'Bank Slip'}`,
+        body: `Your bank deposit slip for ${studentName} (${Number(slipMeta.amount).toLocaleString()} ${currency}) was rejected. Reason: ${effectiveReason}. Please check your fee statement and resubmit valid payment proof.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'View Fee Statement',
+        channel: 'IN_APP_AND_SMS',
+        metadata: {
+          studentId: slipMeta.student_id,
+          studentName,
+          submissionId: slipMeta.submission_id,
+          invoiceId: slipMeta.invoice_id,
+          amount: slipMeta.amount,
+          rejectionReason: effectiveReason,
+          parentPhone: slipMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (slipMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: slipMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (slipMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: slipMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!slipMeta.parent_user_id && !slipMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Payment Rejected alert for ${studentName}.`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch payment rejected alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Safe asynchronous dispatcher when an invoice is cancelled or reversed.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.invoiceId - Invoice ID
+   * @param {string} [params.reason] - Reason for cancellation
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerInvoiceCancelledAlert({ schoolId, invoiceId, reason, currency = 'ETB', recordedBy }) {
+    if (!invoiceId) return { dispatchedCount: 0 };
+
+    try {
+      const invQuery = `
+        SELECT 
+          inv.id AS invoice_id,
+          inv.invoice_number,
+          inv.total_amount,
+          inv.school_id,
+          inv.student_id,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM student_fee_invoices inv
+        JOIN students s ON s.id = inv.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE inv.id = $1
+      `;
+      const res = await this.database.query(invQuery, [invoiceId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const invMeta = res.rows[0];
+      const studentName = `${invMeta.first_name} ${invMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || invMeta.school_id;
+      const effectiveReason = reason || 'Administrative adjustment';
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'NORMAL',
+        title: `Fee Adjustment: Invoice ${invMeta.invoice_number} Cancelled`,
+        body: `Fee invoice ${invMeta.invoice_number} for ${studentName} (${Number(invMeta.total_amount).toLocaleString()} ${currency}) has been cancelled. Reason: ${effectiveReason}.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'View Fee Statement',
+        channel: 'IN_APP',
+        metadata: {
+          studentId: invMeta.student_id,
+          studentName,
+          invoiceId: invMeta.invoice_id,
+          invoiceNumber: invMeta.invoice_number,
+          reason: effectiveReason,
+          parentPhone: invMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (invMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: invMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (invMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: invMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!invMeta.parent_user_id && !invMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Invoice Cancelled alert for ${studentName} (${invMeta.invoice_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch invoice cancelled alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Scans and dispatches reminders for invoices due within the given timeframe.
+   */
+  async dispatchDueSoonFeeReminders({ schoolId, days = 3, recordedBy }) {
+    try {
+      const query = `
+        SELECT id, due_date
+        FROM student_fee_invoices
+        WHERE (school_id = $1 OR $1::uuid IS NULL)
+          AND status IN ('UNPAID', 'PARTIALLY_PAID')
+          AND due_date IS NOT NULL
+          AND due_date >= CURRENT_DATE
+          AND due_date <= (CURRENT_DATE + ($2 || ' days')::interval)
+          AND deleted_at IS NULL
+      `;
+      const res = await this.database.query(query, [schoolId || null, days]);
+      let count = 0;
+      for (const row of res.rows) {
+        const diffTime = Math.ceil((new Date(row.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+        const remRes = await this.triggerPaymentDueSoonAlert({
+          schoolId,
+          invoiceId: row.id,
+          daysRemaining: Math.max(1, diffTime),
+          recordedBy,
+        });
+        count += remRes.dispatchedCount || 0;
+      }
+      return { dispatchedCount: count, invoicesProcessed: res.rows.length };
+    } catch (err) {
+      console.error('[NotificationTriggerService] dispatchDueSoonFeeReminders error:', err);
+      return { dispatchedCount: 0, error: err.message };
+    }
+  }
+
+  /**
+   * Scans and dispatches reminders for overdue invoices.
+   */
+  async dispatchOverdueFeeReminders({ schoolId, recordedBy }) {
+    try {
+      const query = `
+        SELECT id
+        FROM student_fee_invoices
+        WHERE (school_id = $1 OR $1::uuid IS NULL)
+          AND status IN ('UNPAID', 'PARTIALLY_PAID', 'OVERDUE')
+          AND due_date IS NOT NULL
+          AND due_date < CURRENT_DATE
+          AND deleted_at IS NULL
+      `;
+      const res = await this.database.query(query, [schoolId || null]);
+      let count = 0;
+      for (const row of res.rows) {
+        const remRes = await this.triggerPaymentOverdueAlert({
+          schoolId,
+          invoiceId: row.id,
+          recordedBy,
+        });
+        count += remRes.dispatchedCount || 0;
+      }
+      return { dispatchedCount: count, invoicesProcessed: res.rows.length };
+    } catch (err) {
+      console.error('[NotificationTriggerService] dispatchOverdueFeeReminders error:', err);
+      return { dispatchedCount: 0, error: err.message };
+    }
+  }
+
+  /**
+   * Safe asynchronous dispatcher when a fee payment refund is processed or reversed.
+   *
+   * @param {Object} params
+   * @param {string} [params.schoolId] - School ID
+   * @param {string} params.paymentId - Payment ID
+   * @param {number|string} [params.refundAmount] - Refund amount
+   * @param {string} [params.reason] - Refund reason
+   * @param {string} [params.currency] - Currency (default 'ETB')
+   * @param {string} params.recordedBy - User ID
+   */
+  async triggerRefundProcessedAlert({ schoolId, paymentId, refundAmount, reason, currency = 'ETB', recordedBy }) {
+    if (!paymentId) return { dispatchedCount: 0 };
+
+    try {
+      const payQuery = `
+        SELECT 
+          pay.id AS payment_id,
+          pay.receipt_number,
+          pay.amount,
+          pay.payment_method,
+          pay.school_id,
+          pay.invoice_id,
+          pay.student_id,
+          inv.invoice_number,
+          inv.balance_amount,
+          inv.total_amount,
+          s.first_name,
+          s.last_name,
+          s.user_id AS student_user_id,
+          p.id AS parent_id,
+          p.user_id AS parent_user_id,
+          p.phone AS parent_phone
+        FROM fee_payments pay
+        JOIN student_fee_invoices inv ON inv.id = pay.invoice_id
+        JOIN students s ON s.id = pay.student_id
+        LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+        WHERE pay.id = $1
+      `;
+      const res = await this.database.query(payQuery, [paymentId]);
+      if (res.rows.length === 0) return { dispatchedCount: 0 };
+
+      const payMeta = res.rows[0];
+      const studentName = `${payMeta.first_name} ${payMeta.last_name}`.trim();
+      const effectiveSchoolId = schoolId || payMeta.school_id;
+      const effectiveAmount = refundAmount || payMeta.amount;
+      const effectiveReason = reason || 'Administrative fee refund / payment reversal';
+      const dispatched = [];
+
+      const basePayload = {
+        schoolId: effectiveSchoolId,
+        type: 'FINANCE',
+        priority: 'HIGH',
+        title: `Refund Processed: Receipt ${payMeta.receipt_number}`,
+        body: `A refund/reversal of ${Number(effectiveAmount).toLocaleString()} ${currency} for ${studentName} (Receipt ${payMeta.receipt_number}, Invoice ${payMeta.invoice_number}) has been processed. Reason: ${effectiveReason}. Current invoice balance: ${Number(payMeta.balance_amount).toLocaleString()} ${currency}.`,
+        actionUrl: '/dashboard/fees',
+        actionLabel: 'View Fee Statement',
+        channel: 'IN_APP_AND_SMS',
+        metadata: {
+          studentId: payMeta.student_id,
+          studentName,
+          paymentId: payMeta.payment_id,
+          receiptNumber: payMeta.receipt_number,
+          invoiceId: payMeta.invoice_id,
+          invoiceNumber: payMeta.invoice_number,
+          refundAmount: effectiveAmount,
+          remainingBalance: payMeta.balance_amount,
+          reason: effectiveReason,
+          parentPhone: payMeta.parent_phone,
+        },
+        publishedAt: new Date(),
+        createdBy: recordedBy,
+      };
+
+      if (payMeta.parent_user_id) {
+        const parentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: payMeta.parent_user_id,
+        });
+        dispatched.push(parentNotif);
+      }
+
+      if (payMeta.student_user_id) {
+        const studentNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'STUDENTS',
+          recipientUserId: payMeta.student_user_id,
+        });
+        dispatched.push(studentNotif);
+      }
+
+      if (!payMeta.parent_user_id && !payMeta.student_user_id) {
+        const scopedNotif = await this.notificationRepo.create({
+          ...basePayload,
+          audience: 'PARENTS',
+          recipientUserId: null,
+        });
+        dispatched.push(scopedNotif);
+      }
+
+      console.log(`[NotificationTriggerService] Dispatched Refund/Reversal alert for ${studentName} (Receipt: ${payMeta.receipt_number}).`);
+      return { dispatchedCount: dispatched.length, alerts: dispatched };
+    } catch (error) {
+      console.error('[NotificationTriggerService] Failed to dispatch refund processed alert:', error);
+      return { dispatchedCount: 0, error: error.message };
+    }
+  }
+
+  // Alias for Payment Reversed
+  async triggerPaymentReversedAlert(params) {
+    return this.triggerRefundProcessedAlert(params);
   }
 }
 

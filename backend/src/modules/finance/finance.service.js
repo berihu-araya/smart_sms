@@ -225,6 +225,7 @@ class FinanceService {
 
       let totalGenerated = 0;
       let totalAmountSum = 0;
+      const generatedInvoiceIds = [];
 
       for (const student of studentsRes.rows) {
         runningCount++;
@@ -275,6 +276,7 @@ class FinanceService {
           ] // this query inserts a new invoice record for each student in the batch, calculating the subtotal based on the applicable fee structures. It returns the newly created invoice ID for inserting the associated line items.
         );
         const invoiceId = invRes.rows[0].id;
+        generatedInvoiceIds.push(invoiceId);
 
         for (const item of items) {
           await client.query(
@@ -301,6 +303,7 @@ class FinanceService {
       return {
         totalGenerated,
         totalAmount: totalAmountSum,
+        invoiceIds: generatedInvoiceIds,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -447,6 +450,83 @@ class FinanceService {
       }
 
       return payment;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async refundPayment(schoolId, userId, paymentId, refundData = {}) {
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const payRes = await client.query(
+        `SELECT p.*, inv.total_amount, inv.paid_amount as invoice_paid_amount, inv.balance_amount as invoice_balance_amount, inv.status as invoice_status
+         FROM fee_payments p
+         JOIN student_fee_invoices inv ON inv.id = p.invoice_id
+         WHERE p.id = $1 AND (p.school_id = $2 OR p.school_id IS NULL) AND p.deleted_at IS NULL
+         FOR UPDATE`,
+        [paymentId, schoolId]
+      );
+
+      if (payRes.rows.length === 0) {
+        throw new Error('Payment record not found');
+      }
+
+      const payment = payRes.rows[0];
+      if (payment.status === 'REFUNDED' || payment.status === 'REVERSED') {
+        throw new Error(`Payment has already been ${payment.status.toLowerCase()}`);
+      }
+
+      const refundAmount = refundData.amount !== undefined ? Number(refundData.amount) : Number(payment.amount);
+      if (refundAmount <= 0) {
+        throw new Error('Refund amount must be greater than zero');
+      }
+      if (refundAmount > Number(payment.amount)) {
+        throw new Error(`Refund amount (${refundAmount}) cannot exceed paid amount of (${payment.amount})`);
+      }
+
+      const reason = refundData.reason || 'Payment reversal or student refund';
+
+      // Update payment record
+      const updatedPayRes = await client.query(
+        `UPDATE fee_payments
+         SET status = 'REFUNDED',
+             remarks = CONCAT(COALESCE(remarks, ''), ' [Refunded ', $1::numeric, ': ', $2::text, ']'),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+         RETURNING *`,
+        [refundAmount, reason, paymentId]
+      );
+      const updatedPayment = updatedPayRes.rows[0];
+
+      // Restore invoice balances
+      const currentPaid = Number(payment.invoice_paid_amount);
+      const newPaid = Math.max(0, currentPaid - refundAmount);
+      const totalAmount = Number(payment.total_amount);
+      const newBalance = Math.max(0, totalAmount - newPaid);
+      const newStatus = newPaid <= 0 ? 'UNPAID' : 'PARTIALLY_PAID';
+
+      await client.query(
+        `UPDATE student_fee_invoices
+         SET paid_amount = $1, balance_amount = $2, status = $3, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4`,
+        [newPaid, newBalance, newStatus, payment.invoice_id]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        payment: updatedPayment,
+        refundAmount,
+        reason,
+        invoiceId: payment.invoice_id,
+        newBalance,
+        newStatus,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
