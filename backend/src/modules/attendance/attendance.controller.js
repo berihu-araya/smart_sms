@@ -7,6 +7,7 @@ const {
   isValidDate,
 } = require('./attendance.validation');
 const { db } = require('../../config/database');
+const triggerService = require('../notifications/notification-trigger.service');
 
 const attendanceService = new AttendanceService(new AttendanceRepository(db));
 
@@ -77,13 +78,23 @@ async function recordBulkAttendance(req, res, next) {
   }
 
   try {
-    const recordedBy = req.user ? req.user.id : null;
+    const recordedBy = req.user ? (req.user.id || req.user.sub) : null;
     const data = await attendanceService.saveBulkAttendance({
       sectionId: input.sectionId,
       date: input.date,
       academicYearId: input.academicYearId,
       recordedBy,
       records: input.records,
+    });
+
+    // Asynchronously dispatch automated absence and late arrival alerts
+    triggerService.triggerAttendanceAlerts({
+      schoolId: req.user?.school_id,
+      date: input.date,
+      records: input.records,
+      recordedBy,
+    }).catch((err) => {
+      console.error('[AttendanceController] Notification dispatch error:', err);
     });
 
     return res.status(200).json({

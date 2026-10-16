@@ -13,6 +13,7 @@ import {
 } from '@/services/attendanceService';
 import { listGrades } from '@/services/gradeService';
 import { listSections } from '@/services/sectionService';
+import { emitNotificationChange } from '@/services/notificationService';
 import {
   HiUsers,
   HiCheckCircle,
@@ -414,6 +415,7 @@ function AttendancePageContent() {
       };
 
       await saveBulkAttendance(payload);
+      emitNotificationChange();
       setAlert({
         type: 'success',
         message: `Attendance for ${roster.length} students saved successfully!`,

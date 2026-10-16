@@ -43,6 +43,14 @@ class NotificationRepository {
             AND (n.grade_id IS NULL OR n.grade_id = (SELECT sec.grade_id FROM sections sec WHERE sec.id = s.section_id))
             AND (n.section_id IS NULL OR n.section_id = s.section_id)
         )
+      )
+      AND (
+        n.metadata->>'studentId' IS NULL
+        OR EXISTS (
+          SELECT 1 FROM students s
+          WHERE s.user_id = $${userParamIndex} AND s.deleted_at IS NULL
+            AND s.id::text = (n.metadata->>'studentId')
+        )
       )`;
     } else if (isParent) {
       roleHierarchyScope = `AND (
@@ -53,6 +61,15 @@ class NotificationRepository {
           WHERE p.user_id = $${userParamIndex} AND p.deleted_at IS NULL
             AND (n.grade_id IS NULL OR n.grade_id = (SELECT sec.grade_id FROM sections sec WHERE sec.id = s.section_id))
             AND (n.section_id IS NULL OR n.section_id = s.section_id)
+        )
+      )
+      AND (
+        n.metadata->>'studentId' IS NULL
+        OR EXISTS (
+          SELECT 1 FROM parents p
+          JOIN students s ON s.parent_id = p.id AND s.deleted_at IS NULL
+          WHERE p.user_id = $${userParamIndex} AND p.deleted_at IS NULL
+            AND s.id::text = (n.metadata->>'studentId')
         )
       )`;
     } else if (isTeacher) {
@@ -70,18 +87,27 @@ class NotificationRepository {
       )`;
     }
 
+    let recipientCondition;
+    if (isAdmin) {
+      recipientCondition = 'true';
+    } else {
+      recipientCondition = `(
+        (
+          n.recipient_user_id = $${userParamIndex}
+          OR (
+            n.recipient_user_id IS NULL
+            AND (${audienceCondition})
+          )
+        )
+        ${roleHierarchyScope}
+      )`;
+    }
+
     const whereClause = `
       n.deleted_at IS NULL
       AND (n.school_id IS NULL OR n.school_id = $${schoolParamIndex})
       AND n.published_at <= CURRENT_TIMESTAMP
-      AND (
-        n.recipient_user_id = $${userParamIndex}
-        OR (
-          n.recipient_user_id IS NULL
-          AND (${audienceCondition})
-          ${roleHierarchyScope}
-        )
-      )
+      AND ${recipientCondition}
     `;
 
     return { whereClause, values, userParamIndex };
