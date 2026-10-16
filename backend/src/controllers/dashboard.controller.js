@@ -9,7 +9,17 @@ async function getSchoolScope(user = {}) {
     schoolId = rows[0]?.school_id;
   }
 
-  return schoolId ? { clause: 'school_id = $1', values: [schoolId] } : { clause: 'TRUE', values: [] };
+  const filter = (tablePrefix = '') => {
+    const col = tablePrefix ? `${tablePrefix}.school_id` : 'school_id';
+    return schoolId ? `(${col} = $1 OR ${col} IS NULL)` : 'TRUE';
+  };
+
+  return {
+    schoolId: schoolId || null,
+    filter,
+    clause: filter(),
+    values: schoolId ? [schoolId] : [],
+  };
 }
 
 async function safeQuery(text, values = [], label) {
@@ -887,7 +897,7 @@ async function getTeacherDashboard(req, res) {
           return await getTeacherDashboard(req, res);
         }
         const scope = await getSchoolScope(req.user);
-        const active = (table) => `${scope.clause} AND ${table}.deleted_at IS NULL`;
+        const active = (table) => `${scope.filter(table)} AND ${table}.deleted_at IS NULL`;
         const { values } = scope;
         const count = (rows) => Number(rows[0]?.count || 0);
 
@@ -923,10 +933,14 @@ async function getTeacherDashboard(req, res) {
         ] = await Promise.all([
           safeQuery(`SELECT COUNT(*)::int AS count FROM students WHERE ${active('students')}`, values, 'students'),
           safeQuery(`SELECT COUNT(*)::int AS count FROM teachers WHERE ${active('teachers')}`, values, 'teachers'),
-          safeQuery(`SELECT COUNT(*)::int AS count FROM schools WHERE ${active('schools')}`, values, 'schools'),
+          scope.schoolId
+            ? safeQuery(`SELECT COUNT(*)::int AS count FROM schools WHERE (schools.id = $1 OR $1 IS NULL) AND schools.deleted_at IS NULL`, values, 'schools')
+            : safeQuery(`SELECT COUNT(*)::int AS count FROM schools WHERE schools.deleted_at IS NULL`, [], 'schools'),
           safeQuery(`SELECT COUNT(*)::int AS count FROM academic_years WHERE ${active('academic_years')}`, values, 'academic years'),
           safeQuery(`SELECT COUNT(*)::int AS count FROM sections WHERE ${active('sections')}`, values, 'sections'),
-          safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects WHERE ${active('teacher_subjects')}`, values, 'teacher assignments'),
+          scope.schoolId
+            ? safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects ts LEFT JOIN teachers t ON t.id = ts.teacher_id WHERE ${scope.filter('t')} AND ts.deleted_at IS NULL`, values, 'teacher assignments')
+            : safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects ts WHERE ts.deleted_at IS NULL`, [], 'teacher assignments'),
           safeQuery(`SELECT name FROM academic_years WHERE ${active('academic_years')} ORDER BY start_date DESC, created_at DESC LIMIT 1`, values, 'active academic year'),
           safeQuery(`
             SELECT
@@ -950,14 +964,14 @@ async function getTeacherDashboard(req, res) {
             SELECT ROUND(AVG(score), 1)::float AS average_score,
               ROUND(100.0 * COUNT(*) FILTER (WHERE score >= 50) / NULLIF(COUNT(*), 0), 1)::float AS pass_rate
             FROM marks
-            WHERE ${scope.clause}
+            WHERE ${scope.filter('marks')}
           `, values, 'performance summary'),
           safeQuery(`
             SELECT bucket AS label, COUNT(*)::int AS count
             FROM (
               SELECT CASE WHEN score >= 85 THEN '85-100' WHEN score >= 70 THEN '70-84' WHEN score >= 50 THEN '50-69' ELSE 'Below 50' END AS bucket
               FROM marks
-              WHERE ${scope.clause}
+              WHERE ${scope.filter('marks')}
             ) scores
             GROUP BY bucket
             ORDER BY CASE bucket WHEN '85-100' THEN 1 WHEN '70-84' THEN 2 WHEN '50-69' THEN 3 ELSE 4 END
