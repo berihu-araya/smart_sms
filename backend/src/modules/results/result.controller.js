@@ -2,6 +2,7 @@ const ResultRepository = require('./result.repository');
 const ResultService = require('./result.service');
 const { isValidUUID } = require('../exams/exam.validation');
 const { db } = require('../../config/database');
+const notificationTriggerService = require('../notifications/notification-trigger.service');
 
 const resultService = new ResultService(new ResultRepository(db));
 
@@ -315,9 +316,51 @@ async function getAcademicReport(req, res, next) {
   }
 }
 
+async function publishSectionReportCards(req, res, next) {
+  const { sectionId, term, academicYearId } = req.body;
+  if (!sectionId || !isValidUUID(sectionId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid sectionId is required',
+      data: null,
+    });
+  }
+
+  try {
+    const role = (req.user?.role || '').toLowerCase();
+    if (role.includes('teacher') && !role.includes('admin')) {
+      const isHomeroomClassTeacher = req.teacherScope?.homeroom_section_ids?.includes(sectionId);
+      if (!isHomeroomClassTeacher) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only the assigned homeroom class teacher or an administrator can publish section report cards',
+          data: null,
+        });
+      }
+    }
+
+    const result = await notificationTriggerService.triggerReportCardPublishedAlert({
+      schoolId: req.user?.school_id,
+      sectionId,
+      term: term || 'Current Term',
+      academicYearId: academicYearId && isValidUUID(academicYearId) ? academicYearId : null,
+      recordedBy: req.user?.sub,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Report cards officially published and notifications dispatched successfully',
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getSectionResults,
   getStudentReportCard,
   getAcademicReport,
+  publishSectionReportCards,
 };
 

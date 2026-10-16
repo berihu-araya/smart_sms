@@ -6,6 +6,7 @@ const {
   isValidUUID,
 } = require('./exam.validation');
 const { db } = require('../../config/database');
+const notificationTriggerService = require('../notifications/notification-trigger.service');
 
 const examService = new ExamService(new ExamRepository(db));
 
@@ -141,6 +142,18 @@ async function createExam(req, res, next) {
 
   try {
     const data = await examService.createExam(input);
+
+    // Non-blocking notification if exam is scheduled and published immediately
+    if (data && data.is_published) {
+      notificationTriggerService.triggerExamScheduledAlert({
+        schoolId: req.user?.school_id,
+        exam: data,
+        recordedBy: req.user?.sub,
+      }).catch((err) => {
+        console.error('[exam.controller] Failed to dispatch exam scheduled alert:', err);
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Exam created successfully',
@@ -195,6 +208,19 @@ async function updateExam(req, res, next) {
     }
 
     const data = await examService.updateExam(req.params.id, input);
+
+    // Non-blocking notification if exam schedule or timetable details updated
+    if (data) {
+      notificationTriggerService.triggerExamScheduleChangedAlert({
+        schoolId: req.user?.school_id,
+        exam: data,
+        oldExam: existing,
+        recordedBy: req.user?.sub,
+      }).catch((err) => {
+        console.error('[exam.controller] Failed to dispatch exam schedule changed alert:', err);
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Exam updated successfully',
@@ -227,6 +253,18 @@ async function togglePublishExam(req, res, next) {
 
     const isPublished = Boolean(req.body.isPublished);
     const data = await examService.togglePublish(req.params.id, isPublished);
+
+    // If publishing exam, dispatch official schedule notification to grade
+    if (data && isPublished) {
+      notificationTriggerService.triggerExamScheduledAlert({
+        schoolId: req.user?.school_id,
+        exam: data,
+        recordedBy: req.user?.sub,
+      }).catch((err) => {
+        console.error('[exam.controller] Failed to dispatch exam scheduled alert:', err);
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: `Exam ${isPublished ? 'published' : 'unpublished'} successfully`,

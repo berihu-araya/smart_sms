@@ -8,6 +8,7 @@ const {
   validateGradeSubmissionInput,
 } = require('./assignment.validation');
 const { db } = require('../../config/database');
+const notificationTriggerService = require('../notifications/notification-trigger.service');
 
 const assignmentService = new AssignmentService(new AssignmentRepository(db));
 
@@ -124,6 +125,17 @@ async function createAssignment(req, res, next) {
     const scope = await assignmentService.resolveUserScope(req.user);
     const data = await assignmentService.createAssignment(input, req.user, scope.teacherId);
 
+    // Non-blocking notification if assignment is published immediately
+    if (data && data.status === 'PUBLISHED') {
+      notificationTriggerService.triggerAssignmentCreatedAlert({
+        schoolId: req.user?.school_id,
+        assignment: data,
+        recordedBy: req.user?.sub,
+      }).catch((err) => {
+        console.error('[assignment.controller] Failed to dispatch assignment created alert:', err);
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Assignment created successfully',
@@ -206,6 +218,18 @@ async function toggleStatus(req, res, next) {
     }
 
     const data = await assignmentService.toggleStatus(id, status);
+
+    // If publishing assignment, dispatch announcement to relevant class/section
+    if (data && status.toUpperCase() === 'PUBLISHED') {
+      notificationTriggerService.triggerAssignmentCreatedAlert({
+        schoolId: req.user?.school_id,
+        assignment: data,
+        recordedBy: req.user?.sub,
+      }).catch((err) => {
+        console.error('[assignment.controller] Failed to dispatch assignment created alert:', err);
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: `Assignment marked as ${status.toUpperCase()}`,
@@ -392,6 +416,15 @@ async function gradeSubmission(req, res, next) {
       validation,
       scope.teacherId
     );
+
+    // Non-blocking notification to student and parents with feedback and marks
+    notificationTriggerService.triggerAssignmentGradedAlert({
+      schoolId: req.user?.school_id,
+      submissionId,
+      recordedBy: req.user?.sub,
+    }).catch((err) => {
+      console.error('[assignment.controller] Failed to dispatch assignment graded alert:', err);
+    });
 
     return res.status(200).json({
       success: true,

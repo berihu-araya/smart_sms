@@ -7,6 +7,7 @@ const {
   isValidUUID,
 } = require('./mark.validation');
 const { db } = require('../../config/database');
+const notificationTriggerService = require('../notifications/notification-trigger.service');
 
 const markService = new MarkService(new MarkRepository(db), new ExamRepository(db));
 
@@ -107,6 +108,18 @@ async function saveBatchMarks(req, res, next) {
       sectionId: input.sectionId,
       teacherId,
       marks: input.marks,
+    });
+
+    // Non-blocking academic results & gradebook publication notification
+    notificationTriggerService.triggerExamResultsAlerts({
+      schoolId: req.user?.school_id,
+      examId: input.examId,
+      subjectId: input.subjectId,
+      sectionId: input.sectionId,
+      marks: input.marks,
+      recordedBy: req.user?.sub,
+    }).catch((err) => {
+      console.error('[mark.controller] Failed to dispatch exam results notification:', err);
     });
 
     return res.status(200).json({

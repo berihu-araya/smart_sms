@@ -37,9 +37,18 @@ async function testParentIsolation() {
   console.log(`Parent saw ${result.rows.length} notifications:`);
   console.table(result.rows);
 
-  const hasOtherStudent = result.rows.some((r) => r.title.includes('Tsegay'));
-  if (hasOtherStudent) {
-    console.error('❌ FAILURE: Parent can see other students notifications!');
+  const childRes = await db.query(
+    `SELECT s.id FROM students s JOIN parents p ON p.id = s.parent_id WHERE p.user_id = $1`,
+    [parentUserId]
+  );
+  const allowedStudentIds = new Set(childRes.rows.map((r) => r.id));
+
+  const leakedNotification = result.rows.find(
+    (r) => r.notif_student_id && !allowedStudentIds.has(r.notif_student_id)
+  );
+
+  if (leakedNotification) {
+    console.error('❌ FAILURE: Parent can see other students notifications!', leakedNotification);
     process.exit(1);
   } else {
     console.log('✅ SUCCESS: Parent ONLY sees their own children notifications and general broadcasts!');
