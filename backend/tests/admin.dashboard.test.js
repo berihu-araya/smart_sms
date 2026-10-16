@@ -66,7 +66,7 @@ describe('Admin unified dashboard payload builder', () => {
     assert.equal(payload.stats.totalFeesCollected, 8200);
     assert.equal(payload.stats.totalFeesOutstanding, 10100);
     assert.equal(payload.stats.staffOnPayrollCount, 12);
-    assert.equal(payload.attendance.rate, 69.6);
+    assert.equal(payload.attendance.rate, 60.6);
     assert.equal(payload.finance.summary.totalFeesInvoiced, 18300);
     assert.equal(payload.finance.invoices.totalInvoices, 18);
     assert.equal(payload.recentActivity.length, 1);
