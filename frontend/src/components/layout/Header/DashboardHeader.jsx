@@ -19,6 +19,7 @@ import {
 } from "react-icons/hi2";
 import { SUPPORTED_LANGUAGES, getTranslation } from "@/utils/translations";
 import { getActiveAcademicYear } from "@/services/academicYearService";
+import NotificationBell from "./NotificationBell";
 import styles from "./DashboardHeader.module.css";
 
 export default function DashboardHeader() {
@@ -244,6 +245,9 @@ export default function DashboardHeader() {
 
       {/* ================= RIGHT GROUP ================= */}
       <div className={styles.rightSection}>
+        {/* Notification Bell Dropdown with Live Badge */}
+        <NotificationBell />
+
         {/* Language Selection Dropdown (English, Amharic, Tigrinya) */}
         <div className={styles.dropdownContainer} ref={langMenuRef}>
           <button
