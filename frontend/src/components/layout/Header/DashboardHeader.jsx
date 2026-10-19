@@ -20,6 +20,7 @@ import {
 import { SUPPORTED_LANGUAGES, getTranslation } from "@/utils/translations";
 import { getActiveAcademicYear } from "@/services/academicYearService";
 import NotificationBell from "./NotificationBell";
+import MessageBadge from "./MessageBadge";
 import styles from "./DashboardHeader.module.css";
 
 export default function DashboardHeader() {
@@ -245,6 +246,9 @@ export default function DashboardHeader() {
 
       {/* ================= RIGHT GROUP ================= */}
       <div className={styles.rightSection}>
+        {/* Direct Messages Quick Access with Live Badge */}
+        <MessageBadge />
+
         {/* Notification Bell Dropdown with Live Badge */}
         <NotificationBell />
 
