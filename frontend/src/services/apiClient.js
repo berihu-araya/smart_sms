@@ -9,8 +9,9 @@ function getToken() {
 
 async function request(path, options = {}) {
   const token = getToken();
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {}),
   };
 
@@ -33,6 +34,13 @@ async function request(path, options = {}) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      if (window.location.pathname.startsWith("/dashboard")) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+    }
     const message = payload?.message || response.statusText || "Request failed";
     throw new Error(message);
   }

@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { request, downloadFile } from './apiClient';
 
 /**
  * Dispatches a client-side event so the header message badge and active
@@ -140,6 +140,27 @@ export async function getContacts(params = {}) {
   return response?.data || [];
 }
 
+/**
+ * Upload an attachment file to server disk.
+ */
+export async function uploadAttachment(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await request('/api/v1/messages/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  return response?.data;
+}
+
+/**
+ * Download an attachment file by attachment ID.
+ */
+export async function downloadAttachment(attachmentId, fileName) {
+  return downloadFile(`/api/v1/messages/attachments/${attachmentId}/download`, fileName);
+}
+
 const messageService = {
   listConversations,
   createOrGetConversation,
@@ -151,6 +172,8 @@ const messageService = {
   deleteMessage,
   getUnreadCount,
   getContacts,
+  uploadAttachment,
+  downloadAttachment,
   emitMessageChange,
 };
 

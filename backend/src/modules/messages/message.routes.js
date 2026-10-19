@@ -3,6 +3,10 @@
  */
 
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
 const {
   listConversations,
   createOrGetConversation,
@@ -14,6 +18,8 @@ const {
   deleteMessage,
   getUnreadCount,
   getContacts,
+  uploadAttachment,
+  downloadAttachment,
 } = require('./message.controller');
 
 const authMiddleware = require('../../middlewares/auth.middleware');
@@ -21,6 +27,28 @@ const { attachParentScope } = require('../../middlewares/parent.scope');
 const { attachTeacherScope } = require('../../middlewares/teacher.scope');
 
 const router = express.Router();
+
+// Multer storage configuration for message attachments
+const uploadDir = path.join(__dirname, '../../../uploads/messages');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const sanitizedOriginal = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${uniqueSuffix}-${sanitizedOriginal}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+});
 
 // Apply authentication and scope resolvers
 router.use(authMiddleware);
@@ -41,9 +69,11 @@ router.use((req, res, next) => {
   return next();
 });
 
-// 1. Directory and Counters (Must be placed before parameterized /:id routes)
+// 1. Directory, Counters, and File Attachments (Must be placed before parameterized /:id routes)
 router.get('/unread-count', getUnreadCount);
 router.get('/contacts', getContacts);
+router.post('/upload', upload.single('file'), uploadAttachment);
+router.get('/attachments/:attachmentId/download', downloadAttachment);
 
 // 2. Inbox Conversations Listing & Creation
 router.get('/', listConversations);

@@ -37,6 +37,7 @@ const transportRoutes = require('./modules/transport/transport.routes');
 const financeRoutes = require('./modules/finance/finance.routes');
 const messageRoutes = require('./modules/messages/message.routes');
 
+const path = require("path");
 const { db } = require('./config/database');
 const AuthorizationService = require('./services/authorization.service');
 
@@ -46,8 +47,9 @@ const authorizationService = new AuthorizationService(db);
 app.set('authorizationService', authorizationService);
 
 app.use(cors()); // Enable CORS for all routes
-app.use(helmet());// Enable Helmet for security headers
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } })); // Enable Helmet with cross-origin asset support
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get("/", (req, res) => {
   res.json({

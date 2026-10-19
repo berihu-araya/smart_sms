@@ -21,6 +21,12 @@ export default function DashboardLayout({ children }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+    }
+  }, [user, authLoading, pathname]);
+
+  useEffect(() => {
     const handleSidebarToggle = () => {
       setIsSidebarVisible((prev) => !prev);
     };

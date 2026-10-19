@@ -92,6 +92,7 @@ export default function MessagesPage() {
   const [inputText, setInputText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [sending, setSending] = useState(false);
 
   // New Conversation Modal State
@@ -114,7 +115,7 @@ export default function MessagesPage() {
 
   // Fetch Active Thread Messages
   const fetchMessages = useCallback(async (convId, shouldScroll = true) => {
-    if (!convId) return;
+    if (!convId || !currentUserId) return;
     try {
       const [convData, msgData] = await Promise.all([
         messageService.getConversation(convId),
@@ -130,13 +131,14 @@ export default function MessagesPage() {
     } finally {
       setLoadingMessages(false);
     }
-  }, [scrollToBottom]);
+  }, [scrollToBottom, currentUserId]);
 
   // Initial Load & Event Listeners
   useEffect(() => {
     let isMounted = true;
 
     async function loadInbox() {
+      if (!currentUserId) return;
       try {
         const params = {};
         if (activeTab === 'ARCHIVED') {
@@ -188,7 +190,7 @@ export default function MessagesPage() {
       window.removeEventListener('smart-sms-message-change', handleMessageSync);
       clearInterval(pollInterval);
     };
-  }, [activeTab, searchQuery, activeId, fetchMessages]);
+  }, [activeTab, searchQuery, activeId, currentUserId, fetchMessages]);
 
   // Select Thread
   const handleSelectConversation = (convId) => {
@@ -234,19 +236,31 @@ export default function MessagesPage() {
   };
 
   // Handle File Selection for Attachments
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const newAttachments = files.map((file) => ({
-      file_name: file.name,
-      file_size: file.size,
-      file_type: file.type || 'application/octet-stream',
-      file_url: URL.createObjectURL(file), // Local preview blob
-    }));
+    setUploadingAttachment(true);
+    try {
+      for (const file of files) {
+        const uploaded = await messageService.uploadAttachment(file);
+        setPendingAttachments((prev) => [...prev, uploaded]);
+      }
+    } catch (err) {
+      alert(`Attachment upload failed: ${err.message}`);
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = '';
+    }
+  };
 
-    setPendingAttachments((prev) => [...prev, ...newAttachments]);
-    e.target.value = '';
+  // Download Attachment
+  const handleDownloadAttachment = async (att) => {
+    try {
+      await messageService.downloadAttachment(att.id, att.file_name);
+    } catch (err) {
+      alert(err.message || 'Download failed');
+    }
   };
 
   // Remove Pending Attachment
@@ -625,22 +639,21 @@ export default function MessagesPage() {
                           {/* Attachments */}
                           {item.attachments && item.attachments.length > 0 && (
                             <div className={styles.attachmentsWrap}>
-                              {item.attachments.map((att) => (
-                                <a
-                                  key={att.id}
-                                  href={att.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                              {item.attachments.map((att, attIdx) => (
+                                <button
+                                  key={att.id || `att-${attIdx}`}
+                                  type="button"
+                                  onClick={() => handleDownloadAttachment(att)}
                                   className={styles.attachmentCard}
-                                  download
+                                  title={`Download ${att.file_name}`}
                                 >
                                   {getFileIcon(att.file_type)}
                                   <div className={styles.attachmentInfo}>
                                     <div className={styles.attachmentName}>{att.file_name}</div>
                                     <div className={styles.attachmentSize}>{formatFileSize(att.file_size)}</div>
                                   </div>
-                                  <FaDownload />
-                                </a>
+                                  <FaDownload className={styles.downloadIcon} />
+                                </button>
                               ))}
                             </div>
                           )}
@@ -741,10 +754,16 @@ export default function MessagesPage() {
                   onKeyDown={handleKeyDown}
                 />
 
+                {uploadingAttachment && (
+                  <div className={styles.uploadingNotice}>
+                    <FaSync className={styles.spinIcon} /> Uploading attachment...
+                  </div>
+                )}
+
                 <button
                   type="button"
                   className={styles.sendBtn}
-                  disabled={sending || (!inputText.trim() && pendingAttachments.length === 0)}
+                  disabled={sending || uploadingAttachment || (!inputText.trim() && pendingAttachments.length === 0)}
                   onClick={handleSendMessage}
                   title="Send Message"
                 >
@@ -873,10 +892,13 @@ export default function MessagesPage() {
                     return full.includes(contactSearch.trim().toLowerCase());
                   })
                   .map((c, idx) => {
-                    const isSelected = selectedContact?.user_id === c.user_id && selectedContact?.student_id === c.student_id;
+                    const isSelected =
+                      selectedContact?.user_id === c.user_id &&
+                      selectedContact?.student_id === c.student_id &&
+                      selectedContact?.subject_id === c.subject_id;
                     return (
                       <div
-                        key={`${c.user_id}-${c.student_id || idx}`}
+                        key={`contact-${c.user_id}-${c.student_id || 'general'}-${c.subject_id || 'none'}-${idx}`}
                         className={`${styles.contactItem} ${isSelected ? styles.contactItemSelected : ''}`}
                         onClick={() => setSelectedContact(c)}
                       >

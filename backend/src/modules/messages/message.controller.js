@@ -4,6 +4,8 @@
  * Handles HTTP requests and standard JSON response envelopes for the Messaging Module.
  */
 
+const path = require('path');
+const fs = require('fs');
 const MessageRepository = require('./message.repository');
 const MessageService = require('./message.service');
 const { db } = require('../../config/database');
@@ -174,6 +176,105 @@ async function getContacts(req, res, next) {
   }
 }
 
+/**
+ * Upload single attachment file.
+ */
+async function uploadAttachment(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+        data: null,
+      });
+    }
+
+    const fileUrl = `/uploads/messages/${req.file.filename}`;
+    return res.status(200).json({
+      success: true,
+      message: 'Attachment uploaded successfully',
+      data: {
+        file_name: req.file.originalname,
+        file_size: req.file.size,
+        file_type: req.file.mimetype,
+        file_url: fileUrl,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * Securely download an attachment by ID with Content-Disposition header.
+ */
+async function downloadAttachment(req, res, next) {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user?.sub || req.user?.id;
+    const schoolId = req.user?.school_id;
+
+    const attRes = await db.query(
+      `SELECT a.*, c.school_id, c.id AS conversation_id
+       FROM message_attachments a
+       JOIN messages m ON m.id = a.message_id
+       JOIN conversations c ON c.id = m.conversation_id
+       WHERE a.id = $1`,
+      [attachmentId]
+    );
+
+    const attachment = attRes.rows[0];
+    if (!attachment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attachment not found',
+        data: null,
+      });
+    }
+
+    if (attachment.school_id !== schoolId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Attachment belongs to another school',
+        data: null,
+      });
+    }
+
+    // Verify user is a participant or admin
+    const isParticipantRes = await db.query(
+      `SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2`,
+      [attachment.conversation_id, userId]
+    );
+
+    const userRole = (req.user?.role || '').toLowerCase();
+    const isAdmin = userRole.includes('admin');
+
+    if (isParticipantRes.rows.length === 0 && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You are not a participant in this conversation',
+        data: null,
+      });
+    }
+
+    // Resolve file from disk
+    const filename = path.basename(attachment.file_url);
+    const filePath = path.join(__dirname, '../../../uploads/messages', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attachment file not found on disk',
+        data: null,
+      });
+    }
+
+    return res.download(filePath, attachment.file_name);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listConversations,
   createOrGetConversation,
@@ -185,4 +286,6 @@ module.exports = {
   deleteMessage,
   getUnreadCount,
   getContacts,
+  uploadAttachment,
+  downloadAttachment,
 };
