@@ -36,6 +36,7 @@ const libraryRoutes = require('./modules/library/library.routes');
 const transportRoutes = require('./modules/transport/transport.routes');
 const financeRoutes = require('./modules/finance/finance.routes');
 const messageRoutes = require('./modules/messages/message.routes');
+const analyticsRoutes = require('./modules/analytics/analytics.routes');
 
 const path = require("path");
 const { db } = require('./config/database');
@@ -102,6 +103,7 @@ app.use('/api/v1/library', libraryRoutes);
 app.use('/api/v1/transport', transportRoutes);
 app.use('/api/v1/finance', financeRoutes);
 app.use('/api/v1/messages', messageRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 
 
 
