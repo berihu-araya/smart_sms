@@ -37,10 +37,20 @@ export async function getStudentAcademicHistory(studentId) {
   return response.data;
 }
 
+/**
+ * Fetch complete consolidated multi-year academic transcript (KG through Grade 10/12)
+ */
+export async function getStudentCumulativeTranscript(studentId) {
+  const response = await request(`/api/v1/students/${studentId}/transcript`);
+  return response.data;
+}
+
 const studentPromotionService = {
   previewPromotions,
   executeBatchPromotion,
   getStudentAcademicHistory,
+  getStudentCumulativeTranscript,
 };
 
 export default studentPromotionService;
+

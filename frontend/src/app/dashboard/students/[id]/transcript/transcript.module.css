@@ -1,0 +1,552 @@
+.pageContainer {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  padding: 2rem 1.5rem;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Control Bar (Screen only) */
+.controlBar {
+  max-width: 960px;
+  margin: 0 auto 1.5rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.navGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backBtn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.actionGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.reportCardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.reportCardLink:hover {
+  background: #dbeafe;
+}
+
+.printBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.2s ease;
+}
+
+.printBtn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+}
+
+/* Transcript Document Sheet */
+.transcriptSheet {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top Institutional Watermark Header */
+.letterhead {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.schoolInfo {
+  flex: 1;
+}
+
+.schoolName {
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  text-transform: uppercase;
+  margin: 0 0 0.25rem 0;
+}
+
+.schoolSubtext {
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.docBadgeBox {
+  text-align: right;
+}
+
+.docTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.25rem 0;
+}
+
+.docSubtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+.officialStampNotice {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.05em;
+}
+
+/* Student Bio Grid */
+.studentBioGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.bioItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bioLabel {
+  font-size: 0.725rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.bioValue {
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Career Highlights Banner */
+.careerBanner {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
+}
+
+.careerStatItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: #bfdbfe;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.statValue {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.statValueAccent {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fde047;
+}
+
+/* Academic Years Section */
+.timelineSectionTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-left: 4px solid #2563eb;
+  padding-left: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.yearCard {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 1.75rem;
+  background: #ffffff;
+  overflow: hidden;
+  page-break-inside: avoid;
+}
+
+.yearHeader {
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.yearTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gradePill {
+  background: #1e3a8a;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.academicYearName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.sectionName {
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.outcomeBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.outcomePROMOTED {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.outcomeGRADUATED {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.outcomeRETAINED {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.outcomeCURRENT {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
+}
+
+/* Subjects Table */
+.subjectTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.subjectTable th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.subjectTable td {
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.subjectTable tr:last-child td {
+  border-bottom: none;
+}
+
+.subjectCode {
+  font-family: monospace;
+  font-weight: 600;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.scoreCol {
+  text-align: right;
+  font-weight: 700;
+}
+
+.letterCol {
+  text-align: center;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.yearFooter {
+  background: #fafaf9;
+  border-top: 1px solid #e2e8f0;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.yearAverage {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.yearRemarks {
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Attestation Signatures */
+.attestationSection {
+  margin-top: 3.5rem;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 2.5rem;
+  page-break-inside: avoid;
+}
+
+.sealDisclaimer {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.signatureGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  text-align: center;
+}
+
+.sigBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sigLine {
+  width: 80%;
+  border-bottom: 1px solid #0f172a;
+  margin-bottom: 0.5rem;
+  height: 40px;
+}
+
+.sigTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sigSubtitle {
+  font-size: 0.725rem;
+  color: #64748b;
+}
+
+.sealBox {
+  border: 2px dashed #94a3b8;
+  border-radius: 8px;
+  height: 80px;
+  width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Loading & Error States */
+.stateBox {
+  max-width: 600px;
+  margin: 4rem auto;
+  padding: 2.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.stateIcon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.stateTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.stateText {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+/* PRINT MEDIA STYLING */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .pageContainer {
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  .controlBar {
+    display: none !important;
+  }
+
+  .transcriptSheet {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .careerBanner {
+    background: #1e3a8a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .gradePill {
+    background: #1e3a8a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .yearCard {
+    border: 1px solid #000000 !important;
+    page-break-inside: avoid;
+  }
+
+  .yearHeader {
+    background: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -567,6 +567,183 @@ class StudentPromotionService {
     const res = await this.db.query(query, [studentId]);
     return res.rows;
   }
+
+  async getStudentCumulativeTranscript(studentId) {
+    if (!studentId) {
+      const err = new Error('Student ID is required');
+      err.status = 400;
+      throw err;
+    }
+
+    // 1. Fetch Student master details
+    const studentRes = await this.db.query(
+      `SELECT
+        s.id,
+        s.admission_number,
+        s.first_name,
+        s.last_name,
+        s.gender,
+        s.date_of_birth,
+        s.admission_date,
+        s.photo AS photo_url,
+        s.status,
+        s.email,
+        s.phone,
+        s.address,
+        sec.name AS current_section_name,
+        g.name AS current_grade_name,
+        p.full_name AS parent_name,
+        p.phone AS parent_phone,
+        p.email AS parent_email,
+        sch.name AS school_name,
+        sch.address AS school_address,
+        sch.phone AS school_phone,
+        sch.email AS school_email,
+        sch.principal_name
+      FROM students s
+      LEFT JOIN sections sec ON sec.id = s.section_id AND sec.deleted_at IS NULL
+      LEFT JOIN grades g ON g.id = sec.grade_id AND g.deleted_at IS NULL
+      LEFT JOIN parents p ON p.id = s.parent_id
+      LEFT JOIN schools sch ON sch.id = s.school_id AND sch.deleted_at IS NULL
+      WHERE s.id = $1`,
+      [studentId]
+    );
+
+    if (studentRes.rows.length === 0) {
+      const err = new Error('Student not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const student = studentRes.rows[0];
+
+    // 2. Fetch Multi-Year Academic History Snapshots
+    const historyList = await this.getStudentAcademicHistory(studentId);
+
+    // 3. Grading scales for mapping
+    const gradingScales = await this.getGradingScales();
+
+    // 4. For each academic year in history, fetch subject breakdown
+    const enrichedHistory = await Promise.all(
+      historyList.map(async (h) => {
+        const subRes = await this.db.query(
+          `SELECT
+            sub.id AS subject_id,
+            sub.subject_name,
+            sub.subject_code,
+            ROUND(AVG(CASE WHEN m.is_absent THEN 0 ELSE (m.score / NULLIF(e.max_marks, 0)) * 100 END), 2) AS score,
+            COUNT(m.id) AS marks_count
+          FROM marks m
+          JOIN exams e ON e.id = m.exam_id
+          JOIN subjects sub ON sub.id = m.subject_id
+          WHERE e.academic_year_id = $1
+            AND m.student_id = $2
+            AND e.deleted_at IS NULL
+          GROUP BY sub.id, sub.subject_name, sub.subject_code
+          ORDER BY sub.subject_name ASC`,
+          [h.academic_year_id, studentId]
+        );
+
+        const subjects = subRes.rows.map((row) => ({
+          subjectId: row.subject_id,
+          subjectName: row.subject_name,
+          subjectCode: row.subject_code,
+          score: Number(row.score),
+          letterGrade: this.mapScoreToLetter(row.score, gradingScales),
+        }));
+
+        return {
+          ...h,
+          is_current: false,
+          subjects,
+        };
+      })
+    );
+
+    // 4b. Check if the active/current academic year is not yet archived and append it
+    const activeYearRes = await this.db.query(
+      `SELECT id, name, start_date, end_date FROM academic_years WHERE (school_id = $1 OR school_id IS NULL) AND is_active = true ORDER BY start_date DESC LIMIT 1`,
+      [student.school_id || null]
+    );
+
+    if (activeYearRes.rows.length > 0) {
+      const activeYear = activeYearRes.rows[0];
+      const alreadyRecorded = enrichedHistory.some((h) => h.academic_year_id === activeYear.id);
+      if (!alreadyRecorded && (student.current_grade_name || student.status)) {
+        const subRes = await this.db.query(
+          `SELECT
+            sub.id AS subject_id,
+            sub.subject_name,
+            sub.subject_code,
+            ROUND(AVG(CASE WHEN m.is_absent THEN 0 ELSE (m.score / NULLIF(e.max_marks, 0)) * 100 END), 2) AS score,
+            COUNT(m.id) AS marks_count
+          FROM marks m
+          JOIN exams e ON e.id = m.exam_id
+          JOIN subjects sub ON sub.id = m.subject_id
+          WHERE e.academic_year_id = $1
+            AND m.student_id = $2
+            AND e.deleted_at IS NULL
+          GROUP BY sub.id, sub.subject_name, sub.subject_code
+          ORDER BY sub.subject_name ASC`,
+          [activeYear.id, studentId]
+        );
+
+        const currentSubjects = subRes.rows.map((row) => ({
+          subjectId: row.subject_id,
+          subjectName: row.subject_name,
+          subjectCode: row.subject_code,
+          score: Number(row.score),
+          letterGrade: this.mapScoreToLetter(row.score, gradingScales),
+        }));
+
+        const currentAvg = currentSubjects.length > 0
+          ? Math.round((currentSubjects.reduce((acc, s) => acc + s.score, 0) / currentSubjects.length) * 10) / 10
+          : null;
+
+        enrichedHistory.push({
+          id: 'current-enrollment',
+          student_id: studentId,
+          academic_year_id: activeYear.id,
+          academic_year_name: activeYear.name,
+          academic_year_start: activeYear.start_date,
+          academic_year_end: activeYear.end_date,
+          grade_name: student.current_grade_name || 'Enrolled Grade',
+          section_name: student.current_section_name || 'Active',
+          roll_number: null,
+          final_average: currentAvg,
+          final_grade_letter: currentAvg !== null ? this.mapScoreToLetter(currentAvg, gradingScales) : null,
+          promotion_status: 'CURRENT_ENROLLED',
+          is_current: true,
+          subjects: currentSubjects,
+        });
+      }
+    }
+
+    // 5. Calculate overall cumulative stats across the entire school career
+    const validAverages = enrichedHistory
+      .filter((h) => h.final_average !== null && !isNaN(Number(h.final_average)))
+      .map((h) => Number(h.final_average));
+
+    const careerAverage = validAverages.length > 0
+      ? Math.round((validAverages.reduce((acc, v) => acc + v, 0) / validAverages.length) * 10) / 10
+      : null;
+
+    const careerLetter = careerAverage !== null ? this.mapScoreToLetter(careerAverage, gradingScales) : '—';
+
+    return {
+      student,
+      careerStats: {
+        totalYearsRecorded: enrichedHistory.length,
+        careerAverage,
+        careerLetter,
+        startingGrade: enrichedHistory.length > 0 ? enrichedHistory[0].grade_name : student.current_grade_name,
+        latestGrade: enrichedHistory.length > 0 ? enrichedHistory[enrichedHistory.length - 1].grade_name : student.current_grade_name,
+        currentStatus: student.status,
+      },
+      academicHistory: enrichedHistory,
+    };
+  }
 }
 
 module.exports = StudentPromotionService;
+

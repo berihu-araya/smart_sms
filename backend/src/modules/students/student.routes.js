@@ -15,6 +15,7 @@ const {
   previewPromotions,
   executeBatchPromotion,
   getStudentAcademicHistory,
+  getStudentCumulativeTranscript,
 } = require('./student.promotion.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
@@ -38,6 +39,7 @@ router.get('/me/profile', authorizeRoles('Student'), getOwnStudentProfile);
 router.get('/promotions/preview', authorizeRoles('School Admin', 'Admin', 'Staff'), previewPromotions);
 router.post('/promotions/execute', authorizeRoles('School Admin', 'Admin'), executeBatchPromotion);
 
+router.get('/:id/transcript', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentCumulativeTranscript);
 router.get('/:id/academic-history', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentAcademicHistory);
 router.get('/:id/profile', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentProfile);
 router.get('/:id/guardian', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentGuardian);

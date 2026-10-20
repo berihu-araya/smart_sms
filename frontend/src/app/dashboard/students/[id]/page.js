@@ -94,6 +94,42 @@ export default function StudentDetailsPage() {
             <span className={`${styles.statusPill} ${styles[`status${student.status}`] || styles.statusDefault}`}>
               {student.status}
             </span>
+            <Link
+              href={`/dashboard/students/${params.id}/transcript`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#1e3a8a',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '14px',
+                textDecoration: 'none',
+                boxShadow: '0 2px 4px rgba(30, 58, 138, 0.2)',
+              }}
+            >
+              📜 Master Cumulative Transcript
+            </Link>
+            <Link
+              href={`/dashboard/results/report-card?studentId=${params.id}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#eff6ff',
+                color: '#1d4ed8',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '14px',
+                textDecoration: 'none',
+                border: '1px solid #bfdbfe',
+              }}
+            >
+              📄 Term Report Card
+            </Link>
             {canEdit && (
               <>
                 <Link href={`/dashboard/students/${params.id}/edit`} className={styles.editButton}>
@@ -176,7 +212,24 @@ export default function StudentDetailsPage() {
 
           {/* Multi-Year Academic Progression & Promotion Archive */}
           <div className={styles.historySection}>
-            <h3 className={styles.sectionTitle}>📜 Multi-Year Academic Progression & Promotion Archive</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <h3 className={styles.sectionTitle} style={{ margin: 0 }}>📜 Multi-Year Academic Progression & Promotion Archive</h3>
+              <Link
+                href={`/dashboard/students/${params.id}/transcript`}
+                style={{
+                  fontSize: '0.85rem',
+                  color: '#1d4ed8',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  background: '#eff6ff',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #bfdbfe',
+                }}
+              >
+                View Full Cumulative Master Transcript →
+              </Link>
+            </div>
             {academicHistory.length === 0 ? (
               <div className={styles.emptyHistory}>
                 No archived progression records yet. End-of-year snapshots are created when cohorts are rolled forward in the Student Promotions engine.
@@ -222,6 +275,18 @@ export default function StudentDetailsPage() {
                         {rec.promoted_by_name && (
                           <span>Authorized by: {rec.promoted_by_name}</span>
                         )}
+                        <Link
+                          href={`/dashboard/results/report-card?studentId=${params.id}&year=${rec.academic_year_id}`}
+                          style={{
+                            color: '#2563eb',
+                            textDecoration: 'none',
+                            fontWeight: 600,
+                            marginLeft: 'auto',
+                            fontSize: '12px',
+                          }}
+                        >
+                          Print Year Transcript →
+                        </Link>
                       </div>
                     </div>
                   </div>

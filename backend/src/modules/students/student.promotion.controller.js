@@ -94,8 +94,32 @@ async function getStudentAcademicHistory(req, res, next) {
   }
 }
 
+async function getStudentCumulativeTranscript(req, res, next) {
+  try {
+    const studentId = req.params.id;
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID is required',
+      });
+    }
+
+    const transcript = await promotionService.getStudentCumulativeTranscript(studentId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Student multi-year cumulative academic transcript loaded successfully.',
+      data: transcript,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   previewPromotions,
   executeBatchPromotion,
   getStudentAcademicHistory,
+  getStudentCumulativeTranscript,
 };
+
