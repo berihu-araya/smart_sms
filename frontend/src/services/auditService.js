@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { request, buildUrl } from './apiClient';
 
 export async function listAuditLogs(params = {}) {
   const query = new URLSearchParams();
@@ -30,8 +30,7 @@ export function getExportAuditLogsUrl(params = {}) {
   if (params.endDate) query.append('endDate', params.endDate);
 
   const qs = query.toString() ? `?${query.toString()}` : '';
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-  return `${baseUrl}/api/v1/audit-logs/export${qs}`;
+  return buildUrl(`/api/v1/audit-logs/export${qs}`);
 }
 
 export default {

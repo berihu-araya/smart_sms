@@ -27,7 +27,6 @@ import {
   FaReceipt,
   FaPiggyBank,
   FaBookReader,
-  FaBed,
   FaBus,
   FaBullhorn,
   FaBell,
@@ -248,12 +247,6 @@ const menuData = [
         icon: FaBookReader,
         link: "/dashboard/library",
         roles: ["School Admin", "Admin", "Librarian", "Student", "Teacher", "Staff"],
-      },
-      {
-        title: "Hostel",
-        icon: FaBed,
-        link: "/dashboard/hostel",
-        roles: ADMIN_AND_STAFF,
       },
       {
         title: "Transport",

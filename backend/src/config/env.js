@@ -1,13 +1,19 @@
 const dotenv = require("dotenv");
 const path = require("path");
 
-//dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+if (!process.env.DATABASE_HOST && !process.env.JWT_SECRET) {
+  dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+}
 
 function requireEnvironmentVariable(name) {
   const value = process.env[name];
 
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  if (process.env.NODE_ENV === "production" && name === "JWT_SECRET" && value.includes("replace_with")) {
+    console.warn("⚠️ [SECURITY WARNING] Default placeholder JWT_SECRET detected in production! Update this immediately.");
   }
 
   return value;

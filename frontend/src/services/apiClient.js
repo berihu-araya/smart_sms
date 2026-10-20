@@ -1,4 +1,12 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const rawEnvUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000").trim().replace(/\/+$/, "");
+// If configured with a trailing /api (e.g. '/api' or 'https://domain.com/api'),
+// strip it so paths starting with '/api/' are never duplicated to '/api/api/...'
+const API_BASE_URL = rawEnvUrl === "/api" ? "" : rawEnvUrl.replace(/\/api$/, "");
+
+function buildUrl(path) {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${cleanPath}`;
+}
 
 function getToken() {
   if (typeof window === "undefined") {
@@ -21,7 +29,7 @@ async function request(path, options = {}) {
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(buildUrl(path), {
       ...options,
       headers,
     });
@@ -58,7 +66,7 @@ async function downloadFile(path, fallbackFilename) {
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { headers });
+    response = await fetch(buildUrl(path), { headers });
   } catch (error) {
     throw new Error(
       "The backend service is not running yet. Please make sure the backend server is started."
@@ -83,4 +91,4 @@ async function downloadFile(path, fallbackFilename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export { API_BASE_URL, request, downloadFile };
+export { API_BASE_URL, buildUrl, request, downloadFile };

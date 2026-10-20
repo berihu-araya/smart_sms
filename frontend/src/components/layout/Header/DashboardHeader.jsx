@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import {
   HiBars3,
-  HiChevronDown,
   HiUser,
   HiLockClosed,
   HiCog6Tooth,
@@ -173,6 +172,7 @@ export default function DashboardHeader() {
   };
 
   // User display names & initials
+  const userFirstName = user?.firstName || user?.first_name || (user?.name ? user.name.trim().split(" ")[0] : "");
   const userFullName = user
     ? user.name ||
     `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() ||
@@ -182,9 +182,25 @@ export default function DashboardHeader() {
 
   const userEmail = user?.email || user?.username || "";
   const userRole = user?.role || user?.role_name || "User";
-  const userInitial = userFullName.charAt(0).toUpperCase() || "U";
+  const userInitial = (userFirstName ? userFirstName.charAt(0) : userFullName.charAt(0)).toUpperCase() || "U";
   const schoolName = user?.school_name || t("school_name", "YOYO ACADEMY");
   const isAdmin = ["admin", "school admin", "staff"].includes(userRole.toLowerCase());
+
+  const getRoleIcon = (role = "") => {
+    const r = (role || "").toLowerCase();
+    if (r.includes("admin")) return <HiShieldCheck className={styles.roleMicroIcon} />;
+    if (r.includes("teacher")) return <HiAcademicCap className={styles.roleMicroIcon} />;
+    return <HiUser className={styles.roleMicroIcon} />;
+  };
+
+  const getRoleClass = (role = "") => {
+    const r = (role || "").toLowerCase();
+    if (r.includes("admin")) return styles.roleAdmin;
+    if (r.includes("teacher")) return styles.roleTeacher;
+    if (r.includes("student")) return styles.roleStudent;
+    if (r.includes("parent")) return styles.roleParent;
+    return styles.roleStaff;
+  };
 
   return (
     <header className={styles.dashboardHeader}>
@@ -256,19 +272,19 @@ export default function DashboardHeader() {
         <div className={styles.dropdownContainer} ref={langMenuRef}>
           <button
             type="button"
-            className={`${styles.iconButton} ${langMenuOpen ? styles.btnActive : ""}`}
+            className={`${styles.langIconButton} ${langMenuOpen ? styles.langIconActive : ""}`}
             onClick={() => {
               setLangMenuOpen((prev) => !prev);
               setUserMenuOpen(false);
             }}
             aria-label="Select Language"
             aria-expanded={langMenuOpen}
+            title={`Language: ${currentLangObj.name} (${currentLangObj.native})`}
           >
-            <span className={styles.flagEmoji}>{currentLangObj.flag}</span>
-            <span className={styles.langName}>{currentLangObj.native}</span>
-            <HiChevronDown
-              className={`${styles.chevron} ${langMenuOpen ? styles.chevronRotated : ""}`}
-            />
+            <HiGlobeAlt className={styles.langGlobeIcon} />
+            <span className={styles.langCodeBadge}>
+              {currentLangObj.code.toUpperCase()}
+            </span>
           </button>
 
           {langMenuOpen && (
@@ -307,36 +323,29 @@ export default function DashboardHeader() {
         <div className={styles.dropdownContainer} ref={userMenuRef}>
           <button
             type="button"
-            className={`${styles.userProfileTrigger} ${userMenuOpen ? styles.userTriggerActive : ""}`}
+            className={`${styles.userAvatarButton} ${userMenuOpen ? styles.userAvatarActive : ""}`}
             onClick={() => {
               setUserMenuOpen((prev) => !prev);
               setLangMenuOpen(false);
             }}
             aria-label="Open user menu"
             aria-expanded={userMenuOpen}
+            title={`Signed in as ${userFullName} (${userRole})`}
           >
-            <div className={styles.avatarWrapper}>
-              {user?.profileImage || user?.profile_image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={user.profileImage || user.profile_image}
-                  alt={userFullName}
-                  className={styles.avatarImg}
-                />
-              ) : (
-                <div className={styles.avatarInitial}>{userInitial}</div>
-              )}
-              <span className={styles.onlineBadge}></span>
-            </div>
-
-            <div className={styles.userInfoText}>
-              <span className={styles.userName}>{userFullName}</span>
-              <span className={styles.roleTag}>{userRole}</span>
-            </div>
-
-            <HiChevronDown
-              className={`${styles.chevron} ${userMenuOpen ? styles.chevronRotated : ""}`}
-            />
+            {user?.profileImage || user?.profile_image ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={user.profileImage || user.profile_image}
+                alt={userFullName}
+                className={styles.avatarImg}
+              />
+            ) : (
+              <span className={styles.avatarInitial}>{userInitial}</span>
+            )}
+            <span className={styles.onlineStatusRing} title="Active Session">
+              <span className={styles.onlinePulseAnimation}></span>
+              <span className={styles.onlineSolidDot}></span>
+            </span>
           </button>
 
           {/* Popover User Menu */}
@@ -355,13 +364,17 @@ export default function DashboardHeader() {
                   ) : (
                     <div className={styles.popoverAvatarInitial}>{userInitial}</div>
                   )}
+                  <span className={styles.popoverOnlineBadge} title="Active Session">
+                    <span className={styles.popoverOnlinePulse}></span>
+                    <span className={styles.popoverOnlineDot}></span>
+                  </span>
                 </div>
                 <div className={styles.popoverUserDetails}>
                   <h4 className={styles.popoverName}>{userFullName}</h4>
                   <p className={styles.popoverEmail}>{userEmail || t("signed_in", "Signed In")}</p>
                   <div className={styles.popoverBadges}>
-                    <span className={styles.rolePill}>
-                      <HiShieldCheck /> {userRole}
+                    <span className={`${styles.rolePill} ${getRoleClass(userRole)}`}>
+                      {getRoleIcon(userRole)} {userRole}
                     </span>
                     <span className={styles.schoolPill}>
                       <HiAcademicCap /> {schoolName}

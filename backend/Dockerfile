@@ -28,4 +28,4 @@ USER expressuser
 
 EXPOSE 5000
 
-CMD ["node", "src/server.js"]
+CMD ["npm", "run", "start:prod"]

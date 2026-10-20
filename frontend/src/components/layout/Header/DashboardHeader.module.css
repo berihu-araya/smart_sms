@@ -222,54 +222,81 @@
 .rightSection {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .dropdownContainer {
   position: relative;
+  display: inline-flex;
+  align-items: center;
 }
 
-/* Language Button Trigger */
-.iconButton {
+/* ================= LANGUAGE ICON BUTTON ================= */
+.langIconButton {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 40px;
   height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #1e293b;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #ffffff;
+  color: #475569;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.86rem;
-  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  user-select: none;
+  padding: 0;
 }
 
-.iconButton:hover,
-.btnActive {
-  background: #eff6ff;
-  border-color: #93c5fd;
-  color: #1d4ed8;
-}
-
-.flagEmoji {
-  font-size: 1.15rem;
-}
-
-.langName {
-  letter-spacing: 0.3px;
-}
-
-.chevron {
-  font-size: 0.9rem;
-  color: #64748b;
-  transition: transform 0.25s ease;
-}
-
-.chevronRotated {
-  transform: rotate(180deg);
+.langIconButton:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
   color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.langIconButton:active {
+  transform: translateY(0);
+}
+
+.langIconActive {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+.langGlobeIcon {
+  font-size: 1.25rem;
+  transition: transform 0.2s ease;
+}
+
+.langIconButton:hover .langGlobeIcon {
+  transform: scale(1.08);
+}
+
+.langCodeBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(29, 78, 216, 0.35);
+  line-height: 1;
 }
 
 /* Language Popover Menu */
@@ -277,13 +304,13 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: 230px;
+  width: 240px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.16), 0 0 1px rgba(15, 23, 42, 0.1);
   padding: 8px;
-  z-index: 100;
+  z-index: 1000;
   animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -292,11 +319,11 @@
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   border-bottom: 1px solid #f1f5f9;
   margin-bottom: 4px;
 }
@@ -309,7 +336,7 @@
 .menuList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .langMenuItem {
@@ -318,7 +345,7 @@
   justify-content: space-between;
   width: 100%;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: #1e293b;
@@ -330,6 +357,7 @@
 .langMenuItem:hover {
   background: #f1f5f9;
   color: #2563eb;
+  transform: translateX(2px);
 }
 
 .langItemSelected {
@@ -351,6 +379,7 @@
 .langItemTitle {
   font-size: 0.88rem;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .langItemSub {
@@ -360,93 +389,161 @@
 
 .checkIcon {
   color: #2563eb;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
-/* ================= ACTIVE USER TRIGGER ================= */
-.userProfileTrigger {
+/* ================= ACTIVE USER AVATAR BUTTON ================= */
+.userAvatarButton {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 44px;
-  padding: 3px 12px 3px 4px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #1e293b;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #ffffff;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 0;
+  overflow: visible;
+  user-select: none;
 }
 
-.userProfileTrigger:hover,
-.userTriggerActive {
-  background: #eff6ff;
+.userAvatarButton:hover {
   border-color: #93c5fd;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18);
 }
 
-.avatarWrapper {
-  position: relative;
-  width: 36px;
-  height: 36px;
+.userAvatarButton:active {
+  transform: translateY(0);
+}
+
+.userAvatarActive {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
 }
 
 .avatarImg {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
   object-fit: cover;
-  border: 1px solid #e2e8f0;
 }
 
 .avatarInitial {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 1rem;
-  border: 1px solid #bfdbfe;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  user-select: none;
 }
 
-.onlineBadge {
+/* Radar Pulse Active Session Indicator */
+.onlineStatusRing {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 10px;
-  height: 10px;
+  bottom: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.onlinePulseAnimation {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #10b981;
+  animation: radarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.onlineSolidDot {
+  position: relative;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #10b981;
   border: 2px solid #ffffff;
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.8);
 }
 
-.userInfoText {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+@keyframes radarPing {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
 }
 
-.userName {
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: #0f172a;
-  max-width: 130px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* Micro Role Tags */
 .roleTag {
-  font-size: 0.68rem;
-  color: #2563eb;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
   text-transform: capitalize;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+}
+
+.roleMicroIcon {
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.roleAdmin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.roleTeacher {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.roleStudent {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.roleParent {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.roleStaff {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
 }
 
 /* ================= USER POPOVER ================= */
@@ -454,13 +551,13 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: 310px;
+  width: 320px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16), 0 0 1px rgba(15, 23, 42, 0.1);
   padding: 16px;
-  z-index: 100;
+  z-index: 1000;
   animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
@@ -472,6 +569,7 @@
 }
 
 .popoverAvatarWrapper {
+  position: relative;
   width: 48px;
   height: 48px;
   flex-shrink: 0;
@@ -497,6 +595,37 @@
   font-weight: 800;
   font-size: 1.3rem;
   border: 1.5px solid #bfdbfe;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.popoverOnlineBadge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 13px;
+  height: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popoverOnlinePulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #10b981;
+  animation: radarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.popoverOnlineDot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
 }
 
 .popoverUserDetails {
@@ -536,10 +665,7 @@
   gap: 4px;
   font-size: 0.68rem;
   font-weight: 700;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 6px;
   text-transform: capitalize;
 }
@@ -553,7 +679,7 @@
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #fde68a;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 6px;
 }
 
@@ -598,11 +724,13 @@
   color: #2563eb;
   font-size: 1.05rem;
   flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
 .popoverMenuItem:hover .menuItemIconWrap {
   background: #dbeafe;
   color: #1d4ed8;
+  transform: scale(1.05);
 }
 
 .menuItemContent {
@@ -682,16 +810,10 @@
     display: none;
   }
 
-  .userInfoText {
-    display: none;
-  }
-
-  .userProfileTrigger {
-    padding: 3px;
-  }
-
   .userPopover {
     width: 290px;
     right: -10px;
   }
 }
+
+

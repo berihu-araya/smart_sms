@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { request, buildUrl } from './apiClient';
 
 export async function listBackups() {
   const response = await request('/api/v1/settings/backups');
@@ -14,8 +14,7 @@ export async function triggerBackup(backupType = 'MANUAL') {
 }
 
 export function getBackupDownloadUrl(id) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-  return `${baseUrl}/api/v1/settings/backups/${id}/download`;
+  return buildUrl(`/api/v1/settings/backups/${id}/download`);
 }
 
 export default {

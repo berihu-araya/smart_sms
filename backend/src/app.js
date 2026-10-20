@@ -50,7 +50,10 @@ const app = express();
 const authorizationService = new AuthorizationService(db);
 app.set('authorizationService', authorizationService);
 
-app.use(cors()); // Enable CORS for all routes
+const allowedCorsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : '*';
+app.use(cors({ origin: allowedCorsOrigin, credentials: true }));
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } })); // Enable Helmet with cross-origin asset support
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -115,13 +118,23 @@ app.use('/api/v1/settings/backups', backupRoutes);
 
 
 
+// Production-safe Global Error Handler
 app.use((err, req, res, next) => {
-  console.error(err);
+  const isProduction = process.env.NODE_ENV === "production";
+  const statusCode = err.status || err.statusCode || 500;
 
-  res.status(err.status || 500).json({
+  // Log error details for server diagnostics
+  console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}:`, err);
+
+  const clientMessage =
+    statusCode >= 500 && isProduction
+      ? "An internal server error occurred. Please contact the administrator."
+      : err.message || "An unexpected error occurred.";
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message,
-    data: err,
+    message: clientMessage,
+    data: isProduction ? null : err,
   });
 });
 
