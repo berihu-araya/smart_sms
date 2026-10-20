@@ -209,6 +209,134 @@
   text-decoration: underline;
 }
 
+.historySection {
+  grid-column: 1 / -1;
+  padding: 24px 32px;
+  background: #ffffff;
+  border-top: 1px solid #f0f1f3;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.timelineItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.timelineItem:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.timelineYear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.yearText {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.yearDates {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.timelineContent {
+  flex: 1;
+}
+
+.timelineTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.timelinePlacement {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.statusPillHistory {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pillPROMOTED {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pillRETAINED {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.pillGRADUATED {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.pillTRANSFERRED {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.timelineDetails {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.timelineMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+.emptyHistory {
+  padding: 24px;
+  background: #f8fafc;
+  border-radius: 10px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
 @media (max-width: 640px) {
   .contentGrid {
     grid-template-columns: 1fr;
@@ -222,5 +350,14 @@
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .timelineItem {
+    flex-direction: column;
+  }
+
+  .timelineYear {
+    width: 100%;
+  }
 }
+
 

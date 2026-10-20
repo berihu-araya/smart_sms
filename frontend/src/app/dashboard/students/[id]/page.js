@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import studentService from "@/services/studentService";
+import { getStudentAcademicHistory } from "@/services/studentPromotionService";
 import styles from "./details.module.css";
 
 export default function StudentDetailsPage() {
@@ -16,6 +17,7 @@ export default function StudentDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const [profile, setProfile] = useState(null);
+  const [academicHistory, setAcademicHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -23,8 +25,12 @@ export default function StudentDetailsPage() {
     async function loadStudent() {
       try {
         setLoading(true);
-        const data = await studentService.getStudentProfile(params.id);
-        setProfile(data);
+        const [profileData, historyData] = await Promise.all([
+          studentService.getStudentProfile(params.id),
+          getStudentAcademicHistory(params.id).catch(() => []),
+        ]);
+        setProfile(profileData);
+        setAcademicHistory(Array.isArray(historyData) ? historyData : []);
       } catch (err) {
         setError(err.message || "Unable to load student profile");
       } finally {
@@ -127,12 +133,12 @@ export default function StudentDetailsPage() {
 
           {/* Academic Info */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>🏫 Academic Information</h3>
+            <h3 className={styles.sectionTitle}>🏫 Active Placement</h3>
             <div className={styles.fieldList}>
-              <Field label="Grade" value={academicInfo.gradeName || "—"} />
-              <Field label="Section" value={academicInfo.sectionName || academicInfo.section || "—"} />
+              <Field label="Current Grade" value={academicInfo.gradeName || "—"} />
+              <Field label="Current Section" value={academicInfo.sectionName || academicInfo.section || "—"} />
               <Field label="Room" value={academicInfo.roomNumber || academicInfo.room || "—"} />
-              <Field label="Status" value={academicInfo.currentStatus} />
+              <Field label="Enrollment Status" value={academicInfo.currentStatus} />
             </div>
           </div>
 
@@ -166,6 +172,62 @@ export default function StudentDetailsPage() {
               <Field label="Occupation" value={guardian?.occupation || "—"} />
               <Field label="Address" value={guardian?.address || "—"} />
             </div>
+          </div>
+
+          {/* Multi-Year Academic Progression & Promotion Archive */}
+          <div className={styles.historySection}>
+            <h3 className={styles.sectionTitle}>📜 Multi-Year Academic Progression & Promotion Archive</h3>
+            {academicHistory.length === 0 ? (
+              <div className={styles.emptyHistory}>
+                No archived progression records yet. End-of-year snapshots are created when cohorts are rolled forward in the Student Promotions engine.
+              </div>
+            ) : (
+              <div className={styles.timeline}>
+                {academicHistory.map((rec) => (
+                  <div key={rec.id} className={styles.timelineItem}>
+                    <div className={styles.timelineYear}>
+                      <span className={styles.yearText}>{rec.academic_year_name}</span>
+                      {rec.academic_year_start && (
+                        <span className={styles.yearDates}>
+                          {new Date(rec.academic_year_start).getFullYear()} - {new Date(rec.academic_year_end).getFullYear()}
+                        </span>
+                      )}
+                    </div>
+                    <div className={styles.timelineContent}>
+                      <div className={styles.timelineTop}>
+                        <span className={styles.timelinePlacement}>
+                          {rec.grade_name || "Grade"} • Section {rec.section_name || "A"}
+                        </span>
+                        <span className={`${styles.statusPillHistory} ${styles[`pill${rec.promotion_status}`] || styles.pillPROMOTED}`}>
+                          {rec.promotion_status}
+                        </span>
+                      </div>
+                      <div className={styles.timelineDetails}>
+                        {rec.final_average !== null && (
+                          <span>
+                            <strong>Cumulative Average:</strong> {rec.final_average}% {rec.final_grade_letter ? `(Grade ${rec.final_grade_letter})` : ''} •{" "}
+                          </span>
+                        )}
+                        {rec.promoted_to_grade_name && (
+                          <span>
+                            <strong>Next Placement:</strong> {rec.promoted_to_academic_year_name} ({rec.promoted_to_grade_name} - Section {rec.promoted_to_section_name || "—"}) •{" "}
+                          </span>
+                        )}
+                        {rec.remarks && <span><em>Note: {rec.remarks}</em></span>}
+                      </div>
+                      <div className={styles.timelineMeta}>
+                        {rec.promoted_at && (
+                          <span>Executed: {new Date(rec.promoted_at).toLocaleDateString()}</span>
+                        )}
+                        {rec.promoted_by_name && (
+                          <span>Authorized by: {rec.promoted_by_name}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

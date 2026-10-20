@@ -94,8 +94,21 @@ const menuData = [
       {
         title: "Students",
         icon: FaUserGraduate,
-        link: "/dashboard/students",
         roles: ["School Admin", "Admin", "Teacher", "Staff", "Parent"],
+        children: [
+          {
+            title: "All Students",
+            icon: FaUserGraduate,
+            link: "/dashboard/students",
+            roles: ["School Admin", "Admin", "Teacher", "Staff", "Parent"],
+          },
+          {
+            title: "Student Promotions",
+            icon: FaSyncAlt,
+            link: "/dashboard/students/promotions",
+            roles: ["School Admin", "Admin", "Staff"],
+          },
+        ],
       },
       {
         title: "Teachers",

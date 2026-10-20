@@ -11,6 +11,11 @@ const {
   getStudentProfile,
   getStudentGuardian,
 } = require('./student.controller');
+const {
+  previewPromotions,
+  executeBatchPromotion,
+  getStudentAcademicHistory,
+} = require('./student.promotion.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
 const { attachStudentScope, requireStudentOwnParam } = require('../../middlewares/student.scope');
@@ -28,6 +33,12 @@ router.get('/', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Par
 router.post('/', authorizeRoles('School Admin', 'Admin', 'Staff'), createStudent);
 router.get('/me', authorizeRoles('Student'), getOwnStudentProfile);
 router.get('/me/profile', authorizeRoles('Student'), getOwnStudentProfile);
+
+// Student Promotion & Academic Progression Engine
+router.get('/promotions/preview', authorizeRoles('School Admin', 'Admin', 'Staff'), previewPromotions);
+router.post('/promotions/execute', authorizeRoles('School Admin', 'Admin'), executeBatchPromotion);
+
+router.get('/:id/academic-history', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentAcademicHistory);
 router.get('/:id/profile', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentProfile);
 router.get('/:id/guardian', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentGuardian);
 router.get('/:id', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), requireStudentOwnParam('id'), requireParentOwnChild('id'), getStudentById);
@@ -37,3 +48,4 @@ router.patch('/:id/activate', authorizeRoles('School Admin', 'Admin'), activateS
 router.patch('/:id/suspend', authorizeRoles('School Admin', 'Admin'), suspendStudent);
 
 module.exports = router;
+
