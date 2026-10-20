@@ -26,6 +26,16 @@ function validateUpdateSettingsInput(body = {}) {
     activeAcademicYearId: body.activeAcademicYearId !== undefined ? (body.activeAcademicYearId ? body.activeAcademicYearId.trim() : null) : undefined,
     activeTerm: body.activeTerm !== undefined ? body.activeTerm.trim() : undefined,
     currency: body.currency !== undefined ? body.currency.trim() : undefined,
+    taxId: body.taxId !== undefined ? body.taxId.trim() : undefined,
+    timezone: body.timezone !== undefined ? body.timezone.trim() : undefined,
+    dateFormat: body.dateFormat !== undefined ? body.dateFormat.trim() : undefined,
+    calendarSystem: body.calendarSystem !== undefined ? body.calendarSystem.trim() : undefined,
+    minAttendancePercentage: body.minAttendancePercentage !== undefined ? parseInt(body.minAttendancePercentage, 10) : undefined,
+    passingGradePercentage: body.passingGradePercentage !== undefined ? parseInt(body.passingGradePercentage, 10) : undefined,
+    gradingSystem: body.gradingSystem !== undefined ? body.gradingSystem.trim() : undefined,
+    autoAbsenceAlert: body.autoAbsenceAlert !== undefined ? Boolean(body.autoAbsenceAlert) : undefined,
+    stampUrl: body.stampUrl !== undefined ? body.stampUrl.trim() : undefined,
+    dynamicPreferences: body.dynamicPreferences !== undefined ? body.dynamicPreferences : undefined,
     errors,
   };
 }

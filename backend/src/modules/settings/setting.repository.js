@@ -18,6 +18,16 @@ class SettingRepository {
         s.active_academic_year_id,
         s.active_term,
         s.currency,
+        s.tax_id,
+        s.timezone,
+        s.date_format,
+        s.calendar_system,
+        s.min_attendance_percentage,
+        s.passing_grade_percentage,
+        s.grading_system,
+        s.auto_absence_alert,
+        s.stamp_url,
+        s.dynamic_preferences,
         s.created_at,
         s.updated_at,
         ay.name AS active_academic_year_name
@@ -67,12 +77,22 @@ class SettingRepository {
       activeAcademicYearId: 'active_academic_year_id',
       activeTerm: 'active_term',
       currency: 'currency',
+      taxId: 'tax_id',
+      timezone: 'timezone',
+      dateFormat: 'date_format',
+      calendarSystem: 'calendar_system',
+      minAttendancePercentage: 'min_attendance_percentage',
+      passingGradePercentage: 'passing_grade_percentage',
+      gradingSystem: 'grading_system',
+      autoAbsenceAlert: 'auto_absence_alert',
+      stampUrl: 'stamp_url',
+      dynamicPreferences: 'dynamic_preferences',
     };
 
     Object.entries(payload).forEach(([key, val]) => {
       if (val !== undefined && columnMap[key]) {
         fields.push(`${columnMap[key]} = $${index}`);
-        values.push(val);
+        values.push(key === 'dynamicPreferences' && typeof val === 'object' ? JSON.stringify(val) : val);
         index++;
       }
     });
