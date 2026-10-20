@@ -118,7 +118,7 @@ class GradeRepository {
         g.deleted_at,
         CASE WHEN g.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
         (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count,
-        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL) AS student_count,
+        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL AND LOWER(st.status) = 'active') AS student_count,
         (SELECT COUNT(*)::int FROM grade_subjects gs WHERE gs.grade_id = g.id AND gs.deleted_at IS NULL) AS subject_count
       FROM grades g
       ${whereClause}
@@ -146,7 +146,7 @@ class GradeRepository {
         g.deleted_at,
         CASE WHEN g.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
         (SELECT COUNT(*)::int FROM sections s WHERE s.grade_id = g.id AND s.deleted_at IS NULL) AS section_count,
-        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL) AS student_count,
+        (SELECT COUNT(*)::int FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = g.id AND st.deleted_at IS NULL AND LOWER(st.status) = 'active') AS student_count,
         (SELECT COUNT(*)::int FROM grade_subjects gs WHERE gs.grade_id = g.id AND gs.deleted_at IS NULL) AS subject_count
       FROM grades g
       WHERE g.id = $1
@@ -187,7 +187,7 @@ class GradeRepository {
       [id]
     );
     const studentRes = await this.database.query(
-      `SELECT COUNT(*)::int AS count FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = $1 AND st.deleted_at IS NULL`,
+      `SELECT COUNT(*)::int AS count FROM students st JOIN sections sec ON sec.id = st.section_id WHERE sec.grade_id = $1 AND st.deleted_at IS NULL AND LOWER(st.status) = 'active'`,
       [id]
     );
     const gradeSubjectRes = await this.database.query(

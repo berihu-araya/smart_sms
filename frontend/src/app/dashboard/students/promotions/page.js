@@ -384,7 +384,25 @@ export default function StudentPromotionsPage() {
       {feedback && (
         <div className={`${styles.alertBox} ${feedback.type === 'success' ? styles.alertSuccess : styles.alertError}`}>
           {feedback.type === 'success' ? <HiCheckCircle size={22} /> : <HiXCircle size={22} />}
-          <span>{feedback.message}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span>{feedback.message}</span>
+            {feedback.type === 'success' && (
+              <Link
+                href="/dashboard/grades"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  color: '#15803d',
+                  textDecoration: 'underline',
+                }}
+              >
+                View Updated Grade Counts →
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
@@ -703,7 +721,7 @@ export default function StudentPromotionsPage() {
                               onChange={(e) => updateCandidate(c.studentId, { targetSectionId: e.target.value })}
                             >
                               {cohortData.nextSections?.length === 0 ? (
-                                <option value="">No sections defined</option>
+                                <option value="">Auto-create Section A ({cohortData.nextGrade?.name || 'Target Grade'})</option>
                               ) : (
                                 cohortData.nextSections?.map((ns) => (
                                   <option key={ns.id} value={ns.id}>

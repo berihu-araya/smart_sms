@@ -96,6 +96,19 @@ class StudentPromotionService {
       : { rows: [] };
     const nextSections = targetSectionsRes.rows;
 
+    // Auto-create a default Section A for the next grade if none exists yet
+    if (nextGrade && nextSections.length === 0) {
+      const createdSec = await this.db.query(
+        `INSERT INTO sections (name, grade_id, room_number, capacity, created_at, updated_at)
+         VALUES ('Section A', $1, '101', 40, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         RETURNING id, name, room_number, capacity`,
+        [nextGrade.id]
+      );
+      if (createdSec.rows.length > 0) {
+        nextSections.push(createdSec.rows[0]);
+      }
+    }
+
     const currentSectionsRes = await this.db.query(
       `SELECT id, name, room_number, capacity FROM sections WHERE grade_id = $1 AND deleted_at IS NULL ORDER BY name ASC`,
       [currentGrade.id]
@@ -296,6 +309,9 @@ class StudentPromotionService {
       let transferredCount = 0;
       let withdrawnCount = 0;
 
+      // Cache auto-resolved/created sections for target grades
+      const targetSectionCache = {};
+
       for (const item of promotions) {
         const {
           studentId,
@@ -311,6 +327,73 @@ class StudentPromotionService {
         } = item;
 
         if (!studentId) continue;
+
+        let effectiveTargetGradeId = targetGradeId;
+        let effectiveTargetSectionId = targetSectionId;
+
+        if (action === 'PROMOTED') {
+          // If targetGradeId not provided, look up natural next grade from currentGradeId
+          if (!effectiveTargetGradeId && currentGradeId) {
+            const gradesRes = await client.query(
+              `SELECT id, name FROM grades WHERE deleted_at IS NULL ORDER BY name ASC`
+            );
+            const sorted = [...gradesRes.rows].sort((a, b) => {
+              const diff = getGradeSortValue(a.name) - getGradeSortValue(b.name);
+              return diff !== 0 ? diff : a.name.localeCompare(b.name);
+            });
+            const idx = sorted.findIndex((g) => g.id === currentGradeId);
+            if (idx !== -1 && idx < sorted.length - 1) {
+              effectiveTargetGradeId = sorted[idx + 1].id;
+            }
+          }
+
+          if (effectiveTargetGradeId) {
+            // Check if provided targetSectionId actually belongs to effectiveTargetGradeId
+            let validSection = null;
+            if (effectiveTargetSectionId) {
+              const checkSec = await client.query(
+                `SELECT id FROM sections WHERE id = $1 AND grade_id = $2 AND deleted_at IS NULL LIMIT 1`,
+                [effectiveTargetSectionId, effectiveTargetGradeId]
+              );
+              if (checkSec.rows.length > 0) {
+                validSection = checkSec.rows[0].id;
+              }
+            }
+
+            // If not valid or not provided, find or create section for target grade
+            if (!validSection) {
+              if (targetSectionCache[effectiveTargetGradeId]) {
+                validSection = targetSectionCache[effectiveTargetGradeId];
+              } else {
+                const secRes = await client.query(
+                  `SELECT id FROM sections WHERE grade_id = $1 AND deleted_at IS NULL ORDER BY name ASC LIMIT 1`,
+                  [effectiveTargetGradeId]
+                );
+                if (secRes.rows.length > 0) {
+                  validSection = secRes.rows[0].id;
+                } else {
+                  // Grade has no sections yet! Auto-create a default section for the target grade
+                  const newSec = await client.query(
+                    `INSERT INTO sections (name, grade_id, room_number, capacity, created_at, updated_at)
+                     VALUES ('Section A', $1, '101', 40, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                     RETURNING id`,
+                    [effectiveTargetGradeId]
+                  );
+                  validSection = newSec.rows[0].id;
+                }
+                targetSectionCache[effectiveTargetGradeId] = validSection;
+              }
+            }
+            effectiveTargetSectionId = validSection;
+          }
+        } else if (action === 'RETAINED') {
+          effectiveTargetGradeId = currentGradeId;
+          effectiveTargetSectionId = targetSectionId || currentSectionId;
+        } else {
+          // GRADUATED, TRANSFERRED, WITHDRAWN
+          effectiveTargetGradeId = null;
+          effectiveTargetSectionId = null;
+        }
 
         // 1. Snapshot into student_academic_history (Upsert)
         await client.query(
@@ -348,8 +431,8 @@ class StudentPromotionService {
             finalGradeLetter,
             action,
             targetAcademicYearId,
-            targetGradeId || null,
-            targetSectionId || null,
+            effectiveTargetGradeId,
+            effectiveTargetSectionId,
             userId || null,
             remarks || null,
           ]
@@ -357,12 +440,11 @@ class StudentPromotionService {
 
         // 2. Update Student master record state
         if (action === 'PROMOTED' || action === 'RETAINED') {
-          const newSectionId = targetSectionId || currentSectionId;
           await client.query(
             `UPDATE students 
              SET section_id = $1, status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP 
              WHERE id = $2`,
-            [newSectionId, studentId]
+            [effectiveTargetSectionId, studentId]
           );
 
           if (action === 'PROMOTED') promotedCount += 1;

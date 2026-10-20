@@ -105,7 +105,7 @@ class SectionRepository {
           sec.deleted_at,
           CASE WHEN sec.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
           g.name AS grade_name,
-          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count,
+          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL AND LOWER(s.status) = 'active') AS student_count,
           (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count,
           (
             SELECT json_build_object(
@@ -151,7 +151,7 @@ class SectionRepository {
           CASE WHEN sec.deleted_at IS NULL THEN 'ACTIVE' ELSE 'INACTIVE' END AS status,
           g.name AS grade_name,
           g.description AS grade_description,
-          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL) AS student_count,
+          (SELECT COUNT(*)::int FROM students s WHERE s.section_id = sec.id AND s.deleted_at IS NULL AND LOWER(s.status) = 'active') AS student_count,
           (SELECT COUNT(*)::int FROM teacher_subjects ts WHERE ts.section_id = sec.id AND ts.deleted_at IS NULL) AS teacher_count,
           (
             SELECT json_build_object(
