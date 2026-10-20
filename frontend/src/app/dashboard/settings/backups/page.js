@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo } from 'react';
 import styles from './page.module.css';
 import { listBackups, triggerBackup, getBackupDownloadUrl } from '@/services/backupService';
 import {
-  HiDatabase,
   HiArrowDownTray,
   HiArrowPath,
   HiShieldCheck,
@@ -13,6 +12,7 @@ import {
   HiCheckCircle,
   HiClock,
 } from 'react-icons/hi2';
+import { FaDatabase } from 'react-icons/fa';
 
 export default function BackupsPage() {
   const [backups, setBackups] = useState([]);
@@ -96,7 +96,7 @@ export default function BackupsPage() {
               </>
             ) : (
               <>
-                <HiDatabase /> Trigger Manual Snapshot
+                <FaDatabase /> Trigger Manual Snapshot
               </>
             )}
           </button>
@@ -142,7 +142,7 @@ export default function BackupsPage() {
 
         <div className={styles.statCard}>
           <div className={styles.statIcon} style={{ background: '#fffbeb', color: '#d97706' }}>
-            <HiDatabase />
+            <FaDatabase />
           </div>
           <div>
             <div className={styles.statValue}>{stats.totalMb} MB</div>
@@ -157,7 +157,7 @@ export default function BackupsPage() {
           <div className={styles.emptyState}>Loading backup catalog...</div>
         ) : backups.length === 0 ? (
           <div className={styles.emptyState}>
-            <HiDatabase className={styles.emptyIcon} />
+            <FaDatabase className={styles.emptyIcon} />
             <p>No database snapshots generated yet. Click above to trigger your first backup.</p>
           </div>
         ) : (
