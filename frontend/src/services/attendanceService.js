@@ -48,6 +48,18 @@ export async function getMyChildrenAttendance() {
   return response.data;
 }
 
+export async function getAttendanceReport(params = {}) {
+  const cleanParams = {};
+  Object.keys(params).forEach((key) => {
+    if (params[key] !== null && params[key] !== undefined && params[key] !== '') {
+      cleanParams[key] = params[key];
+    }
+  });
+  const query = new URLSearchParams(cleanParams).toString();
+  const response = await request(`/api/v1/attendance/reports?${query}`);
+  return response.data;
+}
+
 const attendanceService = {
   getAttendanceSheet,
   saveBulkAttendance,
@@ -56,6 +68,7 @@ const attendanceService = {
   getStudentAttendance,
   getOwnAttendance,
   getMyChildrenAttendance,
+  getAttendanceReport,
 };
 
 export default attendanceService;

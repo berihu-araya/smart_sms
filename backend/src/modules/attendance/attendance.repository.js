@@ -223,6 +223,209 @@ class AttendanceRepository {
       stats: statsResult.rows[0] || {},
     };
   }
+
+  /**
+   * Enterprise Attendance Reports Query Engine
+   * Pulls scoped students, period attendance matrix records, and sections compliance in single batch.
+   */
+  async getAttendanceReportsRawData({
+    schoolId = null,
+    academicYearId = null,
+    gradeId = null,
+    sectionId = null,
+    startDate,
+    endDate,
+    accessibleSectionIds = null,
+    targetStudentId = null,
+  }) {
+    // 1. Fetch Students in Scope
+    const studentParams = [];
+    let sIdx = 1;
+    const studentWhere = [
+      's.deleted_at IS NULL',
+      "s.status = 'ACTIVE'",
+      'sec.deleted_at IS NULL',
+      'g.deleted_at IS NULL',
+    ];
+
+    if (schoolId) {
+      studentWhere.push(`(s.school_id = $${sIdx} OR sec.school_id = $${sIdx})`);
+      studentParams.push(schoolId);
+      sIdx++;
+    }
+
+    if (targetStudentId) {
+      studentWhere.push(`s.id = $${sIdx}`);
+      studentParams.push(targetStudentId);
+      sIdx++;
+    }
+
+    if (sectionId) {
+      studentWhere.push(`s.section_id = $${sIdx}`);
+      studentParams.push(sectionId);
+      sIdx++;
+    } else if (gradeId) {
+      studentWhere.push(`sec.grade_id = $${sIdx}`);
+      studentParams.push(gradeId);
+      sIdx++;
+    }
+
+    if (accessibleSectionIds && accessibleSectionIds.length > 0) {
+      studentWhere.push(`s.section_id = ANY($${sIdx})`);
+      studentParams.push(accessibleSectionIds);
+      sIdx++;
+    }
+
+    const studentsQuery = `
+      SELECT
+        s.id AS student_id,
+        s.admission_number,
+        s.first_name,
+        s.last_name,
+        s.gender,
+        s.section_id,
+        sec.name AS section_name,
+        g.id AS grade_id,
+        g.name AS grade_name,
+        p.full_name AS parent_name,
+        p.phone AS parent_phone
+      FROM students s
+      JOIN sections sec ON sec.id = s.section_id
+      JOIN grades g ON g.id = sec.grade_id
+      LEFT JOIN parents p ON p.id = s.parent_id AND p.deleted_at IS NULL
+      WHERE ${studentWhere.join(' AND ')}
+      ORDER BY g.name ASC, sec.name ASC, s.first_name ASC, s.last_name ASC
+    `;
+    const studentsRes = await this.database.query(studentsQuery, studentParams);
+
+    // 2. Fetch Attendance Records for the Date Range
+    const attParams = [startDate, endDate];
+    let aIdx = 3;
+    const attWhere = [
+      'a.deleted_at IS NULL',
+      's.deleted_at IS NULL',
+      'a.date >= $1',
+      'a.date <= $2',
+    ];
+
+    if (schoolId) {
+      attWhere.push(`(s.school_id = $${aIdx} OR sec.school_id = $${aIdx})`);
+      attParams.push(schoolId);
+      aIdx++;
+    }
+
+    if (academicYearId) {
+      attWhere.push(`(a.academic_year_id = $${aIdx} OR a.academic_year_id IS NULL)`);
+      attParams.push(academicYearId);
+      aIdx++;
+    }
+
+    if (targetStudentId) {
+      attWhere.push(`a.student_id = $${aIdx}`);
+      attParams.push(targetStudentId);
+      aIdx++;
+    }
+
+    if (sectionId) {
+      attWhere.push(`a.section_id = $${aIdx}`);
+      attParams.push(sectionId);
+      aIdx++;
+    } else if (gradeId) {
+      attWhere.push(`sec.grade_id = $${aIdx}`);
+      attParams.push(gradeId);
+      aIdx++;
+    }
+
+    if (accessibleSectionIds && accessibleSectionIds.length > 0) {
+      attWhere.push(`a.section_id = ANY($${aIdx})`);
+      attParams.push(accessibleSectionIds);
+      aIdx++;
+    }
+
+    const attendanceQuery = `
+      SELECT
+        a.id,
+        a.student_id,
+        a.section_id,
+        TO_CHAR(a.date, 'YYYY-MM-DD') AS date_str,
+        a.date,
+        EXTRACT(ISODOW FROM a.date)::int AS dow,
+        a.status,
+        a.remark,
+        u.first_name AS marked_by_first_name,
+        u.last_name AS marked_by_last_name
+      FROM attendance a
+      JOIN students s ON s.id = a.student_id
+      JOIN sections sec ON sec.id = a.section_id
+      LEFT JOIN users u ON u.id = a.recorded_by
+      WHERE ${attWhere.join(' AND ')}
+      ORDER BY a.date ASC
+    `;
+    const attendanceRes = await this.database.query(attendanceQuery, attParams);
+
+    // 3. Fetch Sections with Today's Roll-Call Submission Status
+    const secParams = [];
+    let secIdx = 1;
+    const secWhere = [
+      'sec.deleted_at IS NULL',
+      'g.deleted_at IS NULL',
+    ];
+
+    if (schoolId) {
+      secWhere.push(`(sec.school_id = $${secIdx} OR g.school_id = $${secIdx})`);
+      secParams.push(schoolId);
+      secIdx++;
+    }
+
+    if (gradeId) {
+      secWhere.push(`sec.grade_id = $${secIdx}`);
+      secParams.push(gradeId);
+      secIdx++;
+    }
+
+    if (sectionId) {
+      secWhere.push(`sec.id = $${secIdx}`);
+      secParams.push(sectionId);
+      secIdx++;
+    }
+
+    if (accessibleSectionIds && accessibleSectionIds.length > 0) {
+      secWhere.push(`sec.id = ANY($${secIdx})`);
+      secParams.push(accessibleSectionIds);
+      secIdx++;
+    }
+
+    const sectionsQuery = `
+      SELECT
+        sec.id AS section_id,
+        sec.name AS section_name,
+        g.id AS grade_id,
+        g.name AS grade_name,
+        COUNT(DISTINCT s.id) AS total_students,
+        COUNT(DISTINCT CASE WHEN a.date = CURRENT_DATE THEN a.student_id END) AS today_marked_count,
+        MAX(CASE WHEN a.date = CURRENT_DATE THEN a.updated_at END) AS today_last_marked_at,
+        CONCAT(u.first_name, ' ', u.last_name) AS class_teacher_name
+      FROM sections sec
+      JOIN grades g ON g.id = sec.grade_id
+      LEFT JOIN students s ON s.section_id = sec.id AND s.deleted_at IS NULL AND s.status = 'ACTIVE'
+      LEFT JOIN attendance a ON a.section_id = sec.id AND a.date = CURRENT_DATE AND a.deleted_at IS NULL
+      LEFT JOIN class_teachers ct ON ct.section_id = sec.id AND ct.status = 'ACTIVE' AND ct.deleted_at IS NULL
+      LEFT JOIN teachers t ON t.id = ct.teacher_id
+      LEFT JOIN users u ON u.id = t.user_id
+      WHERE ${secWhere.join(' AND ')}
+      GROUP BY sec.id, sec.name, g.id, g.name, u.first_name, u.last_name
+      ORDER BY g.name ASC, sec.name ASC
+    `;
+    const sectionsRes = await this.database.query(sectionsQuery, secParams);
+
+    return {
+      startDate,
+      endDate,
+      students: studentsRes.rows,
+      attendanceRecords: attendanceRes.rows,
+      sections: sectionsRes.rows,
+    };
+  }
 }
 
 module.exports = AttendanceRepository;

@@ -3,6 +3,7 @@ const AttendanceService = require('./attendance.service');
 const {
   validateSheetQuery,
   validateBulkAttendanceInput,
+  validateReportQuery,
   isValidUUID,
   isValidDate,
 } = require('./attendance.validation');
@@ -340,6 +341,136 @@ async function getOwnAttendance(req, res, next) {
   }
 }
 
+async function getAttendanceReport(req, res, next) {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  const userSub = req.user?.sub;
+  const userEmail = (req.user?.email || '').trim().toLowerCase();
+  const schoolId = req.user?.school_id || null;
+
+  const {
+    academicYearId,
+    gradeId,
+    sectionId,
+    studentId,
+    startDate,
+    endDate,
+    period,
+    errors,
+  } = validateReportQuery(req.query);
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      data: errors,
+    });
+  }
+
+  try {
+    let mode = 'cohort';
+    let targetStudentId = studentId;
+    let accessibleSectionIds = null;
+
+    if (role.includes('student') && !role.includes('admin')) {
+      const studentRes = await db.query(
+        `SELECT id FROM students
+         WHERE (user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)))
+           AND deleted_at IS NULL
+         LIMIT 1`,
+        [userSub, userEmail]
+      );
+
+      if (!studentRes.rows.length) {
+        return res.status(200).json({
+          success: true,
+          message: 'Student profile not linked',
+          data: {
+            mode: 'individual',
+            kpis: { overallAttendanceRate: 0, totalMarkedDays: 0 },
+            individualData: null,
+            broadsheet: [],
+            atRiskRegister: [],
+          },
+        });
+      }
+
+      mode = 'individual';
+      targetStudentId = studentRes.rows[0].id;
+    } else if (role.includes('parent')) {
+      const childIds = req.parentScope?.child_student_ids || [];
+      if (studentId) {
+        if (!childIds.includes(studentId)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Parents can only view reports for their own children',
+            data: null,
+          });
+        }
+        targetStudentId = studentId;
+      } else {
+        targetStudentId = childIds[0] || null;
+      }
+
+      if (!targetStudentId) {
+        return res.status(200).json({
+          success: true,
+          message: 'No children linked to parent',
+          data: {
+            mode: 'individual',
+            kpis: { overallAttendanceRate: 0, totalMarkedDays: 0 },
+            individualData: null,
+            broadsheet: [],
+            atRiskRegister: [],
+          },
+        });
+      }
+
+      mode = 'individual';
+    } else if (role.includes('teacher') && !role.includes('admin')) {
+      const teacherId = req.teacherScope?.teacher_id;
+      if (!teacherId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher profile is not linked or has no active assignments',
+          data: null,
+        });
+      }
+
+      accessibleSectionIds = req.teacherScope?.all_accessible_section_ids || [];
+      if (sectionId) {
+        if (!accessibleSectionIds.includes(sectionId)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You are not assigned to manage or teach this section',
+            data: null,
+          });
+        }
+      }
+    }
+
+    const data = await attendanceService.generateAttendanceReport({
+      schoolId,
+      academicYearId,
+      gradeId,
+      sectionId,
+      startDate,
+      endDate,
+      period,
+      accessibleSectionIds,
+      targetStudentId,
+      mode,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Attendance reports generated successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getRosterSheet,
   recordBulkAttendance,
@@ -348,4 +479,5 @@ module.exports = {
   getStudentAttendance,
   getMyChildrenAttendance,
   getOwnAttendance,
+  getAttendanceReport,
 };

@@ -81,9 +81,60 @@ function validateBulkAttendanceInput(body = {}) {
   };
 }
 
+function validateReportQuery(query = {}) {
+  const errors = {};
+
+  const academicYearId = query.academicYearId && isValidUUID(query.academicYearId) ? query.academicYearId.trim() : null;
+  const gradeId = query.gradeId && isValidUUID(query.gradeId) ? query.gradeId.trim() : null;
+  const sectionId = query.sectionId && isValidUUID(query.sectionId) ? query.sectionId.trim() : null;
+  const studentId = query.studentId && isValidUUID(query.studentId) ? query.studentId.trim() : null;
+
+  let startDate = query.startDate && isValidDate(query.startDate) ? query.startDate.trim() : null;
+  let endDate = query.endDate && isValidDate(query.endDate) ? query.endDate.trim() : null;
+  const period = query.period || 'this_month';
+
+  if (!startDate || !endDate) {
+    const now = new Date();
+    if (period === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      startDate = todayStr;
+      endDate = todayStr;
+    } else if (period === 'this_week') {
+      const day = now.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1) - day;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMonday);
+      startDate = monday.toISOString().split('T')[0];
+      endDate = now.toISOString().split('T')[0];
+    } else if (period === 'this_month') {
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      startDate = `${year}-${month}-01`;
+      endDate = now.toISOString().split('T')[0];
+    } else {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      startDate = thirtyDaysAgo.toISOString().split('T')[0];
+      endDate = now.toISOString().split('T')[0];
+    }
+  }
+
+  return {
+    academicYearId,
+    gradeId,
+    sectionId,
+    studentId,
+    startDate,
+    endDate,
+    period,
+    errors,
+  };
+}
+
 module.exports = {
   isValidUUID,
   isValidDate,
   validateSheetQuery,
   validateBulkAttendanceInput,
+  validateReportQuery,
 };

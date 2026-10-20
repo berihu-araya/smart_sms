@@ -7,6 +7,7 @@ const {
   getStudentAttendance,
   getMyChildrenAttendance,
   getOwnAttendance,
+  getAttendanceReport,
 } = require('./attendance.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
@@ -21,6 +22,7 @@ router.use(attachStudentScope);
 router.use(attachParentScope);
 router.use(attachTeacherScope);
 
+router.get('/reports', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff', 'Student', 'Parent'), getAttendanceReport);
 router.get('/sheet', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getRosterSheet);
 router.post('/bulk', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), recordBulkAttendance);
 router.get('/summary', authorizeRoles('School Admin', 'Admin', 'Teacher', 'Staff'), getDailySummary);
