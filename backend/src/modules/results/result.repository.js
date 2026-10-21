@@ -54,10 +54,66 @@ class ResultRepository {
     return result.rows;
   }
 
-  async getSectionStudents(sectionId) {
+  async getGradeSubjects(gradeId, teacherId = null) {
+    const params = [gradeId];
+    let whereClause = 'WHERE sub.deleted_at IS NULL AND gs.deleted_at IS NULL';
+    let index = 2;
+
+    if (teacherId) {
+      whereClause += ` AND sub.id IN (
+        SELECT ts.subject_id
+        FROM teacher_subjects ts
+        WHERE ts.teacher_id = $${index}
+          AND ts.deleted_at IS NULL
+      )`;
+      params.push(teacherId);
+      index++;
+    }
+
     const result = await this.database.query(
       `
-      SELECT
+      SELECT DISTINCT sub.id, sub.subject_name AS name, sub.subject_code AS code
+      FROM subjects sub
+      JOIN grade_subjects gs ON gs.grade_id = $1 AND gs.subject_id = sub.id
+      ${whereClause}
+      ORDER BY sub.subject_name ASC
+      `,
+      params
+    );
+
+    if (!teacherId && result.rows.length === 0) {
+      const fallback = await this.database.query(
+        `SELECT id, subject_name AS name, subject_code AS code FROM subjects WHERE deleted_at IS NULL ORDER BY subject_name ASC`
+      );
+      return fallback.rows;
+    }
+
+    return result.rows;
+  }
+
+  async getSectionStudents(sectionId, academicYearId = null) {
+    const params = [sectionId];
+    let filter = `(s.section_id = $1 AND s.status = 'ACTIVE')`;
+    if (academicYearId) {
+      params.push(academicYearId);
+      filter = `(
+        EXISTS (
+          SELECT 1 FROM student_academic_history sah 
+          WHERE sah.student_id = s.id AND sah.section_id = $1 AND sah.academic_year_id = $2
+        )
+        OR EXISTS (
+          SELECT 1 FROM marks m
+          JOIN exams e ON e.id = m.exam_id
+          WHERE m.student_id = s.id AND e.academic_year_id = $2 AND e.deleted_at IS NULL
+            AND e.grade_id = sec.grade_id
+        )
+        OR (s.section_id = $1)
+      )`;
+    }
+
+    const result = await this.database.query(
+      `
+      SELECT DISTINCT
         s.id,
         s.admission_number,
         s.first_name,
@@ -66,14 +122,13 @@ class ResultRepository {
         sec.name AS section_name,
         g.name AS grade_name
       FROM students s
-      JOIN sections sec ON sec.id = s.section_id
+      JOIN sections sec ON sec.id = $1
       LEFT JOIN grades g ON g.id = sec.grade_id
-      WHERE s.section_id = $1
-        AND s.deleted_at IS NULL
-        AND s.status = 'ACTIVE'
+      WHERE s.deleted_at IS NULL
+        AND ${filter}
       ORDER BY s.first_name ASC, s.last_name ASC
       `,
-      [sectionId]
+      params
     );
     return result.rows;
   }
@@ -163,7 +218,95 @@ class ResultRepository {
     const student = studentRes.rows[0] || null;
     if (!student) return null;
 
-    // Get attendance summary for this student
+    // Resolve target academic year and name
+    let targetYearId = academicYearId;
+    let academicYearName = null;
+
+    if (targetYearId) {
+      const yrRes = await this.database.query(
+        `SELECT id, name FROM academic_years WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+        [targetYearId]
+      );
+      if (yrRes.rows[0]) {
+        academicYearName = yrRes.rows[0].name;
+      }
+    } else {
+      const activeYrRes = await this.database.query(
+        `SELECT id, name FROM academic_years WHERE is_active = TRUE AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`
+      );
+      if (activeYrRes.rows[0]) {
+        targetYearId = activeYrRes.rows[0].id;
+        academicYearName = activeYrRes.rows[0].name;
+      }
+    }
+
+    // Historical Grade & Section Resolution
+    if (targetYearId) {
+      // 1. Check student_academic_history snapshot
+      const histRes = await this.database.query(
+        `
+        SELECT
+          sah.grade_id,
+          g.name AS grade_name,
+          sah.section_id,
+          sec.name AS section_name
+        FROM student_academic_history sah
+        LEFT JOIN grades g ON g.id = sah.grade_id
+        LEFT JOIN sections sec ON sec.id = sah.section_id
+        WHERE sah.student_id = $1 AND sah.academic_year_id = $2
+        LIMIT 1
+        `,
+        [studentId, targetYearId]
+      );
+
+      if (histRes.rows.length > 0 && (histRes.rows[0].grade_id || histRes.rows[0].section_id)) {
+        if (histRes.rows[0].grade_id) {
+          student.grade_id = histRes.rows[0].grade_id;
+          student.grade_name = histRes.rows[0].grade_name;
+        }
+        if (histRes.rows[0].section_id) {
+          student.section_id = histRes.rows[0].section_id;
+          student.section_name = histRes.rows[0].section_name;
+        }
+      } else {
+        // 2. Fallback: derive historical grade from marks/exams in that academic year
+        const examGradeRes = await this.database.query(
+          `
+          SELECT
+            e.grade_id,
+            g.name AS grade_name,
+            sec.id AS section_id,
+            sec.name AS section_name
+          FROM marks m
+          JOIN exams e ON e.id = m.exam_id
+          JOIN grades g ON g.id = e.grade_id
+          LEFT JOIN sections sec ON sec.grade_id = g.id AND sec.id = $3
+          WHERE m.student_id = $1 AND e.academic_year_id = $2 AND e.deleted_at IS NULL
+          ORDER BY m.created_at DESC
+          LIMIT 1
+          `,
+          [studentId, targetYearId, student.section_id]
+        );
+
+        if (examGradeRes.rows.length > 0) {
+          student.grade_id = examGradeRes.rows[0].grade_id;
+          student.grade_name = examGradeRes.rows[0].grade_name;
+          if (examGradeRes.rows[0].section_id) {
+            student.section_id = examGradeRes.rows[0].section_id;
+            student.section_name = examGradeRes.rows[0].section_name;
+          }
+        }
+      }
+    }
+
+    // Get attendance summary for this student (scoped to academic year)
+    const attParams = [studentId];
+    let attWhere = `WHERE student_id = $1 AND deleted_at IS NULL`;
+    if (targetYearId) {
+      attWhere += ` AND academic_year_id = $2`;
+      attParams.push(targetYearId);
+    }
+
     const attendanceRes = await this.database.query(
       `
       SELECT
@@ -173,10 +316,9 @@ class ResultRepository {
         COUNT(*) FILTER (WHERE status = 'LATE') AS late_days,
         COUNT(*) FILTER (WHERE status = 'EXCUSED') AS excused_days
       FROM attendance
-      WHERE student_id = $1
-        AND deleted_at IS NULL
+      ${attWhere}
       `,
-      [studentId]
+      attParams
     );
 
     // Get school settings
@@ -241,6 +383,8 @@ class ResultRepository {
       school,
       attendance: attendanceRes.rows[0] || {},
       marks: marksRes.rows,
+      academicYearId: targetYearId,
+      academicYearName,
     };
   }
 

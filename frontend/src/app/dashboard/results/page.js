@@ -77,13 +77,38 @@ export default function ResultsPage() {
           setSelectedSection('');
         }
 
+        let savedYearId = '';
+        try {
+          const savedStr = localStorage.getItem('smart_sms_selected_academic_year');
+          if (savedStr) {
+            savedYearId = savedStr.startsWith('{') ? JSON.parse(savedStr)?.id : savedStr;
+          }
+        } catch {}
+
         const activeYear = yItems.find((y) => y.is_active);
-        if (activeYear) setSelectedYear(activeYear.id);
+        const resolvedYearId = (savedYearId && yItems.some((y) => y.id === savedYearId))
+          ? savedYearId
+          : (activeYear?.id || (yItems[0]?.id || ''));
+
+        if (resolvedYearId) {
+          setSelectedYear(resolvedYearId);
+        }
       } catch (err) {
         console.error('Failed to load results metadata:', err);
       }
     }
     loadMeta();
+
+    const handleYearChange = (event) => {
+      const yr = event?.detail;
+      const newId = typeof yr === 'object' ? yr?.id : yr;
+      if (newId) {
+        setSelectedYear(newId);
+      }
+    };
+
+    window.addEventListener('smart-sms-selected-year-changed', handleYearChange);
+    return () => window.removeEventListener('smart-sms-selected-year-changed', handleYearChange);
   }, []);
 
   useEffect(() => {

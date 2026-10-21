@@ -1475,11 +1475,27 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [viewMode, setViewMode] = useState("all"); // "all" | "academic" | "finance"
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = localStorage.getItem("smart_sms_selected_academic_year");
+      if (!saved) return "";
+      if (saved.startsWith("{")) {
+        const parsed = JSON.parse(saved);
+        return parsed?.id || "";
+      }
+      return saved;
+    } catch {
+      return "";
+    }
+  });
 
-  const fetchDashboardData = useCallback(async (isRefresh = false) => {
+  const fetchDashboardData = useCallback(async (isRefresh = false, yearId = null) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const payload = await request("/api/dashboard");
+      const activeId = yearId !== null ? yearId : selectedAcademicYearId;
+      const query = activeId ? `?academicYearId=${encodeURIComponent(activeId)}` : "";
+      const payload = await request(`/api/dashboard${query}`);
       setData(payload);
       setError(null);
     } catch (err) {
@@ -1488,10 +1504,22 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedAcademicYearId]);
 
   useEffect(() => {
-    fetchDashboardData(false);
+    fetchDashboardData(false, selectedAcademicYearId);
+  }, [fetchDashboardData, selectedAcademicYearId]);
+
+  useEffect(() => {
+    const handleYearChange = (event) => {
+      const yr = event?.detail;
+      const newId = typeof yr === "object" ? yr?.id || "" : yr || "";
+      setSelectedAcademicYearId(newId);
+      fetchDashboardData(true, newId);
+    };
+
+    window.addEventListener("smart-sms-selected-year-changed", handleYearChange);
+    return () => window.removeEventListener("smart-sms-selected-year-changed", handleYearChange);
   }, [fetchDashboardData]);
 
   useEffect(() => {
@@ -1636,7 +1664,16 @@ export default function Dashboard() {
           <p>Unified executive overview of academic outcomes, student wellbeing, fee receivables, and payroll operations.</p>
         </div>
         <div className={styles.heroActions}>
-          <span className={styles.termBadge}><HiCalendarDays />{stats.currentTerm || "Active Session"}</span>
+          <span
+            className={styles.termBadge}
+            style={dashboard.selectedAcademicYear && !dashboard.selectedAcademicYear.isActive ? { background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' } : {}}
+            title={dashboard.selectedAcademicYear ? `Viewing data for ${dashboard.selectedAcademicYear.name} (${dashboard.selectedAcademicYear.isActive ? 'Active' : 'Archived/Historical'})` : ''}
+          >
+            <HiCalendarDays />
+            {dashboard.selectedAcademicYear
+              ? `${dashboard.selectedAcademicYear.name}${dashboard.selectedAcademicYear.isActive ? ' (Active)' : ' (Archived)'}`
+              : (stats.currentTerm || 'Active Session')}
+          </span>
           <button type="button" className={styles.toolBtn} onClick={handlePrint} title="Print executive briefing">
             <HiPrinter /> Print Report
           </button>

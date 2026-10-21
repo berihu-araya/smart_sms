@@ -226,9 +226,30 @@ export default function StudentMasterTranscriptPage() {
                       {yearRecord.section_name ? `(Section ${yearRecord.section_name})` : ""}
                     </span>
                   </div>
-                  <span className={`${styles.outcomeBadge} ${statusClass}`}>
-                    {displayStatus}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <Link
+                      href={`/dashboard/results/report-card?studentId=${studentId}&year=${yearRecord.academic_year_id}`}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        padding: '0.25rem 0.65rem',
+                        borderRadius: '6px',
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #bfdbfe',
+                        textDecoration: 'none',
+                      }}
+                      title={`View Official Terminal Report Card for ${yearRecord.academic_year_name}`}
+                    >
+                      📋 Term Report Card
+                    </Link>
+                    <span className={`${styles.outcomeBadge} ${statusClass}`}>
+                      {displayStatus}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Subjects Table */}

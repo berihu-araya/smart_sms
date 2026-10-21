@@ -50,6 +50,7 @@ function buildDashboardPayload(data = {}) {
 
   return {
     isStudent: false,
+    selectedAcademicYear: data.selectedAcademicYear || null,
     stats: {
       totalStudents: Number(data.students ?? 0),
       totalTeachers: Number(data.teachers ?? 0),

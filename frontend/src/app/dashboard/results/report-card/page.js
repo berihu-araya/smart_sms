@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import styles from './report-card.module.css';
 import { getOwnReportCard, getStudentReportCard } from '@/services/resultService';
 import { listStudents } from '@/services/studentService';
+import { listAcademicYears } from '@/services/academicYearService';
 import {
   HiPrinter,
   HiArrowLeft,
@@ -27,10 +28,52 @@ function ReportCardContent() {
 
   const [studentId, setStudentId] = useState(studentIdParam || (isStudent ? 'me' : ''));
   const [selectedTerm, setSelectedTerm] = useState(termParam);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(() => {
+    if (yearParam) return yearParam;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('smart_sms_selected_academic_year');
+        if (saved) {
+          return saved.startsWith('{') ? JSON.parse(saved)?.id : saved;
+        }
+      } catch {}
+    }
+    return '';
+  });
   const [allStudents, setAllStudents] = useState([]);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function loadYears() {
+      try {
+        const res = await listAcademicYears({ limit: 100 });
+        const items = res?.items || res?.data?.items || (Array.isArray(res) ? res : []);
+        setAcademicYears(items);
+        if (!selectedYear) {
+          const activeYear = items.find((y) => y.is_active);
+          if (activeYear) setSelectedYear(activeYear.id);
+        }
+      } catch (err) {
+        console.error('Failed to load academic years for report card:', err);
+      }
+    }
+    loadYears();
+  }, [selectedYear]);
+
+  useEffect(() => {
+    const handleYearChange = (event) => {
+      const yr = event?.detail;
+      const newId = typeof yr === 'object' ? yr?.id : yr;
+      if (newId) {
+        setSelectedYear(newId);
+      }
+    };
+    window.addEventListener('smart-sms-selected-year-changed', handleYearChange);
+    return () => window.removeEventListener('smart-sms-selected-year-changed', handleYearChange);
+  }, []);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -61,7 +104,7 @@ function ReportCardContent() {
       setError(null);
       try {
         const options = {
-          academicYearId: yearParam || null,
+          academicYearId: selectedYear || yearParam || null,
           term: selectedTerm === 'all' ? null : selectedTerm,
         };
         const data = isStudent
@@ -76,7 +119,7 @@ function ReportCardContent() {
       }
     }
     fetchCard();
-  }, [authLoading, isStudent, studentId, selectedTerm, user, yearParam]);
+  }, [authLoading, isStudent, studentId, selectedTerm, user, yearParam, selectedYear]);
 
   const handlePrint = () => {
     window.print();
@@ -107,6 +150,30 @@ function ReportCardContent() {
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
+              Academic Session:
+            </span>
+            <select
+              style={{
+                padding: '0.45rem 0.75rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.9rem',
+                background: '#ffffff',
+              }}
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+            >
+              <option value="">Default / Active Session</option>
+              {academicYears.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.name} {y.is_active ? '(Active)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
               Term:
@@ -222,6 +289,13 @@ function ReportCardContent() {
             <div className={styles.bioItem}>
               <span className={styles.bioLabel}>Section:</span>
               <span className={styles.bioValue}>{student.section_name || '—'}</span>
+            </div>
+
+            <div className={styles.bioItem}>
+              <span className={styles.bioLabel}>Academic Year:</span>
+              <span className={styles.bioValue} style={{ fontWeight: 600, color: '#1e293b' }}>
+                {academic.academicYearName || 'Current Session'}
+              </span>
             </div>
 
             <div className={styles.bioItem}>

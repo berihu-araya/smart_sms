@@ -32,7 +32,7 @@ class ResultService {
   async calculateSectionResults({ sectionId, academicYearId, term, teacherId = null }) {
     const [gradingScales, students, subjects, marks] = await Promise.all([
       this.repository.getGradingScales(),
-      this.repository.getSectionStudents(sectionId),
+      this.repository.getSectionStudents(sectionId, academicYearId),
       this.repository.getSectionSubjects(sectionId, teacherId),
       this.repository.getSectionMarks(sectionId, { academicYearId, term, teacherId }),
     ]);
@@ -216,13 +216,20 @@ class ResultService {
 
     const gradingScales = await this.repository.getGradingScales();
 
-    // Initialize all section subjects if section_id is present
+    // Initialize all section/grade subjects if section_id or grade_id is present
     let sectionSubjects = [];
     if (rawData.student.section_id) {
       try {
         sectionSubjects = await this.repository.getSectionSubjects(rawData.student.section_id, teacherId);
       } catch (err) {
         console.warn('Section subjects lookup fallback:', err.message);
+      }
+    }
+    if ((!sectionSubjects || sectionSubjects.length === 0) && rawData.student.grade_id) {
+      try {
+        sectionSubjects = await this.repository.getGradeSubjects(rawData.student.grade_id, teacherId);
+      } catch (err) {
+        console.warn('Grade subjects lookup fallback:', err.message);
       }
     }
 
@@ -358,6 +365,8 @@ class ResultService {
       attendance: rawData.attendance,
       academicSummary: {
         term: term || 'Current Term',
+        academicYearId: rawData.academicYearId || academicYearId || null,
+        academicYearName: rawData.academicYearName || null,
         totalSubjects: subjectResults.length,
         completedSubjects: evaluatedCount,
         isComplete: isAllComplete,

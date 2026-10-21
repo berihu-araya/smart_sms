@@ -901,6 +901,48 @@ async function getTeacherDashboard(req, res) {
         const { values } = scope;
         const count = (rows) => Number(rows[0]?.count || 0);
 
+        // Resolve Target Academic Year
+        const reqAcademicYearId = req.query.academicYearId;
+        let selectedYearRow = null;
+
+        if (reqAcademicYearId && reqAcademicYearId !== 'all') {
+          const yrRes = await safeQuery(
+            `SELECT id, name, start_date, end_date, is_active, status 
+             FROM academic_years 
+             WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+            [reqAcademicYearId],
+            'selected academic year'
+          );
+          if (yrRes.length > 0) {
+            selectedYearRow = yrRes[0];
+          }
+        }
+
+        if (!selectedYearRow) {
+          const yrRes = await safeQuery(
+            `SELECT id, name, start_date, end_date, is_active, status 
+             FROM academic_years 
+             WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL) AND ' : ''}deleted_at IS NULL 
+             ORDER BY is_active DESC, start_date DESC, created_at DESC LIMIT 1`,
+            scope.schoolId ? [scope.schoolId] : [],
+            'active academic year fallback'
+          );
+          if (yrRes.length > 0) {
+            selectedYearRow = yrRes[0];
+          }
+        }
+
+        const selectedYearId = selectedYearRow?.id || null;
+        const selectedYearName = selectedYearRow?.name || 'Current Term';
+        const isSelectedYearActive = Boolean(selectedYearRow?.is_active);
+        const yearStartDate = selectedYearRow?.start_date || '1970-01-01';
+        const yearEndDate = selectedYearRow?.end_date || '2099-12-31';
+
+        const yearParamIdx = values.length + 1;
+        const activeParamIdx = values.length + 2;
+        const startParamIdx = values.length + 2;
+        const endParamIdx = values.length + 3;
+
         const [
           studentRows,
           teacherRows,
@@ -931,7 +973,26 @@ async function getTeacherDashboard(req, res) {
           recentExpensesRows,
           monthlyFinanceTrendRows,
         ] = await Promise.all([
-          safeQuery(`SELECT COUNT(*)::int AS count FROM students WHERE ${active('students')}`, values, 'students'),
+          safeQuery(
+            `SELECT COUNT(DISTINCT s.id)::int AS count 
+             FROM students s 
+             WHERE ${active('s')}
+               AND (
+                 $${yearParamIdx}::uuid IS NULL
+                 OR EXISTS (
+                   SELECT 1 FROM student_academic_history sah 
+                   WHERE sah.student_id = s.id AND sah.academic_year_id = $${yearParamIdx}
+                 )
+                 OR EXISTS (
+                   SELECT 1 FROM marks m
+                   JOIN exams e ON e.id = m.exam_id
+                   WHERE m.student_id = s.id AND e.academic_year_id = $${yearParamIdx} AND e.deleted_at IS NULL
+                 )
+                 OR ($${activeParamIdx}::boolean = TRUE AND s.status = 'ACTIVE')
+               )`,
+            [...values, selectedYearId, isSelectedYearActive],
+            'students'
+          ),
           safeQuery(`SELECT COUNT(*)::int AS count FROM teachers WHERE ${active('teachers')}`, values, 'teachers'),
           scope.schoolId
             ? safeQuery(`SELECT COUNT(*)::int AS count FROM schools WHERE (schools.id = $1 OR $1 IS NULL) AND schools.deleted_at IS NULL`, values, 'schools')
@@ -941,41 +1002,67 @@ async function getTeacherDashboard(req, res) {
           scope.schoolId
             ? safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects ts LEFT JOIN teachers t ON t.id = ts.teacher_id WHERE ${scope.filter('t')} AND ts.deleted_at IS NULL`, values, 'teacher assignments')
             : safeQuery(`SELECT COUNT(*)::int AS count FROM teacher_subjects ts WHERE ts.deleted_at IS NULL`, [], 'teacher assignments'),
-          safeQuery(`SELECT name FROM academic_years WHERE ${active('academic_years')} ORDER BY start_date DESC, created_at DESC LIMIT 1`, values, 'active academic year'),
-          safeQuery(`
-            SELECT
-              COUNT(*) FILTER (WHERE status = 'PRESENT')::int AS present,
-              COUNT(*) FILTER (WHERE status = 'ABSENT')::int AS absent,
-              COUNT(*) FILTER (WHERE status = 'LATE')::int AS late,
-              COUNT(*) FILTER (WHERE status = 'EXCUSED')::int AS excused,
+          safeQuery(
+            `SELECT name FROM academic_years WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+            [selectedYearId],
+            'selected academic year label'
+          ),
+          safeQuery(
+            `SELECT
+              COUNT(*) FILTER (WHERE a.status = 'PRESENT')::int AS present,
+              COUNT(*) FILTER (WHERE a.status = 'ABSENT')::int AS absent,
+              COUNT(*) FILTER (WHERE a.status = 'LATE')::int AS late,
+              COUNT(*) FILTER (WHERE a.status = 'EXCUSED')::int AS excused,
               COUNT(*)::int AS total
-            FROM attendance
-            WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '30 days' AND CURRENT_DATE
-          `, values, 'attendance summary'),
-          safeQuery(`
-            SELECT TO_CHAR(date_trunc('week', date), 'Mon DD') AS label,
-              ROUND(100.0 * COUNT(*) FILTER (WHERE status IN ('PRESENT', 'LATE')) / NULLIF(COUNT(*), 0), 1)::float AS rate
-            FROM attendance
-            WHERE ${active('attendance')} AND date BETWEEN CURRENT_DATE - INTERVAL '35 days' AND CURRENT_DATE
-            GROUP BY date_trunc('week', date)
-            ORDER BY date_trunc('week', date)
-          `, values, 'attendance trend'),
-          safeQuery(`
-            SELECT ROUND(AVG(score), 1)::float AS average_score,
-              ROUND(100.0 * COUNT(*) FILTER (WHERE score >= 50) / NULLIF(COUNT(*), 0), 1)::float AS pass_rate
-            FROM marks
-            WHERE ${scope.filter('marks')}
-          `, values, 'performance summary'),
-          safeQuery(`
-            SELECT bucket AS label, COUNT(*)::int AS count
+            FROM attendance a
+            WHERE ${scope.filter('a')} AND a.deleted_at IS NULL
+              AND (
+                ($${yearParamIdx}::uuid IS NOT NULL AND a.academic_year_id = $${yearParamIdx})
+                OR (a.academic_year_id IS NULL AND a.date >= $${startParamIdx}::date AND a.date <= $${endParamIdx}::date)
+              )`,
+            [...values, selectedYearId, yearStartDate, yearEndDate],
+            'attendance summary'
+          ),
+          safeQuery(
+            `SELECT TO_CHAR(date_trunc('week', a.date), 'Mon DD') AS label,
+              ROUND(100.0 * COUNT(*) FILTER (WHERE a.status IN ('PRESENT', 'LATE')) / NULLIF(COUNT(*), 0), 1)::float AS rate
+            FROM attendance a
+            WHERE ${scope.filter('a')} AND a.deleted_at IS NULL
+              AND (
+                ($${yearParamIdx}::uuid IS NOT NULL AND a.academic_year_id = $${yearParamIdx})
+                OR (a.academic_year_id IS NULL AND a.date >= $${startParamIdx}::date AND a.date <= $${endParamIdx}::date)
+              )
+            GROUP BY date_trunc('week', a.date)
+            ORDER BY date_trunc('week', a.date)
+            LIMIT 10`,
+            [...values, selectedYearId, yearStartDate, yearEndDate],
+            'attendance trend'
+          ),
+          safeQuery(
+            `SELECT 
+              ROUND(AVG(m.score), 1)::float AS average_score,
+              ROUND(100.0 * COUNT(*) FILTER (WHERE m.score >= 50) / NULLIF(COUNT(*), 0), 1)::float AS pass_rate
+            FROM marks m
+            JOIN exams e ON e.id = m.exam_id
+            WHERE ${scope.filter('m')} AND e.deleted_at IS NULL
+              AND ($${yearParamIdx}::uuid IS NULL OR e.academic_year_id = $${yearParamIdx})`,
+            [...values, selectedYearId],
+            'performance summary'
+          ),
+          safeQuery(
+            `SELECT bucket AS label, COUNT(*)::int AS count
             FROM (
-              SELECT CASE WHEN score >= 85 THEN '85-100' WHEN score >= 70 THEN '70-84' WHEN score >= 50 THEN '50-69' ELSE 'Below 50' END AS bucket
-              FROM marks
-              WHERE ${scope.filter('marks')}
+              SELECT CASE WHEN m.score >= 85 THEN '85-100' WHEN m.score >= 70 THEN '70-84' WHEN m.score >= 50 THEN '50-69' ELSE 'Below 50' END AS bucket
+              FROM marks m
+              JOIN exams e ON e.id = m.exam_id
+              WHERE ${scope.filter('m')} AND e.deleted_at IS NULL
+                AND ($${yearParamIdx}::uuid IS NULL OR e.academic_year_id = $${yearParamIdx})
             ) scores
             GROUP BY bucket
-            ORDER BY CASE bucket WHEN '85-100' THEN 1 WHEN '70-84' THEN 2 WHEN '50-69' THEN 3 ELSE 4 END
-          `, values, 'performance distribution'),
+            ORDER BY CASE bucket WHEN '85-100' THEN 1 WHEN '70-84' THEN 2 WHEN '50-69' THEN 3 ELSE 4 END`,
+            [...values, selectedYearId],
+            'performance distribution'
+          ),
           safeQuery(`
             SELECT TO_CHAR(date_trunc('month', admission_date), 'Mon') AS label, COUNT(*)::int AS count
             FROM students
@@ -994,7 +1081,11 @@ async function getTeacherDashboard(req, res) {
           `, values, 'section overview'),
           safeQuery(`SELECT id, first_name, last_name, created_at FROM students WHERE ${active('students')} ORDER BY created_at DESC LIMIT 3`, values, 'recent students'),
           safeQuery(`SELECT id, first_name, last_name, created_at FROM teachers WHERE ${active('teachers')} ORDER BY created_at DESC LIMIT 3`, values, 'recent teachers'),
-          safeQuery(`SELECT id, title, created_at FROM exams WHERE ${active('exams')} ORDER BY created_at DESC LIMIT 3`, values, 'recent exams'),
+          safeQuery(
+            `SELECT id, title, created_at FROM exams WHERE ${active('exams')} AND ($${yearParamIdx}::uuid IS NULL OR exams.academic_year_id = $${yearParamIdx}) ORDER BY created_at DESC LIMIT 3`,
+            [...values, selectedYearId],
+            'recent exams'
+          ),
           safeQuery(
             `SELECT 
                COALESCE(SUM(total_amount), 0)::float AS total_invoiced,
@@ -1006,8 +1097,9 @@ async function getTeacherDashboard(req, res) {
                COUNT(CASE WHEN status = 'UNPAID' THEN 1 END)::int AS unpaid_invoices_count,
                COUNT(CASE WHEN due_date < CURRENT_DATE AND status NOT IN ('PAID', 'CANCELLED') THEN 1 END)::int AS overdue_invoices_count
              FROM student_fee_invoices
-             WHERE ${active('student_fee_invoices')}`,
-            values,
+             WHERE ${active('student_fee_invoices')}
+               AND ($${yearParamIdx}::uuid IS NULL OR student_fee_invoices.academic_year_id = $${yearParamIdx} OR student_fee_invoices.academic_year_id IS NULL)`,
+            [...values, selectedYearId],
             'finance invoices summary'
           ),
           safeQuery(
@@ -1242,7 +1334,15 @@ async function getTeacherDashboard(req, res) {
           academicYears: count(yearRows),
           sections: count(sectionRows),
           enrollments: count(studentRows),
-          term: termRows[0]?.name || 'Current Term',
+          term: selectedYearName,
+          selectedAcademicYear: selectedYearRow ? {
+            id: selectedYearRow.id,
+            name: selectedYearRow.name,
+            isActive: Boolean(selectedYearRow.is_active),
+            status: selectedYearRow.status,
+            startDate: selectedYearRow.start_date,
+            endDate: selectedYearRow.end_date,
+          } : null,
           pendingTasks: count(assignmentRows),
           attendanceRate: Number(attendance.total) ? Math.round(((Number(attendance.present || 0) + Number(attendance.late || 0)) / Number(attendance.total)) * 1000) / 10 : 0,
           attendancePresent: Number(attendance.present || 0),
@@ -1255,7 +1355,11 @@ async function getTeacherDashboard(req, res) {
           performanceDistribution,
           enrollmentTrend,
           sectionOverview,
-          publishedExams: count(await safeQuery(`SELECT COUNT(*)::int AS count FROM exams WHERE ${active('exams')} AND is_published = TRUE`, values, 'published exams')),
+          publishedExams: count(await safeQuery(
+            `SELECT COUNT(*)::int AS count FROM exams WHERE ${active('exams')} AND is_published = TRUE AND ($${yearParamIdx}::uuid IS NULL OR exams.academic_year_id = $${yearParamIdx})`,
+            [...values, selectedYearId],
+            'published exams'
+          )),
           activities,
           finance: {
             currency,

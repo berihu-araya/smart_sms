@@ -22,9 +22,18 @@ class AttendanceRepository {
         ON a.student_id = s.id
         AND a.date = $2
         AND a.deleted_at IS NULL
-      WHERE s.section_id = $1
-        AND s.deleted_at IS NULL
-        AND s.status = 'ACTIVE'
+      WHERE s.deleted_at IS NULL
+        AND (
+          (s.section_id = $1 AND s.status = 'ACTIVE')
+          OR EXISTS (
+            SELECT 1 FROM student_academic_history sah 
+            WHERE sah.student_id = s.id AND sah.section_id = $1
+          )
+          OR EXISTS (
+            SELECT 1 FROM attendance a2
+            WHERE a2.student_id = s.id AND a2.section_id = $1 AND a2.date = $2
+          )
+        )
       ORDER BY s.first_name ASC, s.last_name ASC
       `,
       [sectionId, date]
@@ -145,12 +154,21 @@ class AttendanceRepository {
       FROM students s
       JOIN sections sec ON sec.id = s.section_id
       LEFT JOIN grades g ON g.id = sec.grade_id
-      WHERE s.section_id = $1
-        AND s.deleted_at IS NULL
-        AND s.status = 'ACTIVE'
+      WHERE s.deleted_at IS NULL
+        AND (
+          (s.section_id = $1 AND s.status = 'ACTIVE')
+          OR EXISTS (
+            SELECT 1 FROM student_academic_history sah 
+            WHERE sah.student_id = s.id AND sah.section_id = $1
+          )
+          OR EXISTS (
+            SELECT 1 FROM attendance a2
+            WHERE a2.student_id = s.id AND a2.section_id = $1 AND a2.date >= $2 AND a2.date <= $3
+          )
+        )
       ORDER BY s.first_name ASC, s.last_name ASC
       `,
-      [sectionId]
+      [sectionId, startDate, endDate]
     );
 
     const attendanceResult = await this.database.query(
