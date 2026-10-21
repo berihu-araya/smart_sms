@@ -15,9 +15,14 @@ import {
   HiCheck,
   HiAcademicCap,
   HiShieldCheck,
+  HiChevronDown,
+  HiCalendarDays,
+  HiArchiveBox,
+  HiSparkles,
+  HiArrowPath,
 } from "react-icons/hi2";
 import { SUPPORTED_LANGUAGES, getTranslation } from "@/utils/translations";
-import { getActiveAcademicYear } from "@/services/academicYearService";
+import { getActiveAcademicYear, listAcademicYears } from "@/services/academicYearService";
 import NotificationBell from "./NotificationBell";
 import MessageBadge from "./MessageBadge";
 import styles from "./DashboardHeader.module.css";
@@ -30,8 +35,11 @@ export default function DashboardHeader() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toggleHover, setToggleHover] = useState(false);
 
-  // Active academic year state
+  // Active and selected academic year state
   const [activeAcademicYear, setActiveAcademicYear] = useState(null);
+  const [allAcademicYears, setAllAcademicYears] = useState([]);
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState(null);
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [loadingYear, setLoadingYear] = useState(true);
 
   // Dropdown states
@@ -44,6 +52,7 @@ export default function DashboardHeader() {
   // Refs for click outside
   const userMenuRef = useRef(null);
   const langMenuRef = useRef(null);
+  const yearMenuRef = useRef(null);
 
   // Initialize language from localStorage
   useEffect(() => {
@@ -58,18 +67,39 @@ export default function DashboardHeader() {
     }
   }, []);
 
-  // Fetch active academic year
+  // Fetch active and all academic years
   useEffect(() => {
     let isMounted = true;
 
-    const fetchActiveYear = async () => {
+    const fetchYears = async () => {
       try {
-        const year = await getActiveAcademicYear();
-        if (isMounted) {
-          setActiveAcademicYear(year);
+        const [activeYear, yearsRes] = await Promise.all([
+          getActiveAcademicYear().catch(() => null),
+          listAcademicYears({ limit: 100 }).catch(() => ({ items: [] })),
+        ]);
+
+        if (!isMounted) return;
+
+        setActiveAcademicYear(activeYear);
+        const list = Array.isArray(yearsRes) ? yearsRes : yearsRes?.items || [];
+        setAllAcademicYears(list);
+
+        // Retrieve stored selection or fallback to active year
+        let initialSelected = activeYear;
+        try {
+          const savedStr = localStorage.getItem("smart_sms_selected_academic_year");
+          if (savedStr) {
+            const parsed = JSON.parse(savedStr);
+            const found = list.find((y) => y.id === parsed.id);
+            if (found) initialSelected = found;
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
+
+        setSelectedAcademicYear(initialSelected);
+      } catch (err) {
+        console.error("Failed to load academic years:", err);
       } finally {
         if (isMounted) {
           setLoadingYear(false);
@@ -77,10 +107,10 @@ export default function DashboardHeader() {
       }
     };
 
-    fetchActiveYear();
+    fetchYears();
 
     const handleYearChange = () => {
-      fetchActiveYear();
+      fetchYears();
     };
 
     window.addEventListener("smart-sms-academic-year-change", handleYearChange);
@@ -89,6 +119,23 @@ export default function DashboardHeader() {
       window.removeEventListener("smart-sms-academic-year-change", handleYearChange);
     };
   }, []);
+
+  const handleSelectYear = (year) => {
+    setSelectedAcademicYear(year);
+    setYearDropdownOpen(false);
+    try {
+      localStorage.setItem("smart_sms_selected_academic_year", JSON.stringify(year));
+      window.dispatchEvent(new CustomEvent("smart-sms-selected-year-changed", { detail: year }));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleResetToActiveYear = () => {
+    if (activeAcademicYear) {
+      handleSelectYear(activeAcademicYear);
+    }
+  };
 
   // Listen to sidebar state
   useEffect(() => {
@@ -111,12 +158,16 @@ export default function DashboardHeader() {
       if (langMenuRef.current && !langMenuRef.current.contains(e.target)) {
         setLangMenuOpen(false);
       }
+      if (yearMenuRef.current && !yearMenuRef.current.contains(e.target)) {
+        setYearDropdownOpen(false);
+      }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setUserMenuOpen(false);
         setLangMenuOpen(false);
+        setYearDropdownOpen(false);
       }
     };
 
@@ -202,66 +253,141 @@ export default function DashboardHeader() {
     return styles.roleStaff;
   };
 
+  const isSelectedActive = selectedAcademicYear
+    ? Boolean(selectedAcademicYear.is_active || (activeAcademicYear && selectedAcademicYear.id === activeAcademicYear.id))
+    : true;
+
   return (
-    <header className={styles.dashboardHeader}>
-      {/* ================= LEFT GROUP ================= */}
-      <div className={styles.leftSection}>
-        {/* Toggle Sidebar Button */}
-        <button
-          type="button"
-          className={`${styles.sidebarToggleBtn} ${sidebarOpen ? styles.toggleOpen : styles.toggleCollapsed}`}
-          onClick={handleSidebarToggle}
-          onMouseEnter={() => setToggleHover(true)}
-          onMouseLeave={() => setToggleHover(false)}
-          title={sidebarOpen ? t("collapse_menu", "Hide menu (<)") : t("expand_menu", "Display all menus (>)")}
-          aria-label="Toggle navigation sidebar"
-        >
-          {renderToggleIcon()}
-        </button>
+    <>
+      <header className={styles.dashboardHeader}>
+        {/* ================= LEFT GROUP ================= */}
+        <div className={styles.leftSection}>
+          {/* Toggle Sidebar Button */}
+          <button
+            type="button"
+            className={`${styles.sidebarToggleBtn} ${sidebarOpen ? styles.toggleOpen : styles.toggleCollapsed}`}
+            onClick={handleSidebarToggle}
+            onMouseEnter={() => setToggleHover(true)}
+            onMouseLeave={() => setToggleHover(false)}
+            title={sidebarOpen ? t("collapse_menu", "Hide menu (<)") : t("expand_menu", "Display all menus (>)")}
+            aria-label="Toggle navigation sidebar"
+          >
+            {renderToggleIcon()}
+          </button>
 
-        {/* School Logo & Brand */}
-        <Link href="/dashboard" className={styles.brandLink}>
-          <div className={styles.logoBadge}>
-            <Image
-              src="/school-logo-1.png"
-              alt="School Logo"
-              width={30}
-              height={30}
-              className={styles.logoImage}
-            />
-          </div>
-          <div className={styles.brandText}>
-            <div className={styles.schoolNameRow}>
-              <span className={styles.schoolName}>{t("school_name", "YOYO ACADEMY")}</span>
-              <span className={styles.appPill}>{t("platform_name", "Smart SMS")}</span>
+          {/* School Logo & Brand */}
+          <Link href="/dashboard" className={styles.brandLink}>
+            <div className={styles.logoBadge}>
+              <Image
+                src="/school-logo-1.png"
+                alt="School Logo"
+                width={30}
+                height={30}
+                className={styles.logoImage}
+              />
             </div>
-            <span className={styles.schoolSub}>{t("school_sub", "School Management Platform")}</span>
-          </div>
-        </Link>
-
-        {/* Live Active Academic Session Indicator */}
-        {activeAcademicYear ? (
-          <div className={styles.sessionPill} title={t("active_academic_year", "Active Academic Year")}>
-            <span className={styles.pulseDot}></span>
-            <span className={styles.sessionText}>
-              {activeAcademicYear.name || activeAcademicYear.year_name}{" "}
-              {t("academic_year", "Academic Year")}
-            </span>
-          </div>
-        ) : (
-          !loadingYear && (
-            <div className={styles.sessionPillMuted} title={t("no_active_year", "No Active Academic Year")}>
-              <span className={styles.mutedDot}></span>
-              <span className={styles.mutedSessionText}>
-                {t("no_active_year", "No Active Academic Year")}
-              </span>
+            <div className={styles.brandText}>
+              <div className={styles.schoolNameRow}>
+                <span className={styles.schoolName}>{t("school_name", "YOYO ACADEMY")}</span>
+                <span className={styles.appPill}>{t("platform_name", "Smart SMS")}</span>
+              </div>
+              <span className={styles.schoolSub}>{t("school_sub", "School Management Platform")}</span>
             </div>
-          )
-        )}
-      </div>
+          </Link>
 
-      {/* ================= RIGHT GROUP ================= */}
-      <div className={styles.rightSection}>
+          {/* Interactive Academic Year Context Switcher */}
+          <div className={styles.yearDropdownContainer} ref={yearMenuRef}>
+            <button
+              type="button"
+              className={`${styles.yearSwitcherBtn} ${!isSelectedActive ? styles.yearSwitcherArchive : ""}`}
+              onClick={() => {
+                setYearDropdownOpen((prev) => !prev);
+                setUserMenuOpen(false);
+                setLangMenuOpen(false);
+              }}
+              title="Switch Academic Session / Historical Archives"
+              aria-expanded={yearDropdownOpen}
+            >
+              <span className={isSelectedActive ? styles.pulseDot : styles.archiveDot}></span>
+              <div className={styles.yearBtnLabel}>
+                <span className={styles.yearBtnTitle}>
+                  {selectedAcademicYear?.name || activeAcademicYear?.name || "Session"}
+                </span>
+                <span className={`${styles.yearBtnBadge} ${isSelectedActive ? styles.badgeActive : styles.badgeArchive}`}>
+                  {isSelectedActive ? "Active Session" : "Archived (Read-Only)"}
+                </span>
+              </div>
+              <HiChevronDown className={`${styles.yearChevron} ${yearDropdownOpen ? styles.chevronRotated : ""}`} />
+            </button>
+
+            {/* Academic Year Popover */}
+            {yearDropdownOpen && (
+              <div className={styles.yearPopover}>
+                <div className={styles.yearPopoverHeader}>
+                  <div className={styles.yearPopoverIconWrap}>
+                    <HiCalendarDays />
+                  </div>
+                  <div>
+                    <h4 className={styles.yearPopoverTitle}>Academic Sessions & Archives</h4>
+                    <p className={styles.yearPopoverSub}>Select a session to filter dashboard records</p>
+                  </div>
+                </div>
+
+                <div className={styles.yearPopoverList}>
+                  {allAcademicYears.map((ay) => {
+                    const isCurrentActive = Boolean(ay.is_active || (activeAcademicYear && ay.id === activeAcademicYear.id));
+                    const isSelected = selectedAcademicYear?.id === ay.id;
+
+                    return (
+                      <button
+                        key={ay.id}
+                        type="button"
+                        className={`${styles.yearPopoverItem} ${isSelected ? styles.yearItemSelected : ""}`}
+                        onClick={() => handleSelectYear(ay)}
+                      >
+                        <div className={styles.yearItemLeft}>
+                          <div className={`${styles.yearItemIcon} ${isCurrentActive ? styles.iconActiveYear : styles.iconArchiveYear}`}>
+                            {isCurrentActive ? <HiSparkles /> : <HiArchiveBox />}
+                          </div>
+                          <div className={styles.yearItemText}>
+                            <div className={styles.yearItemNameRow}>
+                              <span className={styles.yearItemName}>{ay.name}</span>
+                              <span className={`${styles.yearItemTag} ${isCurrentActive ? styles.tagActive : styles.tagArchive}`}>
+                                {isCurrentActive ? "Active Session" : "Archived"}
+                              </span>
+                            </div>
+                            <div className={styles.yearItemDates}>
+                              {ay.start_date && ay.end_date
+                                ? `${new Date(ay.start_date).toLocaleDateString()} — ${new Date(ay.end_date).toLocaleDateString()}`
+                                : "Standard Academic Cycle"}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && <HiCheck className={styles.checkIcon} />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(userRole?.toLowerCase().includes("admin") || userRole?.toLowerCase().includes("staff")) && (
+                  <div className={styles.yearPopoverFooter}>
+                    <Link
+                      href="/dashboard/settings/academic-years/transition"
+                      className={styles.transitionWizardLink}
+                      onClick={() => setYearDropdownOpen(false)}
+                    >
+                      <HiArrowPath className={styles.wizardIcon} />
+                      <span>Year-End Rollover & Transition Wizard</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= RIGHT GROUP ================= */}
+        <div className={styles.rightSection}>
         {/* Direct Messages Quick Access with Live Badge */}
         <MessageBadge />
 
@@ -459,5 +585,25 @@ export default function DashboardHeader() {
         </div>
       </div>
     </header>
+
+    {/* Read-Only Archive Alert Banner */}
+    {!isSelectedActive && selectedAcademicYear && (
+      <div className={styles.archiveAlertBar}>
+        <div className={styles.archiveAlertLeft}>
+          <span className={styles.archiveAlertIcon}>⚠️</span>
+          <span className={styles.archiveAlertText}>
+            <strong>READ-ONLY ARCHIVE:</strong> You are browsing historical records for <strong>Academic Year {selectedAcademicYear.name}</strong>. Real-time marks entry and operational edits are restricted.
+          </span>
+        </div>
+        <button
+          type="button"
+          className={styles.archiveAlertBtn}
+          onClick={handleResetToActiveYear}
+        >
+          Return to Active Session ({activeAcademicYear?.name || "Current"})
+        </button>
+      </div>
+    )}
+  </>
   );
 }

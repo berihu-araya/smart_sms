@@ -71,9 +71,18 @@ export default function AcademicYearListPage() {
           <p>Manage school academic years and set the active year.</p>
         </div>
 
-        <Link href="/dashboard/settings/academic-years/new" className={styles.primaryButton}>
-          + Add Academic Year
-        </Link>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Link
+            href="/dashboard/settings/academic-years/transition"
+            className={styles.primaryButton}
+            style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}
+          >
+            🔄 Year Rollover Wizard
+          </Link>
+          <Link href="/dashboard/settings/academic-years/new" className={styles.primaryButton}>
+            + Add Academic Year
+          </Link>
+        </div>
       </div>
 
       <div className={styles.summaryCard}>

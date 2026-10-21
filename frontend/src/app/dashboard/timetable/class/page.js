@@ -302,6 +302,27 @@ export default function StudentClassTimetableViewPage() {
           <HiCalendarDays style={{ fontSize: "3rem", color: "#94a3b8" }} />
           <h3 style={{ marginTop: "0.5rem" }}>No Active Timetable Published</h3>
           <p style={{ color: "#64748b", fontSize: "0.9rem" }}>A master timetable must be published and active to view class schedules.</p>
+          {!isStudent && !isParent && (
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link
+                href="/dashboard/timetable"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background: "#4f46e5",
+                  color: "white",
+                  padding: "0.6rem 1.25rem",
+                  borderRadius: "0.5rem",
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  textDecoration: "none",
+                }}
+              >
+                Manage Master Timetables &rarr;
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className={styles.gridWrap}>

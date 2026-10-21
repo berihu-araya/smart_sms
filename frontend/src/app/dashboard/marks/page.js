@@ -59,8 +59,28 @@ function MarksEntryContent() {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
+  // Active or selected academic year state
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState(null);
+
   // Input refs for rapid keyboard navigation (Enter / Down / Up)
   const inputRefs = useRef({});
+
+  // Listen to global academic year switcher events
+  useEffect(() => {
+    try {
+      const savedStr = localStorage.getItem('smart_sms_selected_academic_year');
+      if (savedStr) {
+        setSelectedAcademicYear(JSON.parse(savedStr));
+      }
+    } catch {}
+
+    const handleYearChange = (event) => {
+      setSelectedAcademicYear(event.detail || null);
+    };
+
+    window.addEventListener('smart-sms-selected-year-changed', handleYearChange);
+    return () => window.removeEventListener('smart-sms-selected-year-changed', handleYearChange);
+  }, []);
 
   // 1. Initial Load: Grades and grade-scoped exams
   useEffect(() => {
@@ -99,7 +119,11 @@ function MarksEntryContent() {
       }
 
       try {
-        const eRes = await listExams({ gradeId: selectedGrade, limit: 100 }).catch(() => []);
+        const eRes = await listExams({
+          gradeId: selectedGrade,
+          academicYearId: selectedAcademicYear?.id || undefined,
+          limit: 100,
+        }).catch(() => []);
         const examItems = Array.isArray(eRes) ? eRes : eRes?.items || [];
 
         const uniqueExams = [];
@@ -127,7 +151,7 @@ function MarksEntryContent() {
     }
 
     loadExamsForGrade();
-  }, [selectedGrade, urlExamId]);
+  }, [selectedGrade, urlExamId, selectedAcademicYear]);
 
   // 2. When Grade Changes: Load Sections and Grade-specific Subjects
   useEffect(() => {
@@ -244,7 +268,7 @@ function MarksEntryContent() {
   }, [selectedExam, selectedSubject, selectedSection, loadMarksSheet]);
 
   const maxMarks = sheetData?.exam?.maxMarks || 100;
-  const isReadOnly = Boolean(sheetData?.isReadOnly);
+  const isReadOnly = Boolean(sheetData?.isReadOnly || (selectedAcademicYear && !selectedAcademicYear.is_active));
 
   // Handle Score Input
   const handleScoreChange = (studentId, value) => {

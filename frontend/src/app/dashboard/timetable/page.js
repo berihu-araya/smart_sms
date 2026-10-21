@@ -88,7 +88,20 @@ export default function TimetableDashboardPage() {
       const years = res.items || [];
       setAcademicYears(years);
 
-      const active = years.find((y) => y.is_active);
+      let targetYear = null;
+      try {
+        const stored = localStorage.getItem("smart_sms_selected_academic_year");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (years.some((y) => y.id === parsed.id)) {
+            targetYear = parsed;
+          }
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
+
+      const active = targetYear || years.find((y) => y.is_active);
       if (active) {
         setSelectedYearId(active.id);
         setCreateForm((prev) => ({ ...prev, academic_year_id: active.id }));
@@ -122,6 +135,17 @@ export default function TimetableDashboardPage() {
 
     return () => window.clearTimeout(loadTimer);
   }, [loadAcademicYears]);
+
+  useEffect(() => {
+    const handleYearChange = (e) => {
+      if (e.detail?.id) {
+        setSelectedYearId(e.detail.id);
+        setCreateForm((prev) => ({ ...prev, academic_year_id: e.detail.id }));
+      }
+    };
+    window.addEventListener("smart-sms-selected-year-changed", handleYearChange);
+    return () => window.removeEventListener("smart-sms-selected-year-changed", handleYearChange);
+  }, []);
 
   useEffect(() => {
     if (!selectedYearId) return undefined;

@@ -35,9 +35,11 @@ class GradeSubjectRepository {
       conditions.push(`gs.subject_id = $${values.length}`);
     }
 
-    if (academic_year_id) {
+    if (academic_year_id && academic_year_id !== 'all') {
       values.push(academic_year_id);
       conditions.push(`gs.academic_year_id = $${values.length}`);
+    } else if (academic_year_id !== 'all') {
+      conditions.push(`ay.is_active = true`);
     }
 
     if (status) {
@@ -438,9 +440,11 @@ class GradeSubjectRepository {
     const values = [subject_id];
     let yearCondition = '';
 
-    if (academic_year_id) {
+    if (academic_year_id && academic_year_id !== 'all') {
       values.push(academic_year_id);
       yearCondition = `AND gs.academic_year_id = $2`;
+    } else if (academic_year_id !== 'all') {
+      yearCondition = `AND ay.is_active = true`;
     }
 
     const result = await this.database.query(

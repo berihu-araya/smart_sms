@@ -56,7 +56,7 @@ async function listExams(req, res, next) {
 
     const data = await examService.listExams({
       search: req.query.search || '',
-      academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : null,
+      academicYearId: req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : (req.query.academicYearId === 'all' ? 'all' : null),
       gradeId: isStudent ? gradeId : (gradeId || (req.query.gradeId && isValidUUID(req.query.gradeId) ? req.query.gradeId : null)),
       gradeIds: isParent ? gradeIds : null,
       teacherScope: isTeacher ? req.teacherScope : null,

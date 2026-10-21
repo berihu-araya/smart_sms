@@ -128,17 +128,28 @@ class AcademicYearRepository {
   }
 
   async setActive(id) {
-    // Deactivate all academic years first, then activate the specified one
+    // Activate specified academic year and deactivate all others
     const result = await this.database.query(
       `
         UPDATE academic_years
         SET is_active = (id = $1),
+            status = CASE WHEN id = $1 THEN 'ACTIVE' ELSE 'INACTIVE' END,
             updated_at = CURRENT_TIMESTAMP
         WHERE deleted_at IS NULL
         RETURNING *
       `,
       [id]
     );
+
+    // Keep global settings table in sync
+    await this.database.query(
+      `
+        UPDATE settings
+        SET active_academic_year_id = $1,
+            updated_at = CURRENT_TIMESTAMP
+      `,
+      [id]
+    ).catch(() => {});
 
     return result.rows.find(row => row.id === id) || null;
   }

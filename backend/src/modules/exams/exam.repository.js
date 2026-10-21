@@ -12,10 +12,12 @@ class ExamRepository {
       whereClause += ' AND e.is_published = TRUE';
     }
 
-    if (academicYearId) {
+    if (academicYearId && academicYearId !== 'all') {
       whereClause += ` AND e.academic_year_id = $${index}`;
       params.push(academicYearId);
       index++;
+    } else if (academicYearId !== 'all') {
+      whereClause += ` AND (e.academic_year_id = (SELECT id FROM academic_years WHERE is_active = true LIMIT 1))`;
     }
 
     if (teacherScope) {
@@ -133,6 +135,12 @@ class ExamRepository {
   }
 
   async create(payload) {
+    let academicYearId = payload.academicYearId;
+    if (!academicYearId) {
+      const activeAy = await this.database.query(`SELECT id FROM academic_years WHERE is_active = true LIMIT 1`);
+      academicYearId = activeAy.rows[0]?.id || null;
+    }
+
     const result = await this.database.query(
       `
       INSERT INTO exams (
@@ -162,7 +170,7 @@ class ExamRepository {
         payload.examDate,
         payload.gradeId,
         payload.subjectId,
-        payload.academicYearId,
+        academicYearId,
         payload.isPublished,
         payload.description,
       ]

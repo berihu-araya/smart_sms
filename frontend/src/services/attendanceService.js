@@ -31,20 +31,28 @@ export async function getMonthlyAttendanceMatrix({ sectionId, year, month }) {
   return response.data;
 }
 
-export async function getStudentAttendance(studentId, { limit = 30, offset = 0 } = {}) {
-  const query = new URLSearchParams({ limit, offset }).toString();
+export async function getStudentAttendance(studentId, { limit = 30, offset = 0, academicYearId } = {}) {
+  const params = { limit, offset };
+  if (academicYearId) params.academicYearId = academicYearId;
+  const query = new URLSearchParams(params).toString();
   const response = await request(`/api/v1/attendance/student/${studentId}?${query}`);
   return response.data;
 }
 
-export async function getOwnAttendance({ limit = 30, offset = 0 } = {}) {
-  const query = new URLSearchParams({ limit, offset }).toString();
+export async function getOwnAttendance({ limit = 30, offset = 0, academicYearId } = {}) {
+  const params = { limit, offset };
+  if (academicYearId) params.academicYearId = academicYearId;
+  const query = new URLSearchParams(params).toString();
   const response = await request(`/api/v1/attendance/student/me?${query}`);
   return response.data;
 }
 
-export async function getMyChildrenAttendance() {
-  const response = await request('/api/v1/attendance/parent/my-children');
+export async function getMyChildrenAttendance(params = {}) {
+  const cleanParams = {};
+  if (params.academicYearId) cleanParams.academicYearId = params.academicYearId;
+  const query = new URLSearchParams(cleanParams).toString();
+  const url = query ? `/api/v1/attendance/parent/my-children?${query}` : '/api/v1/attendance/parent/my-children';
+  const response = await request(url);
   return response.data;
 }
 

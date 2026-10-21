@@ -5,9 +5,11 @@ const {
   validateUpdateAcademicYearInput,
   validateAcademicYearId,
 } = require('./academic-year.validation');
+const AcademicYearRolloverService = require('./academic-year.rollover.service');
 const { db } = require('../../config/database');
 
 const academicYearService = new AcademicYearService(new AcademicYearRepository(db));
+const rolloverService = new AcademicYearRolloverService(db);
 
 async function listAcademicYears(req, res, next) {
   try {
@@ -155,6 +157,33 @@ async function deleteAcademicYear(req, res, next) {
   }
 }
 
+async function getRolloverPreview(req, res, next) {
+  try {
+    const { sourceAcademicYearId, targetAcademicYearId } = req.query;
+    const data = await rolloverService.getRolloverPreview({ sourceAcademicYearId, targetAcademicYearId });
+    return res.status(200).json({
+      success: true,
+      message: 'Rollover preview calculated successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function executeRollover(req, res, next) {
+  try {
+    const data = await rolloverService.executeRollover(req.body);
+    return res.status(200).json({
+      success: true,
+      message: 'Academic year rollover completed successfully',
+      data,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listAcademicYears,
   getAcademicYearById,
@@ -163,5 +192,7 @@ module.exports = {
   updateAcademicYear,
   setActiveAcademicYear,
   deleteAcademicYear,
+  getRolloverPreview,
+  executeRollover,
 };
 

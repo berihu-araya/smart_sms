@@ -132,8 +132,8 @@ class AttendanceService {
     };
   }
 
-  async getStudentAttendance(studentId, { limit = 30, offset = 0 } = {}) {
-    return await this.repository.getStudentAttendanceHistory(studentId, { limit, offset });
+  async getStudentAttendance(studentId, { academicYearId = null, limit = 30, offset = 0 } = {}) {
+    return await this.repository.getStudentAttendanceHistory(studentId, { academicYearId, limit, offset });
   }
 
   /**

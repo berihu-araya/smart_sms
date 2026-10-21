@@ -55,6 +55,25 @@ function AttendancePageContent() {
   );
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('smart_sms_selected_academic_year');
+        if (stored) return JSON.parse(stored)?.id || null;
+      } catch (e) {}
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleYearChange = (e) => {
+      if (e.detail?.id) {
+        setSelectedAcademicYearId(e.detail.id);
+      }
+    };
+    window.addEventListener('smart-sms-selected-year-changed', handleYearChange);
+    return () => window.removeEventListener('smart-sms-selected-year-changed', handleYearChange);
+  }, []);
 
   // Daily Roster State
   const [roster, setRoster] = useState([]);
@@ -117,7 +136,7 @@ function AttendancePageContent() {
 
     let mounted = true;
     setLoading(true);
-    getOwnAttendance()
+    getOwnAttendance({ academicYearId: selectedAcademicYearId || undefined })
       .then((data) => {
         if (mounted) setStudentAttendance(data);
       })
@@ -131,14 +150,14 @@ function AttendancePageContent() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, isStudent, user]);
+  }, [authLoading, isStudent, user, selectedAcademicYearId]);
 
   useEffect(() => {
     if (authLoading || !user || !isParent) return;
 
     let mounted = true;
     setLoading(true);
-    getMyChildrenAttendance()
+    getMyChildrenAttendance({ academicYearId: selectedAcademicYearId || undefined })
       .then((data) => {
         if (mounted) {
           const list = Array.isArray(data) ? data : [];
@@ -161,7 +180,7 @@ function AttendancePageContent() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, isParent, user, searchParams]);
+  }, [authLoading, isParent, user, searchParams, selectedAcademicYearId]);
 
   // Close dropdown on outside click
   useEffect(() => {

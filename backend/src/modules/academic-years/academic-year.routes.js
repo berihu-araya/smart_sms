@@ -7,6 +7,8 @@ const {
   updateAcademicYear,
   setActiveAcademicYear,
   deleteAcademicYear,
+  getRolloverPreview,
+  executeRollover,
 } = require('./academic-year.controller');
 const authMiddleware = require('../../middlewares/auth.middleware');
 const authorizeRoles = require('../../middlewares/role.middleware');
@@ -17,6 +19,8 @@ router.use(authMiddleware);
 
 router.get('/', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), listAcademicYears);
 router.get('/active', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), getActiveAcademicYear);
+router.get('/rollover/preview', authorizeRoles('School Admin', 'Admin'), getRolloverPreview);
+router.post('/rollover/execute', authorizeRoles('School Admin', 'Admin'), executeRollover);
 router.post('/', authorizeRoles('School Admin', 'Admin'), createAcademicYear);
 router.get('/:id', authorizeRoles('School Admin', 'Admin', 'Staff', 'Teacher', 'Student', 'Parent'), getAcademicYearById);
 router.put('/:id', authorizeRoles('School Admin', 'Admin'), updateAcademicYear);

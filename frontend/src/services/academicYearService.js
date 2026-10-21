@@ -40,9 +40,17 @@ export async function setActiveAcademicYear(id) {
   return response.data;
 }
 
-export async function deleteAcademicYear(id) {
-  const response = await request(`/api/v1/academic-years/${id}`, {
-    method: "DELETE",
+export async function getRolloverPreview({ sourceAcademicYearId, targetAcademicYearId }) {
+  const response = await request(
+    `/api/v1/academic-years/rollover/preview?sourceAcademicYearId=${encodeURIComponent(sourceAcademicYearId)}&targetAcademicYearId=${encodeURIComponent(targetAcademicYearId)}`
+  );
+  return response.data;
+}
+
+export async function executeRollover(payload) {
+  const response = await request("/api/v1/academic-years/rollover/execute", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
   return response.data;
 }
@@ -54,7 +62,8 @@ const academicYearService = {
   createAcademicYear,
   updateAcademicYear,
   setActiveAcademicYear,
-  deleteAcademicYear,
+  getRolloverPreview,
+  executeRollover,
 };
 
 export default academicYearService;

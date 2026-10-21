@@ -49,10 +49,12 @@ class TeacherSubjectRepository {
       index++;
     }
 
-    if (academic_year_id) {
+    if (academic_year_id && academic_year_id !== 'all') {
       conditions.push(`ts.academic_year_id = $${index}`);
       values.push(academic_year_id);
       index++;
+    } else if (academic_year_id !== 'all') {
+      conditions.push(`ay.is_active = true`);
     }
 
     values.push(limit);

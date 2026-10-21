@@ -182,7 +182,30 @@ class AttendanceRepository {
     };
   }
 
-  async getStudentAttendanceHistory(studentId, { limit = 30, offset = 0 } = {}) {
+  async getStudentAttendanceHistory(studentId, { academicYearId = null, limit = 30, offset = 0 } = {}) {
+    let yearFilter = '';
+    const params = [studentId];
+    let idx = 2;
+
+    if (academicYearId && academicYearId !== 'all') {
+      yearFilter = ` AND (a.academic_year_id = $${idx} OR (
+        a.academic_year_id IS NULL AND a.date >= (SELECT start_date FROM academic_years WHERE id = $${idx})
+        AND a.date <= (SELECT end_date FROM academic_years WHERE id = $${idx})
+      ))`;
+      params.push(academicYearId);
+      idx++;
+    } else if (academicYearId !== 'all') {
+      yearFilter = ` AND (
+        a.academic_year_id IN (SELECT id FROM academic_years WHERE is_active = true)
+        OR (
+          a.academic_year_id IS NULL AND EXISTS (
+            SELECT 1 FROM academic_years ay
+            WHERE ay.is_active = true AND a.date >= ay.start_date AND a.date <= ay.end_date
+          )
+        )
+      )`;
+    }
+
     const result = await this.database.query(
       `
       SELECT
@@ -197,25 +220,27 @@ class AttendanceRepository {
       LEFT JOIN users u ON u.id = a.recorded_by
       WHERE a.student_id = $1
         AND a.deleted_at IS NULL
+        ${yearFilter}
       ORDER BY a.date DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $${idx} OFFSET $${idx + 1}
       `,
-      [studentId, limit, offset]
+      [...params, limit, offset]
     );
 
     const statsResult = await this.database.query(
       `
       SELECT
         COUNT(*) as total_days,
-        COUNT(*) FILTER (WHERE status = 'PRESENT') as present_days,
-        COUNT(*) FILTER (WHERE status = 'ABSENT') as absent_days,
-        COUNT(*) FILTER (WHERE status = 'LATE') as late_days,
-        COUNT(*) FILTER (WHERE status = 'EXCUSED') as excused_days
-      FROM attendance
-      WHERE student_id = $1
-        AND deleted_at IS NULL
+        COUNT(*) FILTER (WHERE a.status = 'PRESENT') as present_days,
+        COUNT(*) FILTER (WHERE a.status = 'ABSENT') as absent_days,
+        COUNT(*) FILTER (WHERE a.status = 'LATE') as late_days,
+        COUNT(*) FILTER (WHERE a.status = 'EXCUSED') as excused_days
+      FROM attendance a
+      WHERE a.student_id = $1
+        AND a.deleted_at IS NULL
+        ${yearFilter}
       `,
-      [studentId]
+      params
     );
 
     return {

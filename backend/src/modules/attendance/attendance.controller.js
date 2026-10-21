@@ -260,8 +260,9 @@ async function getStudentAttendance(req, res, next) {
 
     const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
+    const academicYearId = req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : (req.query.academicYearId === 'all' ? 'all' : null);
 
-    const data = await attendanceService.getStudentAttendance(studentId, { limit, offset });
+    const data = await attendanceService.getStudentAttendance(studentId, { academicYearId, limit, offset });
 
     return res.status(200).json({
       success: true,
@@ -290,10 +291,11 @@ async function getMyChildrenAttendance(req, res, next) {
 
     const limit = Number(req.query.limit || 100);
     const offset = Number(req.query.offset || 0);
+    const academicYearId = req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : (req.query.academicYearId === 'all' ? 'all' : null);
 
     const results = await Promise.all(
       children.map(async (child) => {
-        const historyData = await attendanceService.getStudentAttendance(child.id, { limit, offset });
+        const historyData = await attendanceService.getStudentAttendance(child.id, { academicYearId, limit, offset });
         const list = historyData.history || [];
         return {
           student: child,
@@ -326,9 +328,10 @@ async function getOwnAttendance(req, res, next) {
   try {
     const limit = Number(req.query.limit || 30);
     const offset = Number(req.query.offset || 0);
+    const academicYearId = req.query.academicYearId && isValidUUID(req.query.academicYearId) ? req.query.academicYearId : (req.query.academicYearId === 'all' ? 'all' : null);
     const data = await attendanceService.getStudentAttendance(
       req.studentScope.student_id,
-      { limit, offset }
+      { academicYearId, limit, offset }
     );
 
     return res.status(200).json({

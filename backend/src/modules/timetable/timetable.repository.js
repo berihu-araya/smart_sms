@@ -14,10 +14,12 @@ class TimetableRepository {
       index += 1;
     }
 
-    if (academicYearId) {
+    if (academicYearId && academicYearId !== 'all') {
       conditions.push(`t.academic_year_id = $${index}`);
       values.push(academicYearId);
       index += 1;
+    } else if (academicYearId !== 'all') {
+      conditions.push(`ay.is_active = true`);
     }
 
     if (term) {
@@ -658,7 +660,7 @@ class TimetableRepository {
       WHERE t.deleted_at IS NULL
     `;
     const values = [];
-    if (academicYearId) {
+    if (academicYearId && academicYearId !== 'all') {
       query += ` AND t.academic_year_id = $1`;
       values.push(academicYearId);
     } else {
@@ -667,28 +669,7 @@ class TimetableRepository {
     query += ` AND t.is_active = true AND t.status = 'PUBLISHED' ORDER BY t.updated_at DESC LIMIT 1`;
 
     const result = await this.database.query(query, values);
-    if (result.rows.length > 0) return result.rows[0];
-
-    const fallback = await this.database.query(
-      `
-      SELECT
-        t.id,
-        t.academic_year_id,
-        ay.name AS academic_year_name,
-        t.term,
-        t.name,
-        t.status,
-        t.version,
-        t.is_active,
-        t.published_at
-      FROM timetables t
-      INNER JOIN academic_years ay ON ay.id = t.academic_year_id
-      WHERE t.deleted_at IS NULL
-      ORDER BY (t.status = 'PUBLISHED') DESC, t.updated_at DESC
-      LIMIT 1
-      `
-    );
-    return fallback.rows[0] || null;
+    return result.rows[0] || null;
   }
 
   async findUserTeachingContext(userId) {
