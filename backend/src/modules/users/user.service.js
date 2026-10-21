@@ -65,8 +65,11 @@ class UserService {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(payload.password, salt);
 
+    const schoolId = payload.schoolId || registration?.school_id || null;
+
     const user = await this.authRepository.createUser({
       roleId: payload.roleId,
+      schoolId,
       firstName: payload.firstName,
       lastName: payload.lastName,
       email: payload.email,

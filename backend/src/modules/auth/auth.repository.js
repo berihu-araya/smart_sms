@@ -269,11 +269,32 @@ class AuthRepository {
     return result.rows;
   }
 
-  async createUser({ roleId, firstName, lastName, email, phone, passwordHash, status = 'ACTIVE' }) {
+  async findDefaultSchool() {
+    const res = await this.database.query(
+      'SELECT id, name FROM schools WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1'
+    );
+    return res.rows[0] || null;
+  }
+
+  async updateUserSchool(userId, schoolId) {
+    await this.database.query(
+      'UPDATE users SET school_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND school_id IS NULL',
+      [schoolId, userId]
+    );
+  }
+
+  async createUser({ roleId, schoolId = null, firstName, lastName, email, phone, passwordHash, status = 'ACTIVE' }) {
+    let effectiveSchoolId = schoolId;
+    if (!effectiveSchoolId) {
+      const defaultSchool = await this.findDefaultSchool();
+      effectiveSchoolId = defaultSchool?.id || null;
+    }
+
     const result = await this.database.query(
       `
       INSERT INTO users (
         role_id,
+        school_id,
         first_name,
         last_name,
         email,
@@ -283,10 +304,11 @@ class AuthRepository {
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING
         id,
         role_id,
+        school_id,
         first_name,
         last_name,
         email,
@@ -297,6 +319,7 @@ class AuthRepository {
       `,
       [
         roleId,
+        effectiveSchoolId,
         firstName.trim(),
         lastName.trim(),
         email.trim().toLowerCase(),

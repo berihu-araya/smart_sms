@@ -113,8 +113,17 @@ class AuthService {
       throw new AuthenticationError();
     }
 
+    let schoolId = user.school_id;
+    if (!schoolId) {
+      const defaultSchool = await this.repository.findDefaultSchool();
+      if (defaultSchool?.id) {
+        schoolId = defaultSchool.id;
+        await this.repository.updateUserSchool(user.id, defaultSchool.id);
+      }
+    }
+
     const token = jwt.sign(
-      { sub: user.id, role: user.role_name, email: user.email, school_id: user.school_id },
+      { sub: user.id, role: user.role_name, email: user.email, school_id: schoolId },
       this.jwtSecret,
       { expiresIn: this.jwtExpiresIn }
     );

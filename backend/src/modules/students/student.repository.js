@@ -234,9 +234,18 @@ class StudentRepository {
 
   async createStudent(payload, client = null) {
     const db = client || this.database;
+    let schoolId = payload.schoolId || payload.school_id || null;
+    if (!schoolId) {
+      const defaultSchool = await db.query(
+        'SELECT id FROM schools WHERE deleted_at IS NULL ORDER BY created_at ASC LIMIT 1'
+      );
+      schoolId = defaultSchool.rows[0]?.id || null;
+    }
+
     const result = await db.query(
       `
         INSERT INTO students (
+          school_id,
           user_id,
           parent_id,
           section_id,
@@ -252,10 +261,11 @@ class StudentRepository {
           photo,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `,
       [
+        schoolId,
         payload.userId || payload.user_id || null,
         payload.parentId || payload.parent_id || null,
         payload.sectionId || payload.section_id || null,
