@@ -16,12 +16,33 @@ services:
     networks:
       - smart_sms_net
 
+  db_migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart_sms_migrate
+    command: ["npm", "run", "migrate:up"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${DATABASE_USER:-postgres}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-postgres}
+      - DATABASE_NAME=${DATABASE_NAME:-smart_sms_prod}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - smart_sms_net
+    restart: "no"
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: smart_sms_backend
     restart: always
+    command: ["node", "src/server.js"]
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -44,6 +65,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
     networks:
       - smart_sms_net
 

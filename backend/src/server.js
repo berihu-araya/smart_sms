@@ -1,5 +1,6 @@
 const app = require("./app");
 const { connectDatabase, db } = require("./config/database");
+const { closeRedis } = require("./config/redis");
 
 const PORT = process.env.PORT || 5000;
 
@@ -29,7 +30,8 @@ async function startServer() {
         console.log("HTTP server closed. Closing database connection pool...");
         try {
           await db.end();
-          console.log("Database connection pool closed successfully.");
+          await closeRedis();
+          console.log("Database connection pool & Redis closed successfully.");
           process.exit(0);
         } catch (err) {
           console.error("Error closing database connections during shutdown:", err);
