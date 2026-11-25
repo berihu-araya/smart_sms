@@ -45,9 +45,37 @@ const storage = multer.diskStorage({
   },
 });
 
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+]);
+
+const ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp|docx?|xlsx?|txt|csv)$/i;
+
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname);
+  const isAllowedExt = ALLOWED_EXTENSIONS.test(ext);
+  const isAllowedMime = ALLOWED_MIME_TYPES.has((file.mimetype || '').toLowerCase());
+
+  if (isAllowedExt && isAllowedMime) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file format. Upload restricted to PDFs, Word/Excel documents, text/CSV, and standard images (JPEG, PNG, WEBP). Executables and scripts are blocked.'));
+  }
+};
+
 const upload = multer({
   storage,
   limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  fileFilter,
 });
 
 // Apply authentication and scope resolvers

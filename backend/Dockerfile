@@ -24,6 +24,9 @@ COPY package.json ./
 COPY migrations ./migrations
 COPY src ./src
 
+# Pre-create persistent uploads directory with proper ownership for non-root user
+RUN mkdir -p /app/uploads && chown -R expressuser:nodejs /app/uploads
+
 USER expressuser
 
 EXPOSE 5000

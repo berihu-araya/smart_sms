@@ -42,20 +42,31 @@ const auditRoutes = require('./modules/audit/audit.routes');
 const backupRoutes = require('./modules/backups/backup.routes');
 
 const path = require("path");
+const crypto = require("crypto");
 const { db } = require('./config/database');
 const AuthorizationService = require('./services/authorization.service');
 
 const app = express();
+app.disable('x-powered-by');
 
 const authorizationService = new AuthorizationService(db);
 app.set('authorizationService', authorizationService);
 
 const allowedCorsOrigin = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : '*';
+  : true; // In development or if unset, dynamically reflect origin to prevent credentialed CORS rejection
 app.use(cors({ origin: allowedCorsOrigin, credentials: true }));
+
+// Request Correlation ID Middleware (Production Diagnostics)
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } })); // Enable Helmet with cross-origin asset support
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get("/", (req, res) => {
@@ -141,9 +152,10 @@ app.use('/api/v1/settings/backups', backupRoutes);
 app.use((err, req, res, next) => {
   const isProduction = process.env.NODE_ENV === "production";
   const statusCode = err.status || err.statusCode || 500;
+  const requestId = req.id || "req-unknown";
 
-  // Log error details for server diagnostics
-  console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}:`, err);
+  // Log error details with request correlation ID for server diagnostics
+  console.error(`[${new Date().toISOString()}][${requestId}] ${req.method} ${req.originalUrl}:`, err);
 
   const clientMessage =
     statusCode >= 500 && isProduction
@@ -153,6 +165,7 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message: clientMessage,
+    requestId,
     data: isProduction ? null : err,
   });
 });

@@ -15,6 +15,9 @@ const db = new Pool({
     max: Number(process.env.DATABASE_POOL_MAX || 25),
     idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT || 30000),
     connectionTimeoutMillis: Number(process.env.DATABASE_POOL_CONN_TIMEOUT || 5000),
+    ...(process.env.DATABASE_SSL === 'true'
+      ? { ssl: { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false' } }
+      : {}),
 });
 
 db.on("error", (error) => {

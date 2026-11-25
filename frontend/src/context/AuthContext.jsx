@@ -31,12 +31,15 @@ export function AuthProvider({ children }) {
 
         if (!token) {
           localStorage.removeItem("user");
+          document.cookie = "smart_sms_token=; path=/; max-age=0; SameSite=Lax";
           if (!cancelled) {
             setUser(null);
             setLoading(false);
           }
           return;
         }
+
+        document.cookie = `smart_sms_token=${encodeURIComponent(token)}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
 
         const response = await authService.getProfile();
         if (!cancelled) {
@@ -46,6 +49,7 @@ export function AuthProvider({ children }) {
           } else {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
+            document.cookie = "smart_sms_token=; path=/; max-age=0; SameSite=Lax";
             setUser(null);
           }
         }
@@ -53,6 +57,7 @@ export function AuthProvider({ children }) {
         if (!cancelled) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
+          document.cookie = "smart_sms_token=; path=/; max-age=0; SameSite=Lax";
           setUser(null);
         }
       } finally {
@@ -77,6 +82,7 @@ export function AuthProvider({ children }) {
 
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response.user));
+      document.cookie = `smart_sms_token=${encodeURIComponent(response.token)}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
 
       setUser(response.user);
 
@@ -96,6 +102,7 @@ export function AuthProvider({ children }) {
 
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response.user));
+      document.cookie = `smart_sms_token=${encodeURIComponent(response.token)}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
 
       setUser(response.user);
 
@@ -110,6 +117,7 @@ export function AuthProvider({ children }) {
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    document.cookie = "smart_sms_token=; path=/; max-age=0; SameSite=Lax";
 
     setUser(null);
 

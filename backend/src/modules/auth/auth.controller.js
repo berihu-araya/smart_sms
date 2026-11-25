@@ -88,10 +88,14 @@ async function forgotPassword(req, res, next) {
   try {
     const data = await authService.sendPasswordReset(input);
 
+    // In production, prevent leaking sensitive resetToken in HTTP response.
+    // In dev/test environments, data is preserved for testing workflows.
+    const responseData = process.env.NODE_ENV === 'production' ? { sent: true } : data;
+
     return res.status(200).json({
       success: true,
       message: 'If an account exists, reset instructions have been sent.',
-      data,
+      data: responseData,
     });
   } catch (error) {
     return next(error);

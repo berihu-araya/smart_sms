@@ -45,6 +45,7 @@ async function request(path, options = {}) {
     if (response.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      document.cookie = "smart_sms_token=; path=/; max-age=0; SameSite=Lax";
       if (window.location.pathname.startsWith("/dashboard")) {
         window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
       }
