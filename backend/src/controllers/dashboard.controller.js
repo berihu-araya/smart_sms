@@ -903,9 +903,20 @@ async function getTeacherDashboard(req, res) {
 
         // Resolve Target Academic Year
         const reqAcademicYearId = req.query.academicYearId;
+        const isAllYears = reqAcademicYearId === 'all';
         let selectedYearRow = null;
 
-        if (reqAcademicYearId && reqAcademicYearId !== 'all') {
+        // Fetch all academic years for selector
+        const allYearsRows = await safeQuery(
+          `SELECT id, name, is_active, status, start_date, end_date
+           FROM academic_years
+           WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL) AND ' : ''}deleted_at IS NULL
+           ORDER BY start_date DESC`,
+          scope.schoolId ? [scope.schoolId] : [],
+          'all academic years list'
+        );
+
+        if (reqAcademicYearId && !isAllYears) {
           const yrRes = await safeQuery(
             `SELECT id, name, start_date, end_date, is_active, status 
              FROM academic_years 
@@ -918,12 +929,16 @@ async function getTeacherDashboard(req, res) {
           }
         }
 
-        if (!selectedYearRow) {
+        if (!selectedYearRow && !isAllYears) {
           const yrRes = await safeQuery(
             `SELECT id, name, start_date, end_date, is_active, status 
              FROM academic_years 
              WHERE ${scope.schoolId ? '(school_id = $1 OR school_id IS NULL) AND ' : ''}deleted_at IS NULL 
-             ORDER BY is_active DESC, start_date DESC, created_at DESC LIMIT 1`,
+             ORDER BY
+               (CASE WHEN CURRENT_DATE BETWEEN start_date AND end_date THEN 0 ELSE 1 END) ASC,
+               is_active DESC,
+               start_date DESC,
+               created_at DESC LIMIT 1`,
             scope.schoolId ? [scope.schoolId] : [],
             'active academic year fallback'
           );
@@ -932,11 +947,11 @@ async function getTeacherDashboard(req, res) {
           }
         }
 
-        const selectedYearId = selectedYearRow?.id || null;
-        const selectedYearName = selectedYearRow?.name || 'Current Term';
-        const isSelectedYearActive = Boolean(selectedYearRow?.is_active);
-        const yearStartDate = selectedYearRow?.start_date || '1970-01-01';
-        const yearEndDate = selectedYearRow?.end_date || '2099-12-31';
+        const selectedYearId = isAllYears ? null : (selectedYearRow?.id || null);
+        const selectedYearName = isAllYears ? 'All Academic Years' : (selectedYearRow?.name || 'Current Term');
+        const isSelectedYearActive = isAllYears ? true : Boolean(selectedYearRow?.is_active);
+        const yearStartDate = isAllYears ? '1970-01-01' : (selectedYearRow?.start_date || '1970-01-01');
+        const yearEndDate = isAllYears ? '2099-12-31' : (selectedYearRow?.end_date || '2099-12-31');
 
         const yearParamIdx = values.length + 1;
         const activeParamIdx = values.length + 2;
@@ -1019,6 +1034,7 @@ async function getTeacherDashboard(req, res) {
               AND (
                 ($${yearParamIdx}::uuid IS NOT NULL AND a.academic_year_id = $${yearParamIdx})
                 OR (a.academic_year_id IS NULL AND a.date >= $${startParamIdx}::date AND a.date <= $${endParamIdx}::date)
+                OR ($${yearParamIdx}::uuid IS NULL)
               )`,
             [...values, selectedYearId, yearStartDate, yearEndDate],
             'attendance summary'
@@ -1031,6 +1047,7 @@ async function getTeacherDashboard(req, res) {
               AND (
                 ($${yearParamIdx}::uuid IS NOT NULL AND a.academic_year_id = $${yearParamIdx})
                 OR (a.academic_year_id IS NULL AND a.date >= $${startParamIdx}::date AND a.date <= $${endParamIdx}::date)
+                OR ($${yearParamIdx}::uuid IS NULL)
               )
             GROUP BY date_trunc('week', a.date)
             ORDER BY date_trunc('week', a.date)
@@ -1343,6 +1360,14 @@ async function getTeacherDashboard(req, res) {
             startDate: selectedYearRow.start_date,
             endDate: selectedYearRow.end_date,
           } : null,
+          academicYearsList: (allYearsRows || []).map((yr) => ({
+            id: yr.id,
+            name: yr.name,
+            isActive: Boolean(yr.is_active),
+            status: yr.status,
+            startDate: yr.start_date,
+            endDate: yr.end_date,
+          })),
           pendingTasks: count(assignmentRows),
           attendanceRate: Number(attendance.total) ? Math.round(((Number(attendance.present || 0) + Number(attendance.late || 0)) / Number(attendance.total)) * 1000) / 10 : 0,
           attendancePresent: Number(attendance.present || 0),

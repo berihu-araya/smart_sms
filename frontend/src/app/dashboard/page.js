@@ -1664,16 +1664,35 @@ export default function Dashboard() {
           <p>Unified executive overview of academic outcomes, student wellbeing, fee receivables, and payroll operations.</p>
         </div>
         <div className={styles.heroActions}>
-          <span
-            className={styles.termBadge}
-            style={dashboard.selectedAcademicYear && !dashboard.selectedAcademicYear.isActive ? { background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' } : {}}
-            title={dashboard.selectedAcademicYear ? `Viewing data for ${dashboard.selectedAcademicYear.name} (${dashboard.selectedAcademicYear.isActive ? 'Active' : 'Archived/Historical'})` : ''}
-          >
-            <HiCalendarDays />
-            {dashboard.selectedAcademicYear
-              ? `${dashboard.selectedAcademicYear.name}${dashboard.selectedAcademicYear.isActive ? ' (Active)' : ' (Archived)'}`
-              : (stats.currentTerm || 'Active Session')}
-          </span>
+          {/* Interactive Academic Year Session Selector */}
+          <div className={styles.yearSelectorWrap} title="Switch Academic Year Session">
+            <HiCalendarDays className={styles.yearIcon} />
+            <select
+              aria-label="Select Academic Year"
+              className={styles.yearSelect}
+              value={selectedAcademicYearId || dashboard.selectedAcademicYear?.id || ""}
+              onChange={(e) => {
+                const newId = e.target.value;
+                setSelectedAcademicYearId(newId);
+                try {
+                  localStorage.setItem("smart_sms_selected_academic_year", newId);
+                } catch {}
+                fetchDashboardData(true, newId);
+              }}
+            >
+              {dashboard.selectedAcademicYear?.id && !dashboard.academicYearsList?.some((y) => y.id === dashboard.selectedAcademicYear.id) && (
+                <option value={dashboard.selectedAcademicYear.id}>
+                  {dashboard.selectedAcademicYear.name} {dashboard.selectedAcademicYear.isActive ? "(Active Term)" : "(Historical)"}
+                </option>
+              )}
+              {Array.isArray(dashboard.academicYearsList) && dashboard.academicYearsList.map((yr) => (
+                <option key={yr.id} value={yr.id}>
+                  {yr.name} {yr.isActive ? "• Current Active Term" : "• Archived Session"}
+                </option>
+              ))}
+              <option value="all">🌐 All Academic Years (Cumulative)</option>
+            </select>
+          </div>
           <button type="button" className={styles.toolBtn} onClick={handlePrint} title="Print executive briefing">
             <HiPrinter /> Print Report
           </button>
