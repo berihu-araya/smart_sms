@@ -82,7 +82,7 @@ async function runTests() {
     if (feeResult.dispatchedCount < 1) {
       throw new Error('Expected 1 fee notification dispatched');
     }
-    const feeNotif = feeResult.notification;
+    const feeNotif = feeResult.notification || feeResult.alerts?.[0];
     console.log(`  Fee Title: "${feeNotif.title}"`);
     console.log(`  Fee Body: "${feeNotif.body}"`);
     console.log(`  Action: ${feeNotif.action_url} [${feeNotif.action_label}]`);

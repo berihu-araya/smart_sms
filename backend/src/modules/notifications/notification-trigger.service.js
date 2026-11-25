@@ -933,7 +933,7 @@ class NotificationTriggerService {
       }
 
       console.log(`[NotificationTriggerService] Dispatched ${dispatched.length} Fee Invoice alert(s) for ${studentName} (${invMeta.invoice_number}).`);
-      return { dispatchedCount: dispatched.length, alerts: dispatched };
+      return { dispatchedCount: dispatched.length, alerts: dispatched, notification: dispatched[0] || null };
     } catch (error) {
       console.error('[NotificationTriggerService] Failed to dispatch fee invoice alert:', error);
       return { dispatchedCount: 0, error: error.message };

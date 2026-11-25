@@ -12,6 +12,9 @@ const db = new Pool({
     user: process.env.DATABASE_USER,
     password: process.env.DATABASE_PASSWORD,
     database: process.env.DATABASE_NAME,
+    max: Number(process.env.DATABASE_POOL_MAX || 25),
+    idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT || 30000),
+    connectionTimeoutMillis: Number(process.env.DATABASE_POOL_CONN_TIMEOUT || 5000),
 });
 
 db.on("error", (error) => {

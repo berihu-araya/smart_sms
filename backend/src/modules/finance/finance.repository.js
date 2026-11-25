@@ -485,7 +485,7 @@ class FinanceRepository {
        LEFT JOIN parents p ON p.id = s.parent_id
        LEFT JOIN users u ON u.id = inv.created_by
        LEFT JOIN schools sch ON sch.id = inv.school_id
-       WHERE inv.id = $1 AND (inv.school_id = $2 OR inv.school_id IS NULL) AND inv.deleted_at IS NULL`,
+       WHERE inv.id = $1 AND ($2::uuid IS NULL OR inv.school_id = $2 OR inv.school_id IS NULL) AND inv.deleted_at IS NULL`,
       [id, schoolId]
     );
 
@@ -655,7 +655,7 @@ class FinanceRepository {
        LEFT JOIN parents pnt ON pnt.id = s.parent_id
        LEFT JOIN users u ON u.id = p.received_by
        LEFT JOIN schools sch ON sch.id = p.school_id
-       WHERE p.id = $1 AND (p.school_id = $2 OR p.school_id IS NULL) AND p.deleted_at IS NULL`,
+       WHERE p.id = $1 AND ($2::uuid IS NULL OR p.school_id = $2 OR p.school_id IS NULL) AND p.deleted_at IS NULL`,
       [id, schoolId]
     );
     return res.rows[0] || null;

@@ -1,3 +1,5 @@
+const { describe, test } = require('node:test');
+const assert = require('node:assert/strict');
 const ResultService = require('../src/modules/results/result.service');
 
 describe('ResultService Dynamic Max Marks & 100% Final Grade Engine', () => {
@@ -34,12 +36,12 @@ describe('ResultService Dynamic Max Marks & 100% Final Grade Engine', () => {
     const service = new ResultService(repo);
     const res = await service.calculateSectionResults({ sectionId: 'sec1' });
 
-    expect(res.rankings[0].isComplete).toBe(false);
-    expect(res.rankings[0].overallGrade).toBe('—');
-    expect(res.rankings[0].totalWeightedScore).toBe(27);
-    expect(res.rankings[0].subjects.sub1.isFullyAssessed).toBe(false);
-    expect(res.rankings[0].subjects.sub1.grade).toBe('—');
-    expect(res.rankings[0].subjects.sub1.remark).toContain('In Progress (30/100 assessed)');
+    assert.strictEqual(res.rankings[0].isComplete, false);
+    assert.strictEqual(res.rankings[0].overallGrade, '—');
+    assert.strictEqual(res.rankings[0].totalWeightedScore, 27);
+    assert.strictEqual(res.rankings[0].subjects.sub1.isFullyAssessed, false);
+    assert.strictEqual(res.rankings[0].subjects.sub1.grade, '—');
+    assert.match(res.rankings[0].subjects.sub1.remark, /In Progress \(30\/100 assessed\)/);
   });
 
   test('2. Dynamic assessments summing to 100 (e.g. 30 mid + 50 final + 20 assignment = 100) finalize Letter Grade', async () => {
@@ -55,13 +57,13 @@ describe('ResultService Dynamic Max Marks & 100% Final Grade Engine', () => {
     const service = new ResultService(repo);
     const res = await service.calculateSectionResults({ sectionId: 'sec1' });
 
-    expect(res.rankings[0].isComplete).toBe(true);
-    expect(res.rankings[0].totalWeightedScore).toBe(89);
-    expect(res.rankings[0].averageScore).toBe(89);
-    expect(res.rankings[0].overallGrade).toBe('A');
-    expect(res.rankings[0].status).toBe('PASSED / PROMOTED');
-    expect(res.rankings[0].subjects.sub1.isFullyAssessed).toBe(true);
-    expect(res.rankings[0].subjects.sub1.grade).toBe('A');
+    assert.strictEqual(res.rankings[0].isComplete, true);
+    assert.strictEqual(res.rankings[0].totalWeightedScore, 89);
+    assert.strictEqual(res.rankings[0].averageScore, 89);
+    assert.strictEqual(res.rankings[0].overallGrade, 'A');
+    assert.strictEqual(res.rankings[0].status, 'PASSED / PROMOTED');
+    assert.strictEqual(res.rankings[0].subjects.sub1.isFullyAssessed, true);
+    assert.strictEqual(res.rankings[0].subjects.sub1.grade, 'A');
   });
 
   test('3. Custom non-standard dynamic split (e.g. 15 quiz + 25 project + 60 final = 100)', async () => {
@@ -77,9 +79,9 @@ describe('ResultService Dynamic Max Marks & 100% Final Grade Engine', () => {
     const service = new ResultService(repo);
     const res = await service.calculateSectionResults({ sectionId: 'sec1' });
 
-    expect(res.rankings[0].isComplete).toBe(true);
-    expect(res.rankings[0].totalWeightedScore).toBe(93);
-    expect(res.rankings[0].overallGrade).toBe('A+');
-    expect(res.rankings[0].status).toBe('PASSED / PROMOTED');
+    assert.strictEqual(res.rankings[0].isComplete, true);
+    assert.strictEqual(res.rankings[0].totalWeightedScore, 93);
+    assert.strictEqual(res.rankings[0].overallGrade, 'A+');
+    assert.strictEqual(res.rankings[0].status, 'PASSED / PROMOTED');
   });
 });

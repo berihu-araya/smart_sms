@@ -83,6 +83,10 @@ async function run() {
   await db.query('DELETE FROM account_registrations WHERE email IN ($1, $2)', [registeredEmail, differentEmail]);
 
   // Also clean up any lingering test users
+  const userIdsSubquery = "SELECT id FROM users WHERE email LIKE 'test.%@smart-sms.com'";
+  await db.query(`DELETE FROM library_loans WHERE member_id IN (SELECT id FROM library_members WHERE user_id IN (${userIdsSubquery}))`);
+  await db.query(`DELETE FROM library_members WHERE user_id IN (${userIdsSubquery})`);
+  await db.query(`DELETE FROM salary_structures WHERE user_id IN (${userIdsSubquery})`);
   await db.query("DELETE FROM users WHERE email LIKE 'test.%@smart-sms.com'");
   await db.query("DELETE FROM account_registrations WHERE email LIKE 'test.%@smart-sms.com'");
 

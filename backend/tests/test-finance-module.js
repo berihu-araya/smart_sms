@@ -79,15 +79,19 @@ async function testFinanceModule() {
 
     // 6. Test Fee Invoice & Payment Receipt Retrieval (Verifying student_photo without errors)
     console.log('6. Testing getInvoiceById & getPaymentById (student_photo resolution)...');
-    const invRes = await db.query(`SELECT id FROM student_fee_invoices WHERE deleted_at IS NULL LIMIT 1`);
+    const invRes = await db.query(`SELECT id, school_id FROM student_fee_invoices WHERE deleted_at IS NULL LIMIT 1`);
     if (invRes.rows.length > 0) {
-      const invDetails = await repo.getInvoiceById(invRes.rows[0].id, null);
-      console.log('   Invoice retrieved successfully:', invDetails.invoice_number, '| student:', invDetails.student_first_name);
+      const invDetails = await repo.getInvoiceById(invRes.rows[0].id, invRes.rows[0].school_id);
+      if (invDetails) {
+        console.log('   Invoice retrieved successfully:', invDetails.invoice_number, '| student:', invDetails.student_first_name);
+      }
     }
-    const payRes = await db.query(`SELECT id FROM fee_payments WHERE deleted_at IS NULL LIMIT 1`);
+    const payRes = await db.query(`SELECT id, school_id FROM fee_payments WHERE deleted_at IS NULL LIMIT 1`);
     if (payRes.rows.length > 0) {
-      const payDetails = await repo.getPaymentById(payRes.rows[0].id, null);
-      console.log('   Payment receipt retrieved successfully:', payDetails.receipt_number, '| student:', payDetails.student_first_name);
+      const payDetails = await repo.getPaymentById(payRes.rows[0].id, payRes.rows[0].school_id);
+      if (payDetails) {
+        console.log('   Payment receipt retrieved successfully:', payDetails.receipt_number, '| student:', payDetails.student_first_name);
+      }
     }
 
     // 7. Clean up test records

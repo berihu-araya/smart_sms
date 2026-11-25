@@ -65,8 +65,27 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      services: {
+        database: "connected",
+        api: "running",
+      },
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "unhealthy",
+      timestamp: new Date().toISOString(),
+      services: {
+        database: "disconnected",
+        error: error.message,
+      },
+    });
+  }
 });
 
 app.use('/api', dashboardRoutes);

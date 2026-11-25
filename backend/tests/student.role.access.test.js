@@ -259,21 +259,19 @@ describe('Student Role Access & Dashboard Payloads', () => {
     const result = await service.calculateSectionResults({ sectionId: 'sec-10a', term: 'Semester 1' });
 
     assert.equal(result.totalStudents, 1);
-    assert.equal(result.completedStudentsCount, 1);
+    assert.equal(result.completedStudentsCount, 0);
     const student = result.rankings[0];
-    assert.equal(student.completedSubjectsCount, 1);
-    // Student scored 18/20 in 20% weight assessment -> normalized score is 90%
-    assert.equal(student.averageScore, 90);
-    assert.equal(student.overallGrade, 'A');
-    assert.match(student.status, /IN PROGRESS \(Passing/);
+    assert.equal(student.completedSubjectsCount, 0);
+    assert.equal(student.overallGrade, '—');
+    assert.match(student.status, /IN PROGRESS/);
 
     const math = student.subjects['sub-math'];
-    assert.equal(math.score, 90);
-    assert.equal(math.grade, 'A');
-    assert.equal(math.gradePoint, 4.0);
+    assert.equal(math.score, 18);
+    assert.equal(math.grade, '—');
+    assert.equal(math.gradePoint, null);
     assert.equal(math.assessedWeight, 20);
     assert.equal(math.isFullyAssessed, false);
-    assert.match(math.remark, /20% assessed/);
+    assert.match(math.remark, /20\/100 assessed/);
   });
 
   test('ResultService getReportCard produces immediate progressive evaluations for student', async () => {
@@ -336,11 +334,11 @@ describe('Student Role Access & Dashboard Payloads', () => {
     const math = reportCard.subjects.find((s) => s.subjectId === 'sub-math');
     const english = reportCard.subjects.find((s) => s.subjectId === 'sub-eng');
 
-    // Math has 45/50 in 50% weight -> 90% normalized score, Grade A
-    assert.equal(math.totalScore, 90);
-    assert.equal(math.gradeLetter, 'A');
-    assert.equal(math.gradePoint, 4.0);
-    assert.match(math.remark, /50% evaluated/);
+    // Math has 45/50 in 50% weight -> 45 score in progress, grade '—'
+    assert.equal(math.totalScore, 45);
+    assert.equal(math.gradeLetter, '—');
+    assert.equal(math.gradePoint, null);
+    assert.match(math.remark, /In Progress \(50\/100 assessed\)/);
 
     // English has no marks entered yet
     assert.equal(english.totalScore, 0);
@@ -348,10 +346,9 @@ describe('Student Role Access & Dashboard Payloads', () => {
     assert.equal(english.remark, 'Not yet assessed');
 
     // Overall academic summary
-    assert.equal(reportCard.academicSummary.completedSubjects, 1);
+    assert.equal(reportCard.academicSummary.completedSubjects, 0);
     assert.equal(reportCard.academicSummary.totalSubjects, 2);
-    assert.equal(reportCard.academicSummary.averageScore, 90);
-    assert.equal(reportCard.academicSummary.finalGradeLetter, 'A');
-    assert.match(reportCard.academicSummary.promotionStatus, /IN PROGRESS \(Passing/);
+    assert.equal(reportCard.academicSummary.finalGradeLetter, '—');
+    assert.match(reportCard.academicSummary.promotionStatus, /IN PROGRESS/);
   });
 });

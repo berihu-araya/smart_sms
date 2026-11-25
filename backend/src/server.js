@@ -21,6 +21,31 @@ async function startServer() {
       }
       process.exit(1);
     });
+
+    // Graceful Shutdown for Container & Process Orchestration (Docker/K8s/PM2)
+    function gracefulShutdown(signal) {
+      console.log(`\n[${new Date().toISOString()}] Received ${signal}. Starting graceful shutdown...`);
+      server.close(async () => {
+        console.log("HTTP server closed. Closing database connection pool...");
+        try {
+          await db.end();
+          console.log("Database connection pool closed successfully.");
+          process.exit(0);
+        } catch (err) {
+          console.error("Error closing database connections during shutdown:", err);
+          process.exit(1);
+        }
+      });
+
+      // Force exit if connections do not drain within 10 seconds
+      setTimeout(() => {
+        console.error("Forced shutdown triggered after timeout.");
+        process.exit(1);
+      }, 10000).unref();
+    }
+
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
   } catch (error) {
     console.error("Unable to connect to PostgreSQL");
     console.error("Error:", error);
