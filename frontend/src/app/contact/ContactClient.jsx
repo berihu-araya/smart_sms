@@ -11,8 +11,32 @@ import {
   HiArrowRight,
   HiShieldCheck,
   HiBuildingOffice2,
+  HiChatBubbleLeftRight,
+  HiChevronDown,
+  HiChevronUp,
+  HiClock,
+  HiQuestionMarkCircle,
 } from "react-icons/hi2";
 import styles from "./contact.module.css";
+
+const ONBOARDING_FAQS = [
+  {
+    q: "How long does system onboarding and data migration take?",
+    a: "Most schools are fully set up within 24 to 48 hours. Our engineering team assists you in importing existing student rosters, parent phone numbers, and past gradebooks from Excel or CSV files with zero downtime.",
+  },
+  {
+    q: "Do we need to buy specialized hardware or servers?",
+    a: "No special hardware is required. Smart SMS runs securely in the cloud. Teachers, administrators, and parents can access their portals from any standard smartphone, tablet, laptop, or desktop browser.",
+  },
+  {
+    q: "Can our school have our custom SMS Sender ID?",
+    a: "Yes! During onboarding, we help register your official institutional sender identifier (e.g. YOUR-ACADEMY) with Ethio Telecom and regional carriers so parents immediately recognize all notifications.",
+  },
+  {
+    q: "Is training provided for teachers and administrative staff?",
+    a: "Yes, every deployment includes dedicated live training sessions (both virtual and on-campus in Addis Ababa) plus video walkthroughs and 24/7 priority technical support.",
+  },
+];
 
 export default function ContactClient() {
   const [formData, setFormData] = useState({
@@ -20,13 +44,19 @@ export default function ContactClient() {
     schoolName: "",
     email: "",
     phone: "",
-    studentsCount: "100-500",
+    studentsCount: "500-1,500",
     role: "School Principal / Owner",
     inquiryType: "Schedule Live Demo",
+    preferredChannel: "WhatsApp / Direct Call",
     message: "",
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const toggleFaq = (idx) => {
+    setOpenFaq(openFaq === idx ? null : idx);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -75,7 +105,7 @@ export default function ContactClient() {
                   <HiCheckCircle className={styles.successIcon} />
                   <h3 className={styles.successTitle}>Inquiry Received Successfully!</h3>
                   <p className={styles.successText}>
-                    Thank you, <strong>{formData.fullName}</strong>. A dedicated Smart SMS specialist has received your request for <strong>{formData.schoolName}</strong> and will contact you via email ({formData.email}) or phone ({formData.phone}) within one business day.
+                    Thank you, <strong>{formData.fullName}</strong>. A dedicated Smart SMS specialist has received your request for <strong>{formData.schoolName}</strong> and will contact you via your preferred channel ({formData.preferredChannel} • {formData.phone || formData.email}) within one business day.
                   </p>
                   <button
                     type="button"
@@ -87,9 +117,10 @@ export default function ContactClient() {
                         schoolName: "",
                         email: "",
                         phone: "",
-                        studentsCount: "100-500",
+                        studentsCount: "500-1,500",
                         role: "School Principal / Owner",
                         inquiryType: "Schedule Live Demo",
+                        preferredChannel: "WhatsApp / Direct Call",
                         message: "",
                       });
                     }}
@@ -140,7 +171,7 @@ export default function ContactClient() {
                     </div>
 
                     <div className={styles.inputFieldWrap}>
-                      <label className={styles.inputLabel}>Phone Number *</label>
+                      <label className={styles.inputLabel}>Phone / WhatsApp Number *</label>
                       <input
                         type="tel"
                         name="phone"
@@ -185,7 +216,22 @@ export default function ContactClient() {
                       </select>
                     </div>
 
-                    <div className={`${styles.inputFieldWrap} ${styles.fullWidth}`}>
+                    <div className={styles.inputFieldWrap}>
+                      <label className={styles.inputLabel}>Preferred Contact Method</label>
+                      <select
+                        name="preferredChannel"
+                        value={formData.preferredChannel}
+                        onChange={handleChange}
+                        className={styles.selectInput}
+                      >
+                        <option value="WhatsApp / Direct Call">WhatsApp / Direct Phone Call</option>
+                        <option value="Official Email">Official Email</option>
+                        <option value="Telegram">Telegram Message</option>
+                        <option value="On-Campus Visit">On-Campus Visit in Addis Ababa</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.inputFieldWrap}>
                       <label className={styles.inputLabel}>Inquiry Reason</label>
                       <select
                         name="inquiryType"
@@ -212,10 +258,16 @@ export default function ContactClient() {
                     </div>
                   </div>
 
-                  <button type="submit" className={styles.submitBtn}>
-                    <span>Submit Demo Request</span>
-                    <HiArrowRight />
-                  </button>
+                  <div className={styles.formFooterRow}>
+                    <button type="submit" className={styles.submitBtn}>
+                      <span>Submit Demo Request</span>
+                      <HiArrowRight />
+                    </button>
+                    <span className={styles.privacyReassurance}>
+                      <HiShieldCheck className={styles.privacyIcon} />
+                      100% Confidential • Data Never Shared with Third Parties
+                    </span>
+                  </div>
                 </form>
               )}
             </div>
@@ -269,6 +321,34 @@ export default function ContactClient() {
                   <HiArrowRight />
                 </Link>
               </div>
+            </div>
+          </div>
+
+          {/* 3. ONBOARDING FAQ ACCORDION */}
+          <div className={styles.faqSectionWrap}>
+            <div className={styles.faqHeader}>
+              <span className={styles.eyebrowTag}>
+                <HiQuestionMarkCircle /> Onboarding Questions
+              </span>
+              <h2 className={styles.faqTitle}>Frequently Asked Questions About Getting Started</h2>
+            </div>
+
+            <div className={styles.faqList}>
+              {ONBOARDING_FAQS.map((faq, i) => (
+                <div
+                  key={i}
+                  className={`${styles.faqCard} ${openFaq === i ? styles.faqOpen : ""}`}
+                  onClick={() => toggleFaq(i)}
+                >
+                  <div className={styles.faqQuestion}>
+                    <span>{faq.q}</span>
+                    <div className={styles.faqToggleIcon}>
+                      {openFaq === i ? <HiChevronUp /> : <HiChevronDown />}
+                    </div>
+                  </div>
+                  {openFaq === i && <div className={styles.faqAnswer}>{faq.a}</div>}
+                </div>
+              ))}
             </div>
           </div>
         </div>

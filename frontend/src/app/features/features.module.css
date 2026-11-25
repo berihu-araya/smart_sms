@@ -75,13 +75,13 @@
    CATEGORY FILTER TABS
    ========================================================================= */
 .filterSection {
-  padding: 30px 0;
+  padding: 24px 0;
   background: #0b192c;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   position: sticky;
   top: 76px;
   z-index: 50;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
 
 .filterTabs {
@@ -124,9 +124,12 @@
    ========================================================================= */
 .modulesContainer {
   padding: 80px 0;
+}
+
+.modulesFlexList {
   display: flex;
   flex-direction: column;
-  gap: 60px;
+  gap: 48px;
 }
 
 .featureModuleBlock {
@@ -135,9 +138,9 @@
   border-radius: 20px;
   padding: 44px;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 48px;
-  align-items: center;
+  align-items: flex-start;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
   transition: border-color 0.2s ease;
 }
@@ -150,6 +153,12 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.moduleTagRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .moduleTag {
@@ -165,6 +174,14 @@
   font-weight: 700;
   width: fit-content;
   text-transform: uppercase;
+}
+
+.moduleCategoryBadge {
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  padding: 3px 10px;
+  border-radius: 9999px;
 }
 
 .moduleHeading {
@@ -205,6 +222,112 @@
   font-size: 1.2rem;
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* TECHNICAL SPECS DRAWER */
+.specsDrawerWrapper {
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.specsToggleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.specsToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.specsBtnLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #38bdf8;
+}
+
+.specsDrawerContent {
+  padding: 16px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.specGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.specLabel {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.specPillRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.specPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.specPillGold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.specPillIcon {
+  font-size: 0.85rem;
+}
+
+.specTriggersList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* MODULE VISUAL PREVIEW CARD */
@@ -291,7 +414,7 @@
 }
 
 .tableWrapper {
-  max-width: 1000px;
+  max-width: 1040px;
   margin: 0 auto;
   background: #0d1b2e;
   border: 1px solid rgba(255, 255, 255, 0.1);

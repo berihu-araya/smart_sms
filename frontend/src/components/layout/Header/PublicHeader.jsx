@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -19,12 +19,21 @@ import styles from "./PublicHeader.module.css";
 
 export default function PublicHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const isActive = (path) => pathname === path;
 
   return (
-    <header className={styles.publicHeader}>
+    <header className={`${styles.publicHeader} ${scrolled ? styles.scrolled : ""}`}>
       <div className={styles.container}>
         {/* Left: School Logo & Brand */}
         <div className={styles.leftGroup}>
@@ -41,7 +50,7 @@ export default function PublicHeader() {
             </div>
             <div className={styles.logoText}>
               <span className={styles.schoolName}>YOYO ACADEMY</span>
-              <span className={styles.schoolSub}>Smart SMS Platform</span>
+              <span className={styles.schoolSub}>Smart SMS Operating System</span>
             </div>
           </Link>
         </div>
@@ -65,7 +74,7 @@ export default function PublicHeader() {
           </Link>
 
           <div className={styles.dropdown}>
-            <button type="button" className={styles.dropbtn}>
+            <button type="button" className={styles.dropbtn} aria-label="Solutions and Portals Menu">
               Solutions & Portals <HiChevronDown className={styles.chevronIcon} />
             </button>
             <div className={styles.dropdownContent}>
@@ -78,8 +87,8 @@ export default function PublicHeader() {
                   <HiShieldCheck />
                 </div>
                 <div>
-                  <h4>Admin & Operations</h4>
-                  <p>Admissions, SIS records, staff management, and system-wide audits.</p>
+                  <h4>Admin & Executive Desk</h4>
+                  <p>Admissions, SIS dossiers, staff management, payroll, and institution audits.</p>
                 </div>
               </Link>
 
@@ -92,8 +101,8 @@ export default function PublicHeader() {
                   <HiAcademicCap />
                 </div>
                 <div>
-                  <h4>Teacher Workspace</h4>
-                  <p>Daily registers, marks & gradebook entries, timetable schedules.</p>
+                  <h4>Faculty Workspace</h4>
+                  <p>Daily roll call, marks & continuous assessment, timetable rosters.</p>
                 </div>
               </Link>
 
@@ -107,7 +116,7 @@ export default function PublicHeader() {
                 </div>
                 <div>
                   <h4>Parent & Student Hub</h4>
-                  <p>Fee statements, report cards, exam schedules, and attendance logs.</p>
+                  <p>Fee balances, verified report cards, exam schedules, and attendance logs.</p>
                 </div>
               </Link>
 
@@ -120,8 +129,8 @@ export default function PublicHeader() {
                   <HiChatBubbleBottomCenterText />
                 </div>
                 <div>
-                  <h4>Smart SMS Dispatch</h4>
-                  <p>Automated multi-carrier SMS triggers for grades, fees & emergencies.</p>
+                  <h4>Smart SMS Gateway</h4>
+                  <p>Instant automated multi-carrier parent SMS for arrival, grades & billing.</p>
                 </div>
               </Link>
             </div>
@@ -170,7 +179,7 @@ export default function PublicHeader() {
           </Link>
 
           <Link href="/login" className={styles.loginBtn}>
-            <span>Sign In</span>
+            <span>Portal Sign In</span>
             <HiArrowRight className={styles.loginArrow} />
           </Link>
 

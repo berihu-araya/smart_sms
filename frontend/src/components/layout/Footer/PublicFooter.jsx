@@ -11,6 +11,7 @@ import {
   HiCheckCircle,
   HiSparkles,
   HiArrowRight,
+  HiServerStack,
 } from "react-icons/hi2";
 import { FaGraduationCap } from "react-icons/fa6";
 import styles from "./PublicFooter.module.css";
@@ -29,19 +30,19 @@ export default function PublicFooter() {
 
   return (
     <footer className={styles.footer}>
-      {/* Top Pre-Footer Bar / System Status */}
+      {/* Top Pre-Footer Bar / Real-Time System Status */}
       <div className={styles.statusTicker}>
         <div className={styles.statusContainer}>
           <div className={styles.statusLeft}>
             <span className={styles.statusDot}></span>
             <span className={styles.statusText}>
-              <strong>System Operational:</strong> All 12 SMS Gateways, Biometrics & Database APIs Running with 99.99% Uptime
+              <strong>System Operational:</strong> Multi-Carrier SMS Gateways, Biometrics & Database Cluster Active (99.99% SLA Uptime)
             </span>
           </div>
           <div className={styles.statusRight}>
             <span className={styles.securityTag}>
               <HiShieldCheck className={styles.shieldIcon} />
-              256-Bit TLS & Role-Based RBAC Encrypted
+              Enterprise 256-Bit TLS 1.3 & Role-Based RBAC Protected
             </span>
           </div>
         </div>
@@ -51,7 +52,7 @@ export default function PublicFooter() {
       <div className={styles.mainFooter}>
         <div className={styles.container}>
           <div className={styles.grid}>
-            {/* Column 1: Brand & Slogan */}
+            {/* Column 1: Brand & Institutional Purpose */}
             <div className={styles.brandCol}>
               <Link href="/" className={styles.logoLink}>
                 <div className={styles.logoBadge}>
@@ -65,12 +66,12 @@ export default function PublicFooter() {
                 </div>
                 <div className={styles.logoInfo}>
                   <span className={styles.brandName}>YOYO ACADEMY</span>
-                  <span className={styles.brandSubtitle}>Smart SMS Platform</span>
+                  <span className={styles.brandSubtitle}>Smart SMS Operating System</span>
                 </div>
               </Link>
               <p className={styles.brandDesc}>
                 Empowering modern educational institutions with unified student administration,
-                automated SMS parent alerts, intelligent grading, and real-time operational analytics.
+                instant multi-carrier SMS parent alerts, intelligent grading, and real-time operational analytics.
               </p>
 
               {/* Newsletter / Updates Subscription */}
@@ -80,13 +81,13 @@ export default function PublicFooter() {
                 </span>
                 {subscribed ? (
                   <div className={styles.subscribeSuccess}>
-                    <HiCheckCircle /> Thank you for subscribing!
+                    <HiCheckCircle /> Thank you! Your school email has been registered for updates.
                   </div>
                 ) : (
                   <form onSubmit={handleSubscribe} className={styles.subscribeForm}>
                     <input
                       type="email"
-                      placeholder="Enter school or admin email"
+                      placeholder="Enter administrator email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -122,6 +123,9 @@ export default function PublicFooter() {
                 <li>
                   <Link href="/features#timetable">Intelligent Timetable Scheduler</Link>
                 </li>
+                <li>
+                  <Link href="/features#transport">Fleet, Bus Routes & Student Transit</Link>
+                </li>
               </ul>
             </div>
 
@@ -142,7 +146,7 @@ export default function PublicFooter() {
                   <Link href="/login">Student Learning Portal</Link>
                 </li>
                 <li>
-                  <Link href="/about">About YOYO Academy</Link>
+                  <Link href="/about">About Institutional Mission</Link>
                 </li>
                 <li>
                   <Link href="/contact">Schedule an Onboarding Demo</Link>
@@ -167,7 +171,7 @@ export default function PublicFooter() {
                   <a href="tel:+251911000000">+251 (911) 00-0000 / +251 (912) 00-0000</a>
                 </div>
                 <div className={styles.workingHours}>
-                  <strong>Office Hours:</strong> Monday – Saturday (8:00 AM – 6:00 PM)
+                  <strong>Operational Hours:</strong> Monday – Saturday (8:00 AM – 6:00 PM EAT)
                 </div>
               </div>
             </div>
@@ -180,14 +184,14 @@ export default function PublicFooter() {
         <div className={styles.container}>
           <div className={styles.bottomContent}>
             <div className={styles.copyright}>
-              © {new Date().getFullYear()} YOYO Academy Smart SMS. All rights reserved. Built for modern academic excellence.
+              © {new Date().getFullYear()} Smart SMS Educational Operating System. All rights reserved.
             </div>
             <div className={styles.legalLinks}>
               <Link href="/about">Architecture & Security</Link>
               <span className={styles.dot}>•</span>
-              <Link href="/features">Features</Link>
+              <Link href="/features">All Modules</Link>
               <span className={styles.dot}>•</span>
-              <Link href="/contact">Support & Contact</Link>
+              <Link href="/contact">Support & Inquiries</Link>
               <span className={styles.dot}>•</span>
               <Link href="/login">Portal Login</Link>
             </div>

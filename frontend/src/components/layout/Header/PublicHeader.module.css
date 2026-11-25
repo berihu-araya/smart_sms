@@ -1,23 +1,35 @@
 .publicHeader {
   width: 100%;
-  background: rgba(11, 25, 44, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(7, 11, 20, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 999;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s ease;
+}
+
+.scrolled {
+  background: rgba(7, 11, 20, 0.95);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  border-bottom-color: rgba(99, 102, 241, 0.2);
 }
 
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  height: 76px;
+  height: 74px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  transition: height 0.2s ease;
+}
+
+.scrolled .container {
+  height: 68px;
 }
 
 .leftGroup {
@@ -37,18 +49,19 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid #d4af37;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.2);
-  transition: transform 0.2s ease;
+  padding: 3px;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 
 .logo:hover .logoBadge {
   transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
 }
 
 .logoImg {
@@ -63,36 +76,37 @@
 
 .schoolName {
   font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #d4af37;
+  font-weight: 850;
+  letter-spacing: 0.6px;
+  color: #f59e0b;
   line-height: 1.2;
 }
 
 .schoolSub {
   font-size: 0.72rem;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 26px;
 }
 
 .navLink,
 .dropbtn {
   color: #cbd5e1;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 550;
   font-size: 0.92rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 6px 12px;
   border-radius: 8px;
   border: none;
   background: none;
@@ -101,13 +115,13 @@
 .navLink:hover,
 .dropbtn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .activeLink {
-  color: #d4af37 !important;
-  background: rgba(212, 175, 55, 0.12) !important;
-  font-weight: 600;
+  color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  font-weight: 700;
 }
 
 .chevronIcon {
@@ -128,8 +142,9 @@
   top: calc(100% + 14px);
   left: 50%;
   transform: translateX(-50%) translateY(10px);
-  width: 620px;
-  background: #0d1b2e;
+  width: 640px;
+  background: rgba(13, 21, 39, 0.96);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 18px;
@@ -139,7 +154,7 @@
   opacity: 0;
   visibility: hidden;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.65);
 }
 
 .dropdown:hover .dropdownContent {
@@ -156,60 +171,60 @@
   border-radius: 12px;
   text-decoration: none;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   transition: all 0.2s ease;
 }
 
 .appCard:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(212, 175, 55, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.35);
   transform: translateY(-2px);
 }
 
 .iconWrap {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   flex-shrink: 0;
 }
 
 .adminIconBg {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(99, 102, 241, 0.18);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
 }
 
 .teacherIconBg {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.18);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .parentIconBg {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .smsIconBg {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.18);
   color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.3);
+  border: 1px solid rgba(168, 85, 247, 0.35);
 }
 
 .appCard h4 {
   margin: 0 0 3px;
   font-size: 0.92rem;
   color: #f8fafc;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .appCard:hover h4 {
-  color: #d4af37;
+  color: #f59e0b;
 }
 
 .appCard p {
@@ -230,20 +245,21 @@
   align-items: center;
   gap: 6px;
   color: #f8fafc;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 8px 16px;
   border-radius: 10px;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 650;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
 .demoBtn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(212, 175, 55, 0.4);
-  color: #d4af37;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  transform: translateY(-1px);
 }
 
 .demoIcon {
@@ -254,22 +270,22 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: #ffffff;
   text-decoration: none;
   padding: 9px 20px;
   border-radius: 10px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.88rem;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .loginBtn:hover {
-  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  box-shadow: 0 6px 22px rgba(99, 102, 241, 0.5);
 }
 
 .loginArrow {
@@ -306,19 +322,20 @@
 
   .nav {
     position: fixed;
-    top: 76px;
+    top: 74px;
     left: 0;
     width: 100%;
-    max-height: calc(100vh - 76px);
+    max-height: calc(100vh - 74px);
     overflow-y: auto;
-    background: #0b192c;
+    background: rgba(7, 11, 20, 0.98);
+    backdrop-filter: blur(20px);
     flex-direction: column;
     align-items: stretch;
     padding: 24px;
     gap: 12px;
     transform: translateY(-120%);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 
@@ -356,7 +373,7 @@
   .mobileLoginBtn {
     display: block;
     text-align: center;
-    background: #2563eb;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
     color: #ffffff;
     padding: 12px;
     border-radius: 10px;
@@ -368,11 +385,11 @@
     display: block;
     text-align: center;
     background: rgba(255, 255, 255, 0.08);
-    color: #d4af37;
-    border: 1px solid rgba(212, 175, 55, 0.4);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
     padding: 12px;
     border-radius: 10px;
-    font-weight: 600;
+    font-weight: 650;
     text-decoration: none;
   }
 }

@@ -7,6 +7,25 @@
   --primary-dark: #2c5aa0;
   --border: #e2e8f0;
   --text-light: #718096;
+
+  /* Premium Educational SaaS Tokens */
+  --obsidian-dark: #070b14;
+  --obsidian-card: #0d1527;
+  --obsidian-border: rgba(255, 255, 255, 0.08);
+  --obsidian-border-hover: rgba(99, 102, 241, 0.4);
+  --accent-indigo: #6366f1;
+  --accent-indigo-hover: #4f46e5;
+  --accent-indigo-glow: rgba(99, 102, 241, 0.25);
+  --accent-gold: #f59e0b;
+  --accent-gold-light: #fef3c7;
+  --accent-emerald: #10b981;
+  --accent-sky: #0ea5e9;
+  --accent-purple: #a855f7;
+  --surface-glass-dark: rgba(13, 21, 39, 0.75);
+  --surface-glass-border: rgba(255, 255, 255, 0.1);
+  --gradient-gold: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d97706 100%);
+  --gradient-indigo: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #4f46e5 100%);
+  --gradient-emerald: linear-gradient(135deg, #10b981 0%, #34d399 100%);
 }
 
 * {

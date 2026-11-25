@@ -15,6 +15,12 @@ import {
   HiCalendarDays,
   HiShieldCheck,
   HiChartBar,
+  HiTruck,
+  HiChevronDown,
+  HiChevronUp,
+  HiArrowDownTray,
+  HiLockClosed,
+  HiBolt,
 } from "react-icons/hi2";
 import styles from "./features.module.css";
 
@@ -26,6 +32,7 @@ const CATEGORIES = [
   { id: "attendance", label: "Attendance & Roll Call" },
   { id: "finance", label: "Fee & Financial Billing" },
   { id: "timetable", label: "Timetable Scheduling" },
+  { id: "transport", label: "Fleet & Transport" },
 ];
 
 const MODULE_DETAILS = [
@@ -43,6 +50,11 @@ const MODULE_DETAILS = [
       "Bulk CSV/Excel student roster onboarding with validation rules",
       "Comprehensive digital audit logs tracking all student record updates",
     ],
+    technicalSpecs: {
+      roles: ["Super Admin", "Registrar", "Principal"],
+      exports: ["Official Student Dossier (PDF)", "Bulk Roster (CSV/Excel)", "Student ID Card with Barcode"],
+      triggers: ["Admissions finalized event", "Section re-allocation notification"],
+    },
     previewTitle: "SIS Live Record Card",
     previewBadge: "Verified Student",
     previewRows: [
@@ -67,6 +79,11 @@ const MODULE_DETAILS = [
       "Emergency mass broadcast tool to notify thousands of guardians in under 10 seconds",
       "Full delivery receipt logging with timestamps and carrier confirmation status",
     ],
+    technicalSpecs: {
+      roles: ["Super Admin", "Principal", "Communications Officer"],
+      exports: ["Delivery Audit Ledger (CSV)", "Carrier Latency Reports (PDF)"],
+      triggers: ["Tier-1 Ethio Telecom / Safaricom Gateway Dispatch", "Automatic 3-try Delivery Retry Queue"],
+    },
     previewTitle: "SMS Dispatch Engine",
     previewBadge: "Carrier Connected",
     previewRows: [
@@ -91,6 +108,11 @@ const MODULE_DETAILS = [
       "Teacher progress tracker to monitor submission deadlines across all departments",
       "Historic academic transcripts stored securely across all academic years",
     ],
+    technicalSpecs: {
+      roles: ["Super Admin", "Academic Dean", "Subject Teachers"],
+      exports: ["Master Broadsheet (A3/A4 PDF)", "Student Terminal Report Card (PDF)", "Grade Analytics (CSV)"],
+      triggers: ["Results published event -> Automated Parent SMS Dispatch", "Dean verification sign-off"],
+    },
     previewTitle: "Academic Performance Matrix",
     previewBadge: "Term 2 Finalized",
     previewRows: [
@@ -115,6 +137,11 @@ const MODULE_DETAILS = [
       "Monthly and termly student attendance percentage calculations",
       "Excused vs. unexcused absence management with guardian reason notes",
     ],
+    technicalSpecs: {
+      roles: ["Classroom Teachers", "Discipline Officer", "Attendance Registrar"],
+      exports: ["Term Attendance Broadsheet (PDF)", "Absence Hotspot Summary (Excel)"],
+      triggers: ["Absent checkmark -> Instant Parent Mobile Alert", "Chronic absenteeism notification (>3 days)"],
+    },
     previewTitle: "Daily Attendance Console",
     previewBadge: "Today: 98.6%",
     previewRows: [
@@ -139,6 +166,11 @@ const MODULE_DETAILS = [
       "Comprehensive cashier reconciliation sheets and daily revenue reports",
       "Role-based financial security allowing only authorized accountants to edit ledger",
     ],
+    technicalSpecs: {
+      roles: ["Super Admin", "Bursar / Chief Accountant", "Cashier"],
+      exports: ["Official Bank Deposit Slip Reconciliation", "Financial Cashflow Statement (PDF)", "Invoices & Receipts"],
+      triggers: ["Bank slip verified -> Instant receipt SMS to guardian", "Automated payment reminder 7 days before due date"],
+    },
     previewTitle: "Finance & Invoice Ledger",
     previewBadge: "Term 2 Collection",
     previewRows: [
@@ -163,6 +195,11 @@ const MODULE_DETAILS = [
       "Printable weekly schedules in PDF format for classroom notice boards",
       "Room and laboratory capacity management",
     ],
+    technicalSpecs: {
+      roles: ["Academic Director", "Head of Curriculum", "Department Chairs"],
+      exports: ["Master Campus Schedule (PDF)", "Individual Teacher Timetable (PDF)", "Room Utilization Matrix"],
+      triggers: ["Conflict auto-detection on allocation", "Substitute teacher notification"],
+    },
     previewTitle: "Timetable Master Matrix",
     previewBadge: "0 Conflicts",
     previewRows: [
@@ -173,10 +210,47 @@ const MODULE_DETAILS = [
       { label: "Schedule Export", val: "Ready (PDF & Web View)", isGold: true },
     ],
   },
+  {
+    id: "transport",
+    category: "transport",
+    tag: "Fleet Management",
+    title: "Fleet, Bus Routes & Student Transit",
+    description:
+      "Manage campus school buses, pick-up routes, driver assignments, and automated parent arrival SMS notifications for peace of mind.",
+    capabilities: [
+      "Assigned bus routes with designated student stop locations and arrival timings",
+      "Driver and vehicle compliance management (license expiry, inspection dates)",
+      "Automated morning pick-up and afternoon drop-off confirmation SMS alerts",
+      "Emergency route re-allocation and guardian notification broadcasting",
+      "Student transportation fee billing integration with bursar ledger",
+    ],
+    technicalSpecs: {
+      roles: ["Transport Coordinator", "Fleet Supervisor", "Security Desk"],
+      exports: ["Bus Route Manifest (Printable)", "Transit Passenger Roll Call (PDF)"],
+      triggers: ["Bus boarding confirmation SMS", "Route delay broadcast to parents"],
+    },
+    previewTitle: "Campus Transit Fleet Console",
+    previewBadge: "12 Buses Active",
+    previewRows: [
+      { label: "Fleet Capacity", val: "12 Buses (480 Students)" },
+      { label: "Morning Routes", val: "Completed (100% on time)", isSuccess: true },
+      { label: "Parent Transit SMS", val: "480 Dispatches Sent", isGold: true },
+      { label: "Driver Compliance", val: "All Validated & Licensed" },
+      { label: "Fleet Status", val: "Active & Monitored", isSuccess: true },
+    ],
+  },
 ];
 
 export default function FeaturesClient() {
   const [activeCategory, setActiveCategory] = useState("all");
+  const [expandedSpecs, setExpandedSpecs] = useState({});
+
+  const toggleSpecs = (id) => {
+    setExpandedSpecs((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   const filteredModules =
     activeCategory === "all"
@@ -196,7 +270,7 @@ export default function FeaturesClient() {
               Engineered to Power Every Aspect of Your <span className={styles.goldText}>Institution</span>
             </h1>
             <p className={styles.heroSubtitle}>
-              Explore our modular school management ecosystem. Designed to replace disconnected tools with one robust, automated, and secure system.
+              Explore our modular school management ecosystem. Designed to replace disconnected spreadsheets with one robust, automated, and secure cloud platform.
             </p>
           </div>
         </div>
@@ -225,53 +299,114 @@ export default function FeaturesClient() {
       {/* 3. DETAILED MODULE SHOWCASE */}
       <section className={styles.modulesContainer}>
         <div className={styles.container}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
-            {filteredModules.map((mod) => (
-              <div key={mod.id} id={mod.id} className={styles.featureModuleBlock}>
-                {/* Left: Info */}
-                <div className={styles.moduleInfoCol}>
-                  <span className={styles.moduleTag}>{mod.tag}</span>
-                  <h2 className={styles.moduleHeading}>{mod.title}</h2>
-                  <p className={styles.moduleDescription}>{mod.description}</p>
-                  <ul className={styles.capabilitiesList}>
-                    {mod.capabilities.map((cap, idx) => (
-                      <li key={idx}>
-                        <HiCheckCircle className={styles.checkIcon} />
-                        <span>{cap}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+          <div className={styles.modulesFlexList}>
+            {filteredModules.map((mod) => {
+              const isSpecsOpen = !!expandedSpecs[mod.id];
+              return (
+                <div key={mod.id} id={mod.id} className={styles.featureModuleBlock}>
+                  {/* Left: Info */}
+                  <div className={styles.moduleInfoCol}>
+                    <div className={styles.moduleTagRow}>
+                      <span className={styles.moduleTag}>{mod.tag}</span>
+                      <span className={styles.moduleCategoryBadge}>
+                        {CATEGORIES.find((c) => c.id === mod.category)?.label || mod.category}
+                      </span>
+                    </div>
 
-                {/* Right: Realistic Card Visual */}
-                <div className={styles.moduleVisualCol}>
-                  <div className={styles.cardHeader}>
-                    <span className={styles.cardTitle}>
-                      <HiShieldCheck /> {mod.previewTitle}
-                    </span>
-                    <span className={styles.cardBadge}>{mod.previewBadge}</span>
-                  </div>
-                  <div className={styles.cardBody}>
-                    {mod.previewRows.map((row, idx) => (
-                      <div key={idx} className={styles.mockRow}>
-                        <span className={styles.mockLabel}>{row.label}</span>
-                        <span
-                          className={
-                            row.isSuccess
-                              ? styles.mockSuccess
-                              : row.isGold
-                              ? styles.mockGold
-                              : styles.mockValue
-                          }
+                    <h2 className={styles.moduleHeading}>{mod.title}</h2>
+                    <p className={styles.moduleDescription}>{mod.description}</p>
+                    
+                    <ul className={styles.capabilitiesList}>
+                      {mod.capabilities.map((cap, idx) => (
+                        <li key={idx}>
+                          <HiCheckCircle className={styles.checkIcon} />
+                          <span>{cap}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Interactive Capability & Specs Drawer Toggle */}
+                    {mod.technicalSpecs && (
+                      <div className={styles.specsDrawerWrapper}>
+                        <button
+                          type="button"
+                          className={styles.specsToggleBtn}
+                          onClick={() => toggleSpecs(mod.id)}
                         >
-                          {row.val}
-                        </span>
+                          <span className={styles.specsBtnLabel}>
+                            <HiBolt /> Technical Specs & RBAC Permissions
+                          </span>
+                          {isSpecsOpen ? <HiChevronUp /> : <HiChevronDown />}
+                        </button>
+
+                        {isSpecsOpen && (
+                          <div className={styles.specsDrawerContent}>
+                            <div className={styles.specGroup}>
+                              <span className={styles.specLabel}>Authorized Roles:</span>
+                              <div className={styles.specPillRow}>
+                                {mod.technicalSpecs.roles.map((r, i) => (
+                                  <span key={i} className={styles.specPill}>
+                                    <HiLockClosed className={styles.specPillIcon} /> {r}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className={styles.specGroup}>
+                              <span className={styles.specLabel}>Official Export Formats:</span>
+                              <div className={styles.specPillRow}>
+                                {mod.technicalSpecs.exports.map((e, i) => (
+                                  <span key={i} className={styles.specPillGold}>
+                                    <HiArrowDownTray className={styles.specPillIcon} /> {e}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className={styles.specGroup}>
+                              <span className={styles.specLabel}>Automated Event Triggers:</span>
+                              <ul className={styles.specTriggersList}>
+                                {mod.technicalSpecs.triggers.map((t, i) => (
+                                  <li key={i}>{t}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  {/* Right: Realistic Card Visual */}
+                  <div className={styles.moduleVisualCol}>
+                    <div className={styles.cardHeader}>
+                      <span className={styles.cardTitle}>
+                        <HiShieldCheck /> {mod.previewTitle}
+                      </span>
+                      <span className={styles.cardBadge}>{mod.previewBadge}</span>
+                    </div>
+                    <div className={styles.cardBody}>
+                      {mod.previewRows.map((row, idx) => (
+                        <div key={idx} className={styles.mockRow}>
+                          <span className={styles.mockLabel}>{row.label}</span>
+                          <span
+                            className={
+                              row.isSuccess
+                                ? styles.mockSuccess
+                                : row.isGold
+                                ? styles.mockGold
+                                : styles.mockValue
+                            }
+                          >
+                            {row.val}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -344,13 +479,24 @@ export default function FeaturesClient() {
                 </tr>
                 <tr>
                   <td>
+                    <strong>Fleet & Student Transit Alerts</strong>
+                  </td>
+                  <td className={styles.crossText}>
+                    <HiXMark /> Anxious parent phone calls during traffic delays
+                  </td>
+                  <td className={styles.checkText}>
+                    <HiCheckCircle /> Automated SMS bus arrival and drop-off confirmations
+                  </td>
+                </tr>
+                <tr>
+                  <td>
                     <strong>Data Security & Backup</strong>
                   </td>
                   <td className={styles.crossText}>
-                    <HiXMark /> Vulnerable to local PC crashes and loss
+                    <HiXMark /> Vulnerable to local PC crashes, viruses, and theft
                   </td>
                   <td className={styles.checkText}>
-                    <HiCheckCircle /> 256-bit encrypted cloud storage & daily backups
+                    <HiCheckCircle /> 256-bit encrypted cloud storage & redundant backups
                   </td>
                 </tr>
               </tbody>
