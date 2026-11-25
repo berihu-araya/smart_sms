@@ -13,12 +13,15 @@ import {
   HiCalendarDays,
   HiChartBar,
   HiSparkles,
+  HiArrowLeft,
   HiArrowRight,
   HiCheckCircle,
   HiBolt,
   HiClock,
   HiChevronDown,
   HiChevronUp,
+  HiChevronLeft,
+  HiChevronRight,
   HiDevicePhoneMobile,
   HiArrowTopRightOnSquare,
   HiBuildingOffice2,
@@ -33,7 +36,7 @@ import {
   HiCircleStack,
   HiLanguage,
 } from "react-icons/hi2";
-import { FaGraduationCap, FaQuoteLeft } from "react-icons/fa6";
+import { FaGraduationCap, FaQuoteLeft, FaStar } from "react-icons/fa6";
 import styles from "./page.module.css";
 
 const SMS_SCENARIOS = [
@@ -236,6 +239,69 @@ const SECURITY_PILLARS = [
   },
 ];
 
+const TESTIMONIALS = [
+  {
+    id: "horizon-principal",
+    name: "Dr. Daniel Tadesse",
+    role: "Principal, Horizon International Academy",
+    avatar: "👨‍💼",
+    rating: 5,
+    kpiBadge: "+12 hrs Saved / Week",
+    quote:
+      "The automated SMS attendance feature alone eliminated hundreds of morning phone calls from worried parents. Gradebook calculations that used to take our teachers a week now take less than an hour.",
+  },
+  {
+    id: "yoyo-finance",
+    name: "Sara Mekonnen",
+    role: "Finance Director & Bursar, YOYO Academy",
+    avatar: "👩‍💼",
+    rating: 5,
+    kpiBadge: "96% Tuition Collection",
+    quote:
+      "Our tuition fee collection rate jumped from 75% to 96% within the first term of deploying Smart SMS. Parents appreciate the instant SMS receipts and transparent balance alerts.",
+  },
+  {
+    id: "pta-parent",
+    name: "Dawit Haile",
+    role: "Parent & PTA Committee Chair",
+    avatar: "👨‍👧",
+    rating: 5,
+    kpiBadge: "100% Peace of Mind",
+    quote:
+      "As a parent with two kids in school, receiving instant SMS updates for test results and daily arrival times gives me total peace of mind. The portal is clear, fast, and easy to use.",
+  },
+  {
+    id: "bright-dean",
+    name: "Bethlehem Assefa",
+    role: "Academic Dean, Bright Future Academy",
+    avatar: "👩‍🏫",
+    rating: 5,
+    kpiBadge: "Zero Broadsheet Errors",
+    quote:
+      "Generating official Ministry transcripts and ranking students across 8 subjects used to be an exhausting process. With Smart SMS dynamic broadsheets, all calculations and PDF cards generate in one click.",
+  },
+  {
+    id: "fountain-director",
+    name: "Rahel Girma",
+    role: "Primary Campus Director, Fountain of Knowledge",
+    avatar: "👩‍🎓",
+    rating: 5,
+    kpiBadge: "99.98% Parent Delivery",
+    quote:
+      "Emergency notices and event updates reach 1,200 parents in less than 2 seconds via verified school SMS ID. The multi-carrier routing guarantees that no family is left in the dark.",
+  },
+  {
+    id: "registrar-admin",
+    name: "Yohannes Gebre",
+    role: "Chief Registrar & Systems Administrator",
+    avatar: "👨‍💻",
+    rating: 5,
+    kpiBadge: "100% Paperless Onboarding",
+    quote:
+      "Migrating our existing student rosters from messy Excel spreadsheets was done in an afternoon. Role permissions keep our examination grades and financial ledgers completely isolated and audit-ready.",
+  },
+];
+
 const FAQS = [
   {
     q: "How does the automated SMS notification system work?",
@@ -340,6 +406,163 @@ export default function HomeLandingClient() {
     observer.observe(statsBannerRef.current);
     return () => observer.disconnect();
   }, []);
+
+  // Testimonials Interactive Auto-Marquee Controller State
+  const [testimonialView, setTestimonialView] = useState("marquee"); // "marquee" | "grid"
+  const marqueeTrackRef = useRef(null);
+  const [activeMarqueeIndex, setActiveMarqueeIndex] = useState(0);
+  const [isMarqueeHovered, setIsMarqueeHovered] = useState(false);
+  const [isMarqueeAutoPlaying, setIsMarqueeAutoPlaying] = useState(true);
+  const isInteractingRef = useRef(false);
+  const interactionTimeoutRef = useRef(null);
+
+  // Measure card step width dynamically (card width + gap)
+  const getCardStep = () => {
+    if (!marqueeTrackRef.current) return 424;
+    const card = marqueeTrackRef.current.querySelector(`.${styles.marqueeCard}`);
+    if (!card) return 424;
+    return card.offsetWidth + 24; // card width + gap
+  };
+
+  // Pause continuous auto-glide temporarily after explicit user navigation
+  const pauseAutoMarqueeBriefly = () => {
+    isInteractingRef.current = true;
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+    }
+    interactionTimeoutRef.current = setTimeout(() => {
+      isInteractingRef.current = false;
+    }, 2800);
+  };
+
+  // Initialize track in the middle set for seamless infinite bi-directional scrolling
+  useEffect(() => {
+    if (testimonialView === "marquee" && marqueeTrackRef.current) {
+      const step = getCardStep();
+      const singleSetWidth = TESTIMONIALS.length * step;
+      marqueeTrackRef.current.scrollLeft = singleSetWidth;
+    }
+  }, [testimonialView]);
+
+  // Continuous smooth auto-marquee ticker loop via requestAnimationFrame
+  useEffect(() => {
+    if (testimonialView !== "marquee") return;
+
+    let animId;
+    let lastTime = performance.now();
+
+    const loop = (now) => {
+      const delta = now - lastTime;
+      lastTime = now;
+
+      const track = marqueeTrackRef.current;
+      if (track && isMarqueeAutoPlaying && !isMarqueeHovered && !isInteractingRef.current) {
+        const step = getCardStep();
+        const singleSetWidth = TESTIMONIALS.length * step;
+
+        if (singleSetWidth > 0) {
+          // Continuous smooth drift: ~42px per second
+          const pixelsToMove = (42 * delta) / 1000;
+          track.scrollLeft += pixelsToMove;
+
+          // Seamless infinite wrapping around middle set
+          if (track.scrollLeft >= singleSetWidth * 2) {
+            track.scrollLeft -= singleSetWidth;
+          } else if (track.scrollLeft <= 0) {
+            track.scrollLeft += singleSetWidth;
+          }
+
+          // Live sync of active dot & counter badge
+          const normalized = track.scrollLeft % singleSetWidth;
+          const detectedIdx = Math.floor((normalized + step * 0.35) / step) % TESTIMONIALS.length;
+          if (detectedIdx >= 0 && detectedIdx < TESTIMONIALS.length && detectedIdx !== activeMarqueeIndex) {
+            setActiveMarqueeIndex(detectedIdx);
+          }
+        }
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(animId);
+      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
+    };
+  }, [testimonialView, isMarqueeAutoPlaying, isMarqueeHovered, activeMarqueeIndex]);
+
+  const scrollToMarqueeIndex = (targetIndex) => {
+    const track = marqueeTrackRef.current;
+    if (!track) return;
+    pauseAutoMarqueeBriefly();
+
+    const step = getCardStep();
+    const singleSetWidth = TESTIMONIALS.length * step;
+    const baseOffset = singleSetWidth;
+    const targetScroll = baseOffset + targetIndex * step;
+
+    track.scrollTo({
+      left: targetScroll,
+      behavior: "smooth",
+    });
+    setActiveMarqueeIndex(targetIndex);
+  };
+
+  const handlePrevMarquee = () => {
+    const track = marqueeTrackRef.current;
+    if (!track) return;
+    pauseAutoMarqueeBriefly();
+
+    const step = getCardStep();
+    const singleSetWidth = TESTIMONIALS.length * step;
+    const nextIdx = (activeMarqueeIndex - 1 + TESTIMONIALS.length) % TESTIMONIALS.length;
+
+    let targetScroll = track.scrollLeft - step;
+    if (targetScroll < 0) {
+      targetScroll += singleSetWidth;
+    }
+
+    track.scrollTo({
+      left: targetScroll,
+      behavior: "smooth",
+    });
+    setActiveMarqueeIndex(nextIdx);
+  };
+
+  const handleNextMarquee = () => {
+    const track = marqueeTrackRef.current;
+    if (!track) return;
+    pauseAutoMarqueeBriefly();
+
+    const step = getCardStep();
+    const singleSetWidth = TESTIMONIALS.length * step;
+    const nextIdx = (activeMarqueeIndex + 1) % TESTIMONIALS.length;
+
+    let targetScroll = track.scrollLeft + step;
+    if (targetScroll >= singleSetWidth * 2) {
+      targetScroll -= singleSetWidth;
+    }
+
+    track.scrollTo({
+      left: targetScroll,
+      behavior: "smooth",
+    });
+    setActiveMarqueeIndex(nextIdx);
+  };
+
+  // Sync active dot on manual touch swipe or scroll
+  const handleMarqueeScroll = () => {
+    const track = marqueeTrackRef.current;
+    if (!track || !isInteractingRef.current) return;
+    const step = getCardStep();
+    if (step <= 0) return;
+    const singleSetWidth = TESTIMONIALS.length * step;
+    const normalized = track.scrollLeft % singleSetWidth;
+    const detectedIndex = Math.floor((normalized + step * 0.35) / step) % TESTIMONIALS.length;
+    if (detectedIndex >= 0 && detectedIndex < TESTIMONIALS.length && detectedIndex !== activeMarqueeIndex) {
+      setActiveMarqueeIndex(detectedIndex);
+    }
+  };
 
   // ROI Calculator State
   const [studentCount, setStudentCount] = useState(1200);
@@ -1072,60 +1295,196 @@ export default function HomeLandingClient() {
             </span>
             <h2 className={styles.sectionTitle}>Loved by School Leaders, Bursars & Parents</h2>
             <p className={styles.sectionDesc}>
-              See how educational institutions are transforming daily operations and boosting parent trust with Smart SMS.
+              See how educational institutions are transforming daily operations, eliminating paper overhead, and boosting parent trust with Smart SMS.
             </p>
-          </div>
 
-          <div className={styles.testimonialsGrid}>
-            <div className={styles.testimonialCard}>
-              <div className={styles.quoteIcon}>
-                <FaQuoteLeft />
-              </div>
-              <p className={styles.quoteText}>
-                "The automated SMS attendance feature alone eliminated hundreds of morning phone calls from worried parents. Gradebook calculations that used to take our teachers a week now take less than an hour."
-              </p>
-              <div className={styles.quoteAuthor}>
-                <div className={styles.authorAvatar}>👨‍💼</div>
-                <div>
-                  <h4 className={styles.authorName}>Dr. Daniel Tadesse</h4>
-                  <span className={styles.authorRole}>Principal, Horizon International Academy</span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.testimonialCard}>
-              <div className={styles.quoteIcon}>
-                <FaQuoteLeft />
-              </div>
-              <p className={styles.quoteText}>
-                "Our tuition fee collection rate jumped from 75% to 96% within the first term of deploying Smart SMS. Parents appreciate the instant SMS receipts and transparent balance alerts."
-              </p>
-              <div className={styles.quoteAuthor}>
-                <div className={styles.authorAvatar}>👩‍💼</div>
-                <div>
-                  <h4 className={styles.authorName}>Sara Mekonnen</h4>
-                  <span className={styles.authorRole}>Finance Director, YOYO Academy</span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.testimonialCard}>
-              <div className={styles.quoteIcon}>
-                <FaQuoteLeft />
-              </div>
-              <p className={styles.quoteText}>
-                "As a parent with two kids in school, receiving instant SMS updates for test results and daily arrival times gives me total peace of mind. The portal is clear, fast, and easy to use."
-              </p>
-              <div className={styles.quoteAuthor}>
-                <div className={styles.authorAvatar}>👨‍👧</div>
-                <div>
-                  <h4 className={styles.authorName}>Dawit Haile</h4>
-                  <span className={styles.authorRole}>Parent & PTA Committee Member</span>
-                </div>
-              </div>
+            {/* View Mode Switcher */}
+            <div className={styles.testimonialsViewSwitcher}>
+              <button
+                type="button"
+                className={`${styles.viewSwitchBtn} ${
+                  testimonialView === "marquee" ? styles.viewSwitchBtnActive : ""
+                }`}
+                onClick={() => setTestimonialView("marquee")}
+              >
+                ✦ Animated Marquee Slider
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewSwitchBtn} ${
+                  testimonialView === "grid" ? styles.viewSwitchBtnActive : ""
+                }`}
+                onClick={() => setTestimonialView("grid")}
+              >
+                ◫ Full Directory Grid
+              </button>
             </div>
           </div>
         </div>
+
+        {/* VIEW 1: FULL-WIDTH SCREEN-EDGE MARQUEE TRACK */}
+        {testimonialView === "marquee" && (
+          <>
+            <div className={styles.marqueeOuterWrapper}>
+              <div
+                ref={marqueeTrackRef}
+                className={styles.marqueeInteractiveTrack}
+                onScroll={handleMarqueeScroll}
+                onMouseEnter={() => setIsMarqueeHovered(true)}
+                onMouseLeave={() => setIsMarqueeHovered(false)}
+              >
+                {[0, 1, 2].flatMap((setIdx) =>
+                  TESTIMONIALS.map((t, idx) => {
+                    const isActive = activeMarqueeIndex === idx;
+                    return (
+                      <div
+                        key={`${t.id}-set-${setIdx}`}
+                        className={`${styles.marqueeCard} ${
+                          isActive ? styles.marqueeCardActive : ""
+                        }`}
+                        onClick={() => scrollToMarqueeIndex(idx)}
+                      >
+                        <div className={styles.ratingRow}>
+                          <div className={styles.starRating}>
+                            {[...Array(t.rating)].map((_, s) => (
+                              <FaStar key={s} />
+                            ))}
+                          </div>
+                          <span className={styles.kpiOutcomeBadge}>{t.kpiBadge}</span>
+                        </div>
+
+                        <div className={styles.quoteIcon}>
+                          <FaQuoteLeft />
+                        </div>
+
+                        <p className={styles.quoteText}>"{t.quote}"</p>
+
+                        <div className={styles.quoteAuthor}>
+                          <div className={styles.authorAvatar}>{t.avatar}</div>
+                          <div>
+                            <div className={styles.authorNameRow}>
+                              <h4 className={styles.authorName}>{t.name}</h4>
+                              <span className={styles.verifiedCheckBadge} title="Verified School Leader">
+                                <HiCheckCircle />
+                              </span>
+                            </div>
+                            <span className={styles.authorRole}>{t.role}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Interactive Navigation Toolbar (<-- . . . -->) Positioned Below the Cards */}
+            <div className={styles.container}>
+              <div className={styles.marqueeNavigationToolbarWrap}>
+                <div className={styles.marqueeNavigationToolbar}>
+                  {/* Back Arrow Button */}
+                  <button
+                    type="button"
+                    className={styles.marqueeNavArrow}
+                    onClick={handlePrevMarquee}
+                    aria-label="Previous Testimonial"
+                    title="Previous Review"
+                  >
+                    <HiArrowLeft />
+                  </button>
+
+                  {/* Animated Interactive Pagination Dots (. . .) */}
+                  <div className={styles.marqueeDotsGroup}>
+                    {TESTIMONIALS.map((t, idx) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`${styles.marqueeDotBtn} ${
+                          activeMarqueeIndex === idx ? styles.marqueeDotBtnActive : ""
+                        }`}
+                        onClick={() => scrollToMarqueeIndex(idx)}
+                        aria-label={`Jump to review ${idx + 1}: ${t.name}`}
+                        title={`${t.name} (${t.role})`}
+                      >
+                        <span className={styles.dotPill}></span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Forward Arrow Button */}
+                  <button
+                    type="button"
+                    className={styles.marqueeNavArrow}
+                    onClick={handleNextMarquee}
+                    aria-label="Next Testimonial"
+                    title="Next Review"
+                  >
+                    <HiArrowRight />
+                  </button>
+
+                  {/* Live Position Counter */}
+                  <div className={styles.marqueeCounterBadge}>
+                    <span className={styles.activeNumber}>{activeMarqueeIndex + 1}</span>
+                    <span className={styles.slash}>/</span>
+                    <span>{TESTIMONIALS.length}</span>
+                  </div>
+
+                  {/* Auto-Gliding Status / Pause Toggle */}
+                  <button
+                    type="button"
+                    className={`${styles.marqueePlayPauseBtn} ${
+                      isMarqueeAutoPlaying ? styles.playActive : ""
+                    }`}
+                    onClick={() => setIsMarqueeAutoPlaying(!isMarqueeAutoPlaying)}
+                    title={isMarqueeAutoPlaying ? "Click to Pause Auto-Gliding" : "Click to Resume Auto-Gliding"}
+                  >
+                    <span className={styles.livePulseDot}></span>
+                    <span>{isMarqueeAutoPlaying ? "Auto-Gliding Active" : "Paused"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* VIEW 2: FULL DIRECTORY GRID */}
+        {testimonialView === "grid" && (
+          <div className={styles.container}>
+            <div className={styles.testimonialsGrid}>
+              {TESTIMONIALS.map((t) => (
+                <div key={t.id} className={styles.testimonialCard}>
+                  <div className={styles.ratingRow}>
+                    <div className={styles.starRating}>
+                      {[...Array(t.rating)].map((_, s) => (
+                        <FaStar key={s} />
+                      ))}
+                    </div>
+                    <span className={styles.kpiOutcomeBadge}>{t.kpiBadge}</span>
+                  </div>
+
+                  <div className={styles.quoteIcon}>
+                    <FaQuoteLeft />
+                  </div>
+
+                  <p className={styles.quoteText}>"{t.quote}"</p>
+
+                  <div className={styles.quoteAuthor}>
+                    <div className={styles.authorAvatar}>{t.avatar}</div>
+                    <div>
+                      <div className={styles.authorNameRow}>
+                        <h4 className={styles.authorName}>{t.name}</h4>
+                        <span className={styles.verifiedCheckBadge} title="Verified School Leader">
+                          <HiCheckCircle />
+                        </span>
+                      </div>
+                      <span className={styles.authorRole}>{t.role}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 9. FREQUENTLY ASKED QUESTIONS */}

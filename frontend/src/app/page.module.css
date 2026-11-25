@@ -1748,14 +1748,449 @@
 }
 
 /* =========================================================================
-   8. TESTIMONIALS
+   8. TESTIMONIALS (MARQUEE, SLIDESHOW & GRID)
    ========================================================================= */
 .testimonialsSection {
   padding: 100px 0;
   background: #081225;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
 }
 
+/* View Switcher Controls */
+.testimonialsViewSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px;
+  border-radius: 9999px;
+  margin-top: 10px;
+}
+
+.viewSwitchBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 7px 18px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.viewSwitchBtn:hover {
+  color: #ffffff;
+}
+
+.viewSwitchBtnActive {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+/* 1. INTERACTIVE CONTROLLED MARQUEE & SLIDER */
+.marqueeNavigationToolbarWrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+  margin-bottom: 0;
+}
+
+.marqueeInteractiveWrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+}
+
+/* Navigation Toolbar: <-- . . . --> */
+.marqueeNavigationToolbar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 22px;
+  background: rgba(13, 27, 46, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  margin-top: 8px;
+  z-index: 4;
+}
+
+.marqueeNavArrow {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.marqueeNavArrow:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #3b82f6;
+  transform: scale(1.1);
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.55);
+}
+
+.marqueeNavArrow:active {
+  transform: scale(0.95);
+}
+
+.marqueeDotsGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+}
+
+.marqueeDotBtn {
+  background: transparent;
+  border: none;
+  padding: 6px 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.dotPill {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: block;
+}
+
+.marqueeDotBtn:hover .dotPill {
+  background: rgba(255, 255, 255, 0.55);
+  transform: scale(1.25);
+}
+
+.marqueeDotBtnActive .dotPill {
+  width: 32px;
+  height: 10px;
+  background: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.75);
+}
+
+.marqueeCounterBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #94a3b8;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activeNumber {
+  color: #f59e0b;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.slash {
+  color: #64748b;
+  font-weight: 400;
+  margin: 0 1px;
+}
+
+.marqueePlayPauseBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.marqueePlayPauseBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.playActive {
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.livePulseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  transition: all 0.3s ease;
+}
+
+.playActive .livePulseDot {
+  background: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.9);
+  animation: pulseLive 2s infinite ease-in-out;
+}
+
+@keyframes pulseLive {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+.marqueeOuterWrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 24px 0;
+  background: transparent;
+}
+
+.marqueeInteractiveTrack {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-behavior: auto;
+  padding: 24px 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  will-change: scroll-position;
+  width: 100%;
+}
+
+.marqueeInteractiveTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.marqueeTrack {
+  display: flex;
+  gap: 28px;
+  width: max-content;
+  animation: marqueeContinuous 36s linear infinite;
+}
+
+.marqueeTrack:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marqueeContinuous {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.marqueeCard {
+  width: 400px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+}
+
+.marqueeCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(245, 158, 11, 0.35);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+.marqueeCardActive {
+  background: linear-gradient(145deg, rgba(17, 34, 60, 0.95) 0%, rgba(9, 20, 36, 0.98) 100%) !important;
+  border: 1.5px solid rgba(245, 158, 11, 0.6) !important;
+  transform: translateY(-8px) scale(1.025) !important;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(245, 158, 11, 0.22) !important;
+  z-index: 2;
+}
+
+.authorNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.verifiedCheckBadge {
+  color: #10b981;
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 2. INTERACTIVE SLIDESHOW */
+.slideshowContainer {
+  max-width: 860px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.slideshowMainRow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.slideNavBtn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.slideNavBtn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #3b82f6;
+  transform: scale(1.08);
+}
+
+.slideshowSpotlightCard {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(13, 27, 46, 0.9) 0%, rgba(10, 20, 36, 0.95) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 24px;
+  padding: 44px 38px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 30px rgba(212, 175, 55, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  overflow: hidden;
+  animation: slideFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slideshowQuoteText {
+  font-size: 1.18rem;
+  line-height: 1.7;
+  color: #f1f5f9;
+  font-style: italic;
+  margin: 0;
+}
+
+.slideshowDotsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slideshowDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.slideshowDotActive {
+  background: #d4af37;
+  width: 24px;
+  border-radius: 9999px;
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.6);
+}
+
+/* SHARED RATING & KPI BADGE */
+.ratingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.starRating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f59e0b;
+  font-size: 0.92rem;
+}
+
+.kpiOutcomeBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+/* 3. FULL GRID VIEW */
 .testimonialsGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2133,5 +2568,48 @@
   .closingPrimaryBtn,
   .closingSecondaryBtn {
     justify-content: center;
+  }
+
+  .testimonialsViewSwitcher {
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: 16px;
+    padding: 6px;
+  }
+
+  .slideshowSpotlightCard {
+    padding: 28px 20px;
+  }
+
+  .slideshowMainRow {
+    gap: 10px;
+  }
+
+  .slideNavBtn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+  }
+
+  .marqueeCard {
+    width: 310px;
+    padding: 24px 20px;
+  }
+
+  .marqueeNavigationToolbar {
+    gap: 10px;
+    padding: 6px 14px;
+    width: 92%;
+  }
+
+  .marqueeNavArrow {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .marqueeInteractiveTrack {
+    padding: 16px 0;
+    gap: 16px;
   }
 }
